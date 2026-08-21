@@ -47,6 +47,24 @@ Copy `.env.example` to `.env.local` and set:
 
 Real secrets never get committed — `.env.local` is git-ignored.
 
+## Database (Supabase)
+
+SQL migrations and RLS tests live in [`supabase/`](./supabase/README.md). Apply
+`supabase/migrations/0001_families_profiles_invites.sql` to your project, then
+run `supabase/tests/0001_rls_phase2.sql` to verify the permission model.
+
+### Phase 2 manual acceptance
+
+1. Apply the migration (and, for dev, turn off email confirmation).
+2. Browser A → **Create a family** (you become the parent) → land on `/dashboard`.
+3. Parent → **Family** → **Generate invite code**; copy the code.
+4. Browser B (incognito) → **Join with a code** → paste code → land on `/dashboard`
+   as a **child**.
+5. Confirm each session shows its own role, and both list the same family under
+   **Family → Members**.
+6. Confirm a child hitting `/family` is redirected to `/dashboard`, and that RLS
+   blocks direct API access to another family's rows (the RLS test automates this).
+
 ## Deploy (Netlify)
 
 1. Create a Netlify site from this repo.
@@ -60,17 +78,26 @@ Real secrets never get committed — `.env.local` is git-ignored.
 
 ```
 src/
+  middleware.ts             # session refresh + protected-route gating
   app/
-    layout.tsx        # root layout, fonts, global CSS
-    page.tsx          # Phase 1 placeholder / deploy-check page
-    globals.css       # Tailwind + base styles (cream body, serif headings)
+    layout.tsx              # root layout, fonts, global CSS
+    page.tsx                # public landing (roadmap preview + auth CTAs)
+    globals.css             # Tailwind + base styles
+    (auth)/                 # login, signup (create family), join (with code)
+    (app)/                  # dashboard, family (invites), onboarding — protected
+    actions/                # auth.ts, family.ts server actions
+  components/               # AppHeader, SubmitButton, auth/*, family/*
   lib/
-    supabase/
-      env.ts          # reads & validates public Supabase env vars
-      client.ts       # browser client (@supabase/ssr)
-      server.ts       # cookie-aware server client (@supabase/ssr)
-tailwind.config.ts    # Kinnect palette + serif heading font
-netlify.toml          # Netlify build + Next.js runtime plugin
+    auth.ts                 # getCurrentProfile() server helper
+    tiles.ts                # shared dashboard tile data
+    types.ts                # Profile / Family / Invite types
+    validation.ts           # Zod schemas for all inputs
+    supabase/               # env, browser client, server client, middleware
+supabase/
+  migrations/               # SQL schema + RLS + onboarding functions
+  tests/                    # non-destructive RLS assertions
+tailwind.config.ts          # Kinnect palette + serif heading font
+netlify.toml                # Netlify build + Next.js runtime plugin
 ```
 
 ## Build phases
@@ -80,7 +107,10 @@ and working. See `CLAUDE.md` for the full list.
 
 - [x] **Phase 1 — Foundation:** Next.js + Supabase clients + Tailwind, placeholder
       page, Netlify config. *(Live deploy + env vars are set up by the owner.)*
-- [ ] Phase 2 — Auth and families
+- [x] **Phase 2 — Auth and families:** email/password auth, family creation
+      (parent), invite codes, invite redemption (child), RLS + SECURITY DEFINER
+      onboarding functions, middleware route protection, RLS test. *(Needs a live
+      Supabase project to run end-to-end — see below.)*
 - [ ] Phase 3 — Check-ins
 - [ ] Phase 4 — The Couch
 - [ ] Phase 5 — Goals
