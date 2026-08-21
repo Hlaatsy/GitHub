@@ -72,9 +72,17 @@ redemptions
 
 point_events
   id, family_id, child_id, delta int, reason, awarded_by, created_at
+
+responsibilities
+  id, family_id, child_id, title, description, points_value int,
+  cadence ('once' | 'daily' | 'weekly'), is_active boolean, created_by, created_at
+
+responsibility_completions
+  id, responsibility_id, child_id, status ('pending' | 'approved' | 'declined'),
+  completed_at, resolved_at, resolved_by, points_awarded int
 ```
 
-**Points are never a stored counter you mutate directly.** `points_balance` is derived from `point_events`, either as a view or a trigger-maintained cache. Redemptions insert a negative event on approval.
+**Points are never a stored counter you mutate directly.** `points_balance` is derived from `point_events`, either as a view or a trigger-maintained cache. Redemptions insert a negative event on approval; approved responsibility completions insert a positive event (the mirror of a redemption). Everything that moves points flows through `point_events`.
 
 ---
 
@@ -96,8 +104,9 @@ Child-writable fields:
 | agreement_items | insert with status = 'suggested' only |
 | goals | update `progress` on own goals only |
 | redemptions | insert with status = 'pending' only |
+| responsibility_completions | insert own with status = 'pending' only |
 
-Everything else is parent-only. Enforce this in SQL policies, then mirror it in the UI.
+Everything else is parent-only. In particular, a child may **complete** a responsibility (creating a `pending` completion) but may never create, edit, or self-approve a responsibility — assignment and approval are parent-only. Enforce this in SQL policies, then mirror it in the UI.
 
 ---
 
@@ -125,8 +134,11 @@ Parent creates, child updates progress only. Teacher fields are plain text for n
 ### Phase 6: Points and rewards
 `point_events` ledger, derived balance, reward catalogue, redemption request and approval flow.
 
+### Phase 6.5: Responsibilities
+Added per owner decision (2026-08-21), inspired by shared family organizers. Parent assigns responsibilities to a child (title, description, points value, cadence). Child marks a responsibility done, creating a `pending` completion — never self-approved. Parent approves; approval inserts a positive `point_events` row equal to the responsibility's points value. Depends on the Phase 6 ledger, so it does not start before it.
+
 ### Phase 7: Parent admin queue
-Single view aggregating suggested agreement items, pending redemptions, and unanswered check-ins.
+Single view aggregating suggested agreement items, pending redemptions, pending responsibility completions, and unanswered check-ins.
 
 ### Phase 8: Legal and launch prep
 Privacy policy, terms, parental consent flow at child signup, data export, account deletion. See below.

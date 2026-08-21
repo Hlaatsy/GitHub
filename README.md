@@ -85,5 +85,6 @@ and working. See `CLAUDE.md` for the full list.
 - [ ] Phase 4 — The Couch
 - [ ] Phase 5 — Goals
 - [ ] Phase 6 — Points and rewards
+- [ ] Phase 6.5 — Responsibilities (parent-assigned chores that earn points)
 - [ ] Phase 7 — Parent admin queue
 - [ ] Phase 8 — Legal and launch prep
