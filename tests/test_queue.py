@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from linkedin.queue import (  # noqa: E402
     QueuedPost,
     archive,
+    author_urn,
     due_posts,
     is_ignored,
     load_queue,
@@ -167,6 +168,43 @@ class PostKwargsTests(unittest.TestCase):
             post_kwargs(post),
             {"visibility": "PUBLIC", "article_url": "https://example.com", "article_title": "Hello"},
         )
+
+
+class AuthorUrnTests(unittest.TestCase):
+    def test_absent_means_use_the_configured_default(self):
+        post = QueuedPost(path=Path("x.md"), body="b", meta={})
+        self.assertEqual(author_urn(post), "")
+
+    def test_front_matter_overrides_the_default(self):
+        post = QueuedPost(
+            path=Path("x.md"), body="b", meta={"author_urn": "urn:li:organization:999"}
+        )
+        self.assertEqual(author_urn(post), "urn:li:organization:999")
+
+    def test_surrounding_whitespace_is_ignored(self):
+        post = QueuedPost(
+            path=Path("x.md"), body="b", meta={"author_urn": "  urn:li:organization:999  "}
+        )
+        self.assertEqual(author_urn(post), "urn:li:organization:999")
+
+    def test_parsed_from_a_file(self):
+        text = (
+            "---\n"
+            "publish_at: 2026-09-21T07:00:00Z\n"
+            "author_urn: urn:li:organization:42\n"
+            "---\n"
+            "Body"
+        )
+        meta, body = parse_front_matter(text)
+        self.assertEqual(author_urn(QueuedPost(path=Path("x.md"), body=body, meta=meta)),
+                         "urn:li:organization:42")
+
+    def test_not_passed_to_create_post_as_a_kwarg(self):
+        """It selects the client, so it must not leak into create_post()."""
+        post = QueuedPost(
+            path=Path("x.md"), body="b", meta={"author_urn": "urn:li:organization:999"}
+        )
+        self.assertNotIn("author_urn", post_kwargs(post))
 
 
 if __name__ == "__main__":

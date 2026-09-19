@@ -1,6 +1,10 @@
 ---
 publish_at: 2026-10-06T07:00:00Z
 visibility: PUBLIC
+# author_urn is the StoreBurst page. Front matter has no inline comments,
+# so keep the value alone on its line. Find the id in the page admin URL:
+# linkedin.com/company/<id>/admin/ -- paste just the number.
+author_urn: SET_STOREBURST_ORGANISATION_ID
 # image: assets/identical-use-cases.png
 # alt_text: A consent form beside a video avatar, representing likeness and data governance
 ---
@@ -32,10 +36,13 @@ DISCLOSURE
 When does your audience need to be told a video is AI-generated? Increasingly
 the answer is "sooner than you think".
 
-This is why we built IDENTICAL as a governance business that does video,
-rather than a video business that hopes nobody asks. Alongside the twins, we
-help you put consent forms, retention terms and an internal AI content policy
-in place — before the content goes out, not after someone queries it.
+We built IDENTICAL so these are answered before the content goes out, not
+after someone queries it. Every twin we build comes with a consent record on
+file, defined retention terms, and an internal AI content policy you can hand
+to your own legal or HR team.
+
+Not because it is a nice extra. Because the alternative is discovering the
+problem after a person's face is already in six modules.
 
 Use it for social media, marketing, training, onboarding, virtual events. But
 use it with the paperwork done.

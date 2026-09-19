@@ -6,6 +6,10 @@
 # costs more credibility than waiting a week to announce it.
 publish_at: 2026-10-27T07:00:00Z
 visibility: PUBLIC
+# author_urn is the StoreBurst page. Front matter has no inline comments,
+# so keep the value alone on its line. Find the id in the page admin URL:
+# linkedin.com/company/<id>/admin/ -- paste just the number.
+author_urn: SET_STOREBURST_ORGANISATION_ID
 ---
 Half a day, and your team stops guessing about AI video.
 

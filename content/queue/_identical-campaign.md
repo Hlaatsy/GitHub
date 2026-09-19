@@ -2,8 +2,11 @@
 
 A draft note, not a post: `linkedin/queue.py` skips files starting with `_`.
 
-Six live posts for the KhutsoGRC page, plus four offer drafts held back until
-the pricing is confirmed. The strategy behind the copy is in
+Six live posts for the **StoreBurst** page, plus four offer drafts held back
+until the pricing is confirmed. IDENTICAL launches under StoreBurst, not
+KhutsoGRC, so every post in this campaign names the StoreBurst page in its
+`author_urn` front matter rather than inheriting `LINKEDIN_AUTHOR_URN`, which
+still points at KhutsoGRC for that page's own content. The strategy behind the copy is in
 `docs/positioning.md`; the revenue model is in `docs/monetisation.md`.
 
 ## Scheduled
@@ -42,6 +45,28 @@ not before. And the white-label post should not go out until the retainer has
 run for a real client — a partner reselling an unproven process damages two
 reputations at once.
 
+## Blocker: the StoreBurst page ID
+
+Every post in this campaign carries:
+
+    author_urn: SET_STOREBURST_ORGANISATION_ID
+
+That is a placeholder and it **will fail the post**, by design -- a launch
+published to the wrong company page is worse than a red build. Replace it in
+all ten files with the real ID from the StoreBurst page admin URL
+(`linkedin.com/company/<id>/admin/`), then confirm access:
+
+    python -m linkedin pages     # StoreBurst must be listed
+    python -m linkedin queue     # prints the destination under every post
+
+A page ID is not access. The LinkedIn app has to be associated with the
+StoreBurst page, verified by a StoreBurst page admin, and the token has to be
+issued by someone who administers it. If the app is currently associated with
+KhutsoGRC, this is a new setup, not a one-line edit -- and the Community
+Management API review in `linkedin/README.md` may need redoing for the new
+page. **Start this now, not on the 20th**, because review time is not in your
+control and the first post is due Monday the 21st.
+
 ## Claims to make true before publishing
 
 The copy asserts things about how you operate. Each is defensible, but only
@@ -64,7 +89,10 @@ if it is actually the case on the day the post goes out:
   that a single bad video disproves publicly.
 - **"We help you put consent forms and retention terms in place."** Post 6.
   Have the templates before the post runs, because this one will generate
-  direct enquiries.
+  direct enquiries. The post no longer claims IDENTICAL *is* a governance
+  business -- that leaned on KhutsoGRC's identity, which is not the brand
+  launching. If StoreBurst and KhutsoGRC are connected, say so publicly and
+  this becomes the strongest post in the set. See `docs/positioning.md`.
 - **The free 60-second demo.** Every live post offers it. Decide who fulfils
   it and how fast, before Monday. An unanswered demo request is worse than
   never offering one.

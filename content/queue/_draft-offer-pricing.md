@@ -7,6 +7,10 @@
 # identical-07-pricing.md to schedule it.
 publish_at: 2026-10-08T07:00:00Z
 visibility: PUBLIC
+# author_urn is the StoreBurst page. Front matter has no inline comments,
+# so keep the value alone on its line. Find the id in the page admin URL:
+# linkedin.com/company/<id>/admin/ -- paste just the number.
+author_urn: SET_STOREBURST_ORGANISATION_ID
 ---
 R149 a month. No setup fee. Your twin built free.
 

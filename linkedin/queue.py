@@ -9,10 +9,17 @@ A queued post looks like:
     ---
     publish_at: 2026-09-20T09:00:00Z
     visibility: PUBLIC
+    author_urn: urn:li:organization:123456
     image: assets/launch.png
     alt_text: The new bottle on a white background
     ---
     Body text becomes the post commentary.
+
+``author_urn`` is optional and overrides ``LINKEDIN_AUTHOR_URN`` for that one
+post, so a single queue can publish to more than one company page. Omitting
+it means the post goes out as whatever the environment points at -- which is
+why a post for a different brand should always name its page explicitly
+rather than relying on the default being right.
 """
 
 from __future__ import annotations
@@ -132,6 +139,17 @@ def resolve_media(post: QueuedPost) -> tuple[Path | None, str]:
     if not path.exists():
         raise FileNotFoundError(f"{post.path.name} references a missing image: {reference}")
     return path, post.meta.get("alt_text", "")
+
+
+def author_urn(post: QueuedPost) -> str:
+    """The page this post publishes as, or "" to use the configured default.
+
+    Returned unvalidated: ``LinkedInClient`` normalizes it, and a value it
+    cannot read raises rather than quietly falling back to the default page.
+    Publishing a brand's post to the wrong company page is not an error worth
+    recovering from silently.
+    """
+    return post.meta.get("author_urn", "").strip()
 
 
 def post_kwargs(post: QueuedPost) -> dict[str, Any]:

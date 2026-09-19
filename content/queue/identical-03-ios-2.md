@@ -1,6 +1,10 @@
 ---
 publish_at: 2026-09-25T07:00:00Z
 visibility: PUBLIC
+# author_urn is the StoreBurst page. Front matter has no inline comments,
+# so keep the value alone on its line. Find the id in the page admin URL:
+# linkedin.com/company/<id>/admin/ -- paste just the number.
+author_urn: SET_STOREBURST_ORGANISATION_ID
 # image: assets/identical-ios2.png
 # alt_text: IDENTICAL iOS 2.0 announcement artwork
 ---

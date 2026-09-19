@@ -45,6 +45,32 @@ with `python -m linkedin pages` once you have a token. Leaving the variable
 unset posts as *you personally* instead of the page -- so do not unset it by
 accident.
 
+### Publishing to more than one page
+
+`LINKEDIN_AUTHOR_URN` is the default, not the only option. A queued post can
+name its own page in front matter:
+
+    author_urn: urn:li:organization:123456
+
+The IDENTICAL campaign in `content/queue/` uses this: it launches under
+**StoreBurst**, not KhutsoGRC, so every one of its posts names the StoreBurst
+page explicitly rather than inheriting the default.
+
+Two things follow from that, and both matter:
+
+- **The token must be allowed to post as that page.** A page ID alone is not
+  access. The app has to be associated with the StoreBurst page and the
+  authorising account must administer it, or the post fails with a 403.
+  `python -m linkedin pages` lists which pages the current token may act for
+  -- check StoreBurst appears there before the first scheduled post.
+- **An unreadable `author_urn` fails the post rather than falling back.**
+  That is deliberate. Silently publishing a brand's launch to a different
+  company page is worse than a red build.
+
+`python -m linkedin queue` prints the destination page under every queued
+post, and `publish --dry-run` does the same, so a misrouted post is visible
+before it publishes rather than after.
+
 ## One-time setup
 
 Posting as a company page is a higher bar than posting as yourself. Steps 3

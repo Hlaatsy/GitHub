@@ -74,9 +74,20 @@ employee whose twin is in a training video leaves. A vendor selling into a
 regulated South African business gets asked these questions and has nothing
 to say.
 
-KhutsoGRC's existing governance, risk and compliance work is the reason
-IDENTICAL can answer them. That is a defensible position no amount of the
+IDENTICAL can answer them because the governance, risk and compliance
+expertise behind it is real. That is a defensible position no amount of a
 competitor's model research buys.
+
+**Open question, and it changes how hard this pillar can be pushed.**
+IDENTICAL launches under StoreBurst, not KhutsoGRC. If the two are related
+-- same people, same group, a shared team -- then say so on the StoreBurst
+page and this becomes the strongest pillar in the set, because the claim is
+verifiable. If they are unconnected, the copy cannot borrow KhutsoGRC's
+credibility: it has to rest on what StoreBurst itself does, and the honest
+version is "we handle consent and POPIA properly as part of the product"
+rather than "we are governance people". The published post is currently
+written the second way, which is true either way. Strengthen it once the
+relationship is settled.
 
 Public framing: AI video from people who understand consent, likeness rights
 and POPIA — because the compliance question arrives right after the

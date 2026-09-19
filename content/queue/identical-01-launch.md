@@ -1,6 +1,10 @@
 ---
 publish_at: 2026-09-21T07:00:00Z
 visibility: PUBLIC
+# author_urn is the StoreBurst page. Front matter has no inline comments,
+# so keep the value alone on its line. Find the id in the page admin URL:
+# linkedin.com/company/<id>/admin/ -- paste just the number.
+author_urn: SET_STOREBURST_ORGANISATION_ID
 # image: assets/identical-hero.png
 # alt_text: Two identical cartoon twins side by side against a colourful splash background
 # article_url: add the landing page link here once it is live

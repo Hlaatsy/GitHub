@@ -111,10 +111,16 @@ The pillar no competitor offers, billed directly:
 | Likeness consent pack — forms, retention terms, register | R1 500 |
 | Internal AI content policy | R3 500 |
 
-These sell into the accounts KhutsoGRC already talks to, and they make the
-video conversation an easier second one. Note the consent pack is now
-*cheaper* than the old setup fee — it is also the thing that gets IDENTICAL
-past an enterprise buyer's legal review, so it is worth more than it costs.
+The consent pack is now *cheaper* than the old setup fee, and it is the
+thing that gets IDENTICAL past an enterprise buyer's legal review, so it is
+worth more than it costs.
+
+Distribution note: these were priced assuming warm introductions into an
+existing compliance client base. IDENTICAL launches under StoreBurst, so that
+only holds if StoreBurst can reach those accounts — through a shared team, a
+referral arrangement, or a co-marketing line. If it cannot, these two
+products still sell, but cold, and they should not be counted on for early
+revenue.
 
 ## The funnel
 

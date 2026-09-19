@@ -1,6 +1,10 @@
 ---
 publish_at: 2026-09-29T07:00:00Z
 visibility: PUBLIC
+# author_urn is the StoreBurst page. Front matter has no inline comments,
+# so keep the value alone on its line. Find the id in the page admin URL:
+# linkedin.com/company/<id>/admin/ -- paste just the number.
+author_urn: SET_STOREBURST_ORGANISATION_ID
 # image: assets/identical-avatar4.png
 # alt_text: A single portrait photo transforming into a talking video avatar
 ---

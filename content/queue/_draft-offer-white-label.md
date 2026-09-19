@@ -6,6 +6,10 @@
 # and streams 2 and 3 in docs/monetisation.md are proven.
 publish_at: 2026-10-20T07:00:00Z
 visibility: PUBLIC
+# author_urn is the StoreBurst page. Front matter has no inline comments,
+# so keep the value alone on its line. Find the id in the page admin URL:
+# linkedin.com/company/<id>/admin/ -- paste just the number.
+author_urn: SET_STOREBURST_ORGANISATION_ID
 ---
 To the agencies, PR firms, training providers and HR consultancies:
 

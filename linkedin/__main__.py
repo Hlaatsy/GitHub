@@ -22,7 +22,7 @@ from .client import (
     review_due,
     review_notice,
 )
-from .queue import archive, due_posts, load_queue, post_kwargs, resolve_media
+from .queue import archive, author_urn, due_posts, load_queue, post_kwargs, resolve_media
 
 
 def cmd_whoami(_: argparse.Namespace) -> int:
@@ -85,6 +85,12 @@ def cmd_post(args: argparse.Namespace) -> int:
     return 0
 
 
+def _target(post) -> str:
+    """How a queued post's destination page reads in CLI output."""
+    urn = author_urn(post)
+    return urn or os.environ.get("LINKEDIN_AUTHOR_URN") or "the token holder (no page set)"
+
+
 def cmd_queue(_: argparse.Namespace) -> int:
     posts = load_queue()
     if not posts:
@@ -95,6 +101,10 @@ def cmd_queue(_: argparse.Namespace) -> int:
         marker = "DUE" if post.is_due() else "   "
         preview = post.body.splitlines()[0][:60]
         print(f"{marker}  {when:<28}  {post.path.name}  {preview}")
+        # The page is worth showing even when it is the default: a queue
+        # serving two brands is one edited front-matter line away from
+        # publishing to the wrong one.
+        print(f"{'':5}{'':28}  -> {_target(post)}")
     return 0
 
 
@@ -117,19 +127,25 @@ def cmd_publish(args: argparse.Namespace) -> int:
 
     if args.dry_run:
         for post in pending:
-            print(f"[dry-run] would publish {post.path.name}")
+            print(f"[dry-run] would publish {post.path.name} as {_target(post)}")
         return 0
 
-    client = LinkedInClient()
+    # One client per author URN: a queue can serve several company pages, and
+    # each page needs the post attributed to it rather than to the default.
+    clients: dict[str, LinkedInClient] = {}
     failures = 0
     for post in pending:
         try:
+            key = author_urn(post)
+            if key not in clients:
+                clients[key] = LinkedInClient(author=key or None)
+            client = clients[key]
             image_path, alt_text = resolve_media(post)
             media_urn = client.upload_image(image_path) if image_path else None
             result = client.create_post(
                 post.body, media_urn=media_urn, media_alt_text=alt_text, **post_kwargs(post)
             )
-        except (LinkedInError, FileNotFoundError) as exc:
+        except (LinkedInError, FileNotFoundError, ValueError) as exc:
             # Keep going: one bad post should not strand the rest of the queue.
             print(f"FAILED {post.path.name}: {exc}", file=sys.stderr)
             failures += 1
