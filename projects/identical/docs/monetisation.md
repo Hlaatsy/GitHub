@@ -32,33 +32,84 @@ either charges for it or makes you do it yourself badly.
 
 ## Self-serve tiers
 
-| Tier | Proposed | Includes |
+Every tier includes the twin build and caps the number of videos. The cap is
+not a restriction bolted on — it is the entire pricing mechanic. It is what
+makes R149 sustainable, and it is what creates the upgrade conversation.
+
+| Tier | Proposed | Videos/mo | Effective per video |
+| --- | --- | --- | --- |
+| **Starter** | **R149/mo** | 4 | R37.25 |
+| **Pro** | R449/mo | 15 | R29.93 |
+| **Premium** | R999/mo | 40 | R24.98 |
+
+Twin build free on all three. No "unlimited" anywhere — with setup given
+away, one uncapped heavy user on the entry tier is what makes the tier
+unprofitable.
+
+**Annual prepay: pay for 10 months, get 12.** With setup free, payback lands
+around month four or five, so annual prepay is what pulls it forward past
+the risky months. Push it at signup.
+
+## Tokens: buying past the cap
+
+When someone hits their cap mid-month they have two ways forward — buy
+tokens, or upgrade. One token is one video.
+
+| Pack | Proposed | Per video |
 | --- | --- | --- |
-| **Starter** | **R149/mo** | 1 twin built free, 4 videos/mo, standard voices |
-| Pro | R449/mo | 3 twins, 15 videos/mo, voice cloning, translation |
-| Business | R999/mo | 10 twins, 40 videos/mo, team seats, priority queue |
-| Pay-as-you-go | R59/video | No subscription, no commitment |
+| 1 token | R59 | R59.00 |
+| 5 tokens | R249 | R49.80 |
+| 15 tokens | R649 | R43.27 |
 
-**Annual prepay: pay for 10 months, get 12.** This is the single most
-important line in the table now that setup is free. It pulls the payback
-forward past the risky months and turns a churn problem into a cash-flow
-advantage. Push it hard at signup, not as an afterthought in the account
-settings.
+### The rule that makes this work
 
-**Every tier has a video cap, including Business.** No "unlimited" anywhere.
-With setup given away, an uncapped heavy user on the entry tier is the one
-customer who can make the whole tier unprofitable. Caps are also how
-customers discover they need the next tier up.
+**A token must always cost more per video than the next tier up.**
 
-Run the arithmetic before publishing: 4 videos at your platform cost must
-leave a real margin inside R149, with the free twin build amortised over an
-expected lifetime you can defend. If it does not, the entry tier is 3 videos,
-not 4 — adjust the volume, keep the R149.
+Compare the columns: tokens run R43-59 a video, every subscription tier runs
+R25-37. Topping up is deliberately the expensive way to get a video. That is
+not a trap, it is the signal — it tells a customer with sustained volume that
+upgrading is the cheaper path, in numbers they can check themselves.
 
-Pay-as-you-go matters more here than it does in wealthier markets. Some
-customers cannot commit to a recurring debit order at all, and R59 for one
-video when they need one is a real sale that a subscription-only price list
-refuses.
+Get this backwards and the tiers collapse. If tokens were cheaper per video
+than Pro, every Starter customer would stay on R149 and top up forever, and
+you would have built a pay-as-you-go business with a subscription's support
+burden. Re-check this ratio every time any price moves.
+
+### At the cap
+
+The moment someone hits their limit is the highest-intent moment in the whole
+product. Do not waste it on a dead end:
+
+- **Stop, do not silently queue.** A video that will not render with no
+  explanation reads as broken software, and they will churn rather than ask.
+- **Show both options with real arithmetic.** "You have used 4 of 4. 5 tokens
+  is R249. Pro gives you 15 a month for R449." Let them choose with the
+  numbers in front of them.
+- **Prompt the upgrade when topping up stops making sense.** Someone who has
+  bought two top-ups in a month has spent more than Pro would have cost.
+  Saying so plainly earns more trust than the extra margin is worth — and it
+  converts the customer to recurring revenue, which is what you actually
+  want.
+
+### Decide before launch
+
+- **Expiry.** Recommend 12 months, stated at purchase. Unexpiring tokens are
+  an open-ended liability on your platform costs; short expiry generates
+  resentment and disputes. Twelve months is long enough to feel fair and
+  short enough to bound the exposure. Whatever you choose, say it on the
+  purchase screen — not in the terms.
+- **Do tokens roll over? Do unused tier videos?** Tier videos should not roll
+  over (that is what the cap means) and tokens should, until expiry. State
+  both, because this is the single most common source of billing complaints
+  in credit-based products.
+- **Order of consumption.** Spend the monthly allowance first, tokens only
+  after. Burning purchased tokens while free allowance sits unused is
+  indefensible when a customer notices, and they do notice.
+- **Refunds.** Unused tokens on cancellation — refundable or forfeited?
+  Consumer protection rules bite here; decide deliberately rather than
+  discovering it in a dispute.
+- **VAT applies to token purchases** as much as to subscriptions. If prices
+  are advertised inclusive, they must be inclusive here too.
 
 ## Done-for-you ladder
 
@@ -126,19 +177,26 @@ not carry the early forecast.
 
 ## The funnel
 
-1. LinkedIn posts (`content/queue/`) — attention and proof, since every post
-   can be made with the product.
+1. LinkedIn posts (`projects/identical/queue/`) — attention and proof,
+   since every post can be made with the product.
 2. Free 60-second demo twin from a photo they send. Minutes to fulfil,
    converts because they see their own face talking.
 3. **R149/mo, twin built free.** The first transaction, and now a small
    enough yes to make on the spot.
-4. Annual prepay, or the upgrade when they hit the cap.
+4. **The cap.** Every Starter customer meets it, by design. Tokens for the
+   occasional spike, Pro or Premium for sustained volume — and the token
+   price is set so the arithmetic recommends the upgrade itself.
 5. Done-for-you when they stop writing scripts. This is the margin.
 6. White-label or training — leverage, once 5 is running.
 
-Instrument step 3 to 4. With no setup fee, the conversion you care about is
-no longer "will they pay to start" — it is "are they still here in month
-five". Track month-2 and month-5 retention from the first cohort. If month-5
+Instrument step 3 to 4, and watch two numbers specifically: **how many
+Starter customers hit the cap**, and **what they do next**. If almost nobody
+reaches it, the cap is too generous and the tiers above have no pull. If
+people reach it and churn instead of upgrading or topping up, the price step
+to Pro is too steep or the prompt at the cap is doing its job badly.
+
+With no setup fee, the other conversion that matters is no longer "will they
+pay to start" — it is "are they still here in month five". Track month-2 and month-5 retention from the first cohort. If month-5
 retention is under half, fix the onboarding before spending another rand on
 reach.
 
@@ -149,6 +207,11 @@ reach.
   This is the number to check first, before the post goes out.
 - **Cap everything.** Videos per tier, revisions per retainer. No
   "unlimited".
+- **Check the token-to-tier ratio.** A token must cost more per video than
+  the next tier up, or the tiers stop meaning anything. Re-check whenever any
+  price moves.
+- **Token terms on the purchase screen**: expiry, roll-over, consumption
+  order, refund on cancellation. Not buried in the terms page.
 - **Debit order and payment methods.** An affordable price that can only be
   paid by international credit card is not affordable. Check what your
   processor supports — EFT, debit order, Ozow, SnapScan, Apple Pay — and put
@@ -161,6 +224,7 @@ reach.
 - **Confirm you may resell** before the white-label post. Reselling,
   white-labelling and partner distribution are three separate permissions.
 
-The draft posts in `content/queue/_draft-*.md` carry these numbers in public
+The draft posts in `projects/identical/queue/_draft-*.md` carry these
+numbers in public
 copy. They stay underscore-prefixed, and therefore unpublishable, until the
 figures are yours rather than mine.
