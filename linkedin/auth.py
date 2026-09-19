@@ -20,10 +20,7 @@ import threading
 import urllib.parse
 import webbrowser
 
-from .client import exchange_code_for_token
-
-REDIRECT_URI = os.environ.get("LINKEDIN_REDIRECT_URI", "http://localhost:8765/callback")
-SCOPES = os.environ.get("LINKEDIN_SCOPES", "openid profile w_member_social")
+from .client import exchange_code_for_token, load_dotenv
 
 _result: dict[str, str] = {}
 
@@ -46,6 +43,10 @@ class _CallbackHandler(http.server.BaseHTTPRequestHandler):
 
 
 def main() -> int:
+    load_dotenv()
+    redirect_uri = os.environ.get("LINKEDIN_REDIRECT_URI", "http://localhost:8765/callback")
+    scopes = os.environ.get("LINKEDIN_SCOPES", "openid profile w_member_social")
+
     client_id = os.environ.get("LINKEDIN_CLIENT_ID")
     client_secret = os.environ.get("LINKEDIN_CLIENT_SECRET")
     if not client_id or not client_secret:
@@ -61,13 +62,13 @@ def main() -> int:
         {
             "response_type": "code",
             "client_id": client_id,
-            "redirect_uri": REDIRECT_URI,
+            "redirect_uri": redirect_uri,
             "state": state,
-            "scope": SCOPES,
+            "scope": scopes,
         }
     )
 
-    parsed = urllib.parse.urlparse(REDIRECT_URI)
+    parsed = urllib.parse.urlparse(redirect_uri)
     server = http.server.HTTPServer((parsed.hostname or "localhost", parsed.port or 80), _CallbackHandler)
 
     print("Opening LinkedIn authorization in your browser.")
@@ -83,7 +84,7 @@ def main() -> int:
         print(f"No authorization code returned: {_result}", file=sys.stderr)
         return 1
 
-    token = exchange_code_for_token(_result["code"], client_id, client_secret, REDIRECT_URI)
+    token = exchange_code_for_token(_result["code"], client_id, client_secret, redirect_uri)
     access_token = token["access_token"]
     expires_days = int(token.get("expires_in", 0)) // 86400
 

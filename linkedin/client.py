@@ -26,6 +26,27 @@ API_BASE = "https://api.linkedin.com"
 LINKEDIN_VERSION = os.environ.get("LINKEDIN_VERSION", "202505")
 
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def load_dotenv(path: Path | None = None) -> None:
+    """Populate os.environ from the repo's .env, leaving real env vars alone.
+
+    Every entry point calls this before reading configuration, so running a
+    command manually behaves the same as running it from CI.
+    """
+    path = path or REPO_ROOT / ".env"
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        key, sep, value = line.partition("=")
+        if sep:
+            os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+
+
 class LinkedInError(RuntimeError):
     """An API call failed. Carries the HTTP status and LinkedIn's response body."""
 
