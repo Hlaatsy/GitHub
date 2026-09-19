@@ -22,18 +22,21 @@ So here is ours.
 STARTER — R149/mo
 Your digital twin, built for you at no charge. 4 videos a month.
 
-PRO — R449/mo
-15 videos a month, 3 twins, voice cloning and translation.
+PRO — R299/mo
+10 videos a month, 3 twins, voice cloning and translation.
 
-PREMIUM — R999/mo
-40 videos a month, 10 twins, team seats and priority.
+PREMIUM — R449/mo
+18 videos a month, 10 twins, team seats and priority.
+
+R150 between each one. Move up when you outgrow a plan, move back down when
+you do not need it.
 
 Need more videos in a month than your plan covers? Buy tokens. One token,
 one video — from R59, less in a pack. No commitment, no upgrade required.
 
-And if you find yourself buying tokens every month, we will tell you so. Two
-top-ups costs more than Pro. We would rather move you up a plan than quietly
-take the difference.
+And if you find yourself buying tokens every month, we will tell you so.
+Two top-ups costs more than Pro does. We would rather move you up a plan
+than quietly take the difference.
 
 Pay for ten months up front and get twelve.
 

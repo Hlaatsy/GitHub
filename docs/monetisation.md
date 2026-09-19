@@ -36,15 +36,25 @@ Every tier includes the twin build and caps the number of videos. The cap is
 not a restriction bolted on — it is the entire pricing mechanic. It is what
 makes R149 sustainable, and it is what creates the upgrade conversation.
 
-| Tier | Proposed | Videos/mo | Effective per video |
-| --- | --- | --- | --- |
-| **Starter** | **R149/mo** | 4 | R37.25 |
-| **Pro** | R449/mo | 15 | R29.93 |
-| **Premium** | R999/mo | 40 | R24.98 |
+| Tier | Price | Videos/mo | Effective per video | Step up |
+| --- | --- | --- | --- | --- |
+| **Starter** | **R149/mo** | 4 | R37.25 | — |
+| **Pro** | **R299/mo** | 10 | R29.90 | +R150 for 6 more |
+| **Premium** | **R449/mo** | 18 | R24.94 | +R150 for 8 more |
 
 Twin build free on all three. No "unlimited" anywhere — with setup given
 away, one uncapped heavy user on the entry tier is what makes the tier
 unprofitable.
+
+The video counts are set so effective cost per video falls at each step
+(R37 → R30 → R25) and each upgrade is the same R150. That matters more than
+it looks: a customer deciding whether to move up is comparing R150 against
+6 or 8 more videos, which is an easy yes, rather than facing a doubling.
+Three tiers R150 apart is a ladder people actually climb.
+
+If the per-video arithmetic does not clear your platform cost, move the
+video counts, not the prices. The prices are the promise to the market; the
+counts are the lever.
 
 **Annual prepay: pay for 10 months, get 12.** With setup free, payback lands
 around month four or five, so annual prepay is what pulls it forward past
@@ -83,10 +93,11 @@ product. Do not waste it on a dead end:
 - **Stop, do not silently queue.** A video that will not render with no
   explanation reads as broken software, and they will churn rather than ask.
 - **Show both options with real arithmetic.** "You have used 4 of 4. 5 tokens
-  is R249. Pro gives you 15 a month for R449." Let them choose with the
+  is R249. Pro gives you 10 every month for R299." Let them choose with the
   numbers in front of them.
-- **Prompt the upgrade when topping up stops making sense.** Someone who has
-  bought two top-ups in a month has spent more than Pro would have cost.
+- **Prompt the upgrade when topping up stops making sense.** Two 5-token
+  packs is R498 — more than Pro, for fewer videos. A single 15-token pack is
+  R649, more than Premium. Both are moments to say so.
   Saying so plainly earns more trust than the extra margin is worth — and it
   converts the customer to recurring revenue, which is what you actually
   want.
@@ -113,14 +124,30 @@ product. Do not waste it on a dead end:
 
 ## Done-for-you ladder
 
-The service layer is still where the business is. What changed is the
-ladder now starts within reach of the subscription, instead of jumping 50x.
+The service layer is still where the business is.
 
 | Offer | Proposed | What it is |
 | --- | --- | --- |
+| Scripts Only | R899/mo | 8 scripts written for your twin; you record and post |
 | **Done-For-You Starter** | R1 499/mo | 4 videos a month, scripted and produced |
 | **Content Engine** | R3 499/mo | 12 videos a month, calendar, captions, clips |
 | Content Engine+ | R6 499/mo | 30 videos, translation, priority turnaround |
+
+**The gap worth watching.** With Premium at R449, the step to Done-For-You
+at R1 499 is more than triple — where the subscription ladder rises R150 at
+a time. Some of that gap is justified: these are different products, and the
+cost is a person writing scripts rather than compute. But R449 to R1 499 is
+where upgrades will stall, and nobody climbs a ladder with one rung missing.
+
+Scripts Only is the proposed bridge, and it targets the actual failure. The
+reason Starter customers go quiet is never the software — it is that nobody
+wrote anything. Selling the writing alone, at half the price of full
+production, meets that customer where they are: they already have a twin and
+know how to use it. It is also the cheapest service to deliver, since there
+is no production or revision cycle attached.
+
+Treat it as optional. If the gap turns out not to cost you upgrades, drop
+it — an extra tier is a real cost in explanation and support.
 
 R149 → R449 → R1 499 → R3 499 is a ladder someone can actually climb. The
 upgrade conversation happens when a customer hits the video cap or admits

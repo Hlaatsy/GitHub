@@ -32,8 +32,8 @@ on your side.
 This is the difference between buying AI video software and buying AI video.
 One of those is a login. The other is content that actually went out.
 
-Already on a R149 or R449 plan? This is the same twin, the same voice — you
-just stop being the one who has to write it.
+Already on a R149, R299 or R449 plan? This is the same twin, the same voice
+— you just stop being the one who has to write it.
 
 Limited slots. The writing is the bottleneck, and we would rather do a few
 properly.
