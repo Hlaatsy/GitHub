@@ -217,6 +217,41 @@ def profile_env(setting: str, profile: str = "", default: str = "") -> str:
     return os.environ.get(env_name(setting), "").strip() or default
 
 
+#: Every per-profile setting, used to recognise a profile's variables.
+SETTINGS = (
+    "CLIENT_ID",
+    "CLIENT_SECRET",
+    "ACCESS_TOKEN",
+    "AUTHOR_URN",
+    "TOKEN_EXPIRES_AT",
+    "REFRESH_TOKEN",
+    "SCOPES",
+    "REDIRECT_URI",
+    "VERSION",
+)
+
+
+def configured_profiles() -> list[str]:
+    """Profile names that have at least one LINKEDIN_<NAME>_* variable set.
+
+    Discovered from the environment rather than hard-coded, so adding a brand
+    is a matter of adding its variables. The unnamed default profile is not
+    listed here -- it has no prefix to find.
+    """
+    known = set(SETTINGS)
+    found: set[str] = set()
+    for key in os.environ:
+        if not key.startswith("LINKEDIN_"):
+            continue
+        rest = key[len("LINKEDIN_") :]
+        for setting in known:
+            if rest.endswith(f"_{setting}"):
+                name = rest[: -len(setting) - 1]
+                if name:
+                    found.add(name.lower())
+    return sorted(found)
+
+
 def normalize_author_urn(value: str) -> str:
     """Accept a URN, a bare organization ID, or a company page URL.
 

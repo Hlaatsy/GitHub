@@ -16,6 +16,7 @@ import sys
 from .client import (
     LinkedInClient,
     LinkedInError,
+    configured_profiles,
     days_until_expiry,
     env_name,
     expiry_warning,
@@ -72,6 +73,51 @@ def cmd_pages(args: argparse.Namespace) -> int:
         marker = "*" if configured and urn.endswith(configured.rsplit(":", 1)[-1]) else " "
         print(f"{marker} {urn}  {name}")
     print(f"\n* = the page {env_name('AUTHOR_URN', args.profile)} currently points at")
+    return 0
+
+
+def cmd_profiles(_: argparse.Namespace) -> int:
+    """What each brand's app is configured for, and what is still missing.
+
+    Three separate apps means three tokens on three expiry clocks and three
+    approval states. This answers "which of these can actually publish right
+    now" without opening .env.
+    """
+    names = [""] + configured_profiles()
+    queued: dict[str, list[str]] = {}
+    for post in load_queue():
+        queued.setdefault(profile(post), []).append(post.path.name)
+
+    for name in names:
+        label = name or "(default)"
+        token = profile_env("ACCESS_TOKEN", name)
+        page = profile_env("AUTHOR_URN", name)
+        days = days_until_expiry(profile=name)
+
+        print(f"{label}")
+        print(f"  token    {'set' if token else 'MISSING -- ' + env_name('ACCESS_TOKEN', name)}")
+        if page:
+            print(f"  page     {page}")
+        else:
+            print("  page     not set -- posts would publish to the token holder's profile")
+        if days is None:
+            print("  expires  unknown")
+        elif days < 0:
+            print(f"  expires  EXPIRED {abs(days)} day(s) ago")
+        else:
+            print(f"  expires  in {days} day(s)")
+
+        posts = queued.get(name, [])
+        print(f"  queued   {len(posts)} post(s)" + (f": {', '.join(posts)}" if posts else ""))
+        print()
+
+    orphans = sorted(set(queued) - set(names))
+    if orphans:
+        print("Queued posts name profiles with no configuration at all:")
+        for name in orphans:
+            print(f"  {name}: {', '.join(queued[name])}")
+        print("Those posts will fail until their LINKEDIN_<NAME>_* variables are set.")
+        return 1
     return 0
 
 
@@ -197,6 +243,10 @@ def build_parser() -> argparse.ArgumentParser:
     post.set_defaults(func=cmd_post)
 
     sub.add_parser("queue", help="list queued posts").set_defaults(func=cmd_queue)
+
+    sub.add_parser(
+        "profiles", help="show each brand's app: token, page, expiry, queued posts"
+    ).set_defaults(func=cmd_profiles)
 
     publish = sub.add_parser("publish", help="publish everything currently due")
     publish.add_argument("--dry-run", action="store_true", help="list without posting")

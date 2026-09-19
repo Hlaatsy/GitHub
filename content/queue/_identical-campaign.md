@@ -4,9 +4,10 @@ A draft note, not a post: `linkedin/queue.py` skips files starting with `_`.
 
 Six live posts for the **StoreBurst** page, plus four offer drafts held back
 until the pricing is confirmed. IDENTICAL launches under StoreBurst, not
-KhutsoGRC, so every post in this campaign carries `profile: storeburst` and publishes
-through StoreBurst's own LinkedIn app. KhutsoGRC's app, token and page stay
-untouched and keep serving that page's own content. The strategy behind the copy is in
+KhutsoGRC, so every post in this campaign carries `profile: identical` and publishes
+through IDENTICAL's own LinkedIn app and page. KhutsoGRC and StoreBurst are
+separate apps with separate tokens; their pages are untouched by this
+campaign. The strategy behind the copy is in
 `docs/positioning.md`; the revenue model is in `docs/monetisation.md`.
 
 ## Scheduled
@@ -45,42 +46,67 @@ not before. And the white-label post should not go out until the retainer has
 run for a real client — a partner reselling an unproven process damages two
 reputations at once.
 
-## Blocker: the StoreBurst app
+## Blocker: the IDENTICAL app
 
-IDENTICAL publishes through its own LinkedIn app, separate from KhutsoGRC's.
-Every post in this campaign carries `profile: storeburst`, which reads
-`LINKEDIN_STOREBURST_*` credentials and never falls back to the default
-app's token. Until those exist, these posts fail with a named variable and
-the rest of the queue publishes normally.
+Every post carries `profile: identical`, which reads `LINKEDIN_IDENTICAL_*`
+credentials and never falls back to another brand's token. Until those
+exist, these posts fail with a named variable and the rest of the queue
+publishes normally.
 
-Setup is in `linkedin/README.md` under "StoreBurst: a second app". The short
-version:
+Setup is in `linkedin/README.md` under "Three separate apps". Check state
+with:
 
-    python -m linkedin.auth --profile storeburst
-    python -m linkedin --profile storeburst pages    # StoreBurst must appear
-    python -m linkedin queue                         # shows each post's target
+    python -m linkedin profiles      # all three brands, and what is missing
 
-Watch for `-> the token holder (no page set)` in that last command. It means
-the token exists but `LINKEDIN_STOREBURST_AUTHOR_URN` is empty, and the post
-would publish to the authorising person's own profile instead of the
-StoreBurst page. It is the one misroute the tooling cannot fail on, because
-posting as yourself is a legitimate configuration -- so read the target line
-before the 21st rather than trusting it.
+Watch for `page  not set` against `identical`. It means the token exists but
+`LINKEDIN_IDENTICAL_AUTHOR_URN` is empty, and posts would publish to the
+authorising person's own profile rather than the IDENTICAL page. It is the
+one misroute the tooling cannot fail on, because posting as yourself is a
+legitimate configuration.
 
-**The Community Management API approval is the risk to the 21 September
-date.** It is a LinkedIn review, not a setting, it is granted per app, and a
-new app starts that review from zero. Nothing you do speeds it up.
+**Community Management API approval is the risk to the 21 September date.**
+It is a LinkedIn review, granted per app, and a new app starts it from zero.
+Nothing you do speeds it up. Create the app and request approval today --
+steps 1, 2 and 4 in the README cost nothing and can be done immediately. If
+approval has not landed by the 19th, move the dates rather than publishing
+IDENTICAL from another brand's app.
 
-So decide now, not on the 20th:
+## The harder problem: a new page has no audience
 
-- **Start the app creation and approval request today.** Steps 1, 2 and 4 in
-  the README can be done immediately and cost nothing.
-- **If approval has not landed by the 19th, move the dates.** Publishing
-  IDENTICAL from KhutsoGRC's app to hit a date defeats the separation --
-  it puts IDENTICAL's launch on the GRC page's app and its approval at risk
-  for a marketing deadline. Moving six dates costs nothing by comparison.
-- A member-scope token (see the README) lets you rehearse the whole queue on
-  your own profile meanwhile, so nothing is idle while the review runs.
+This matters more than the approval, and no amount of good copy fixes it.
+
+A brand-new IDENTICAL page starts with zero followers. Six well-written
+posts to zero followers reach zero people. LinkedIn shows company-page posts
+to followers first, and organic reach for a page with no following and no
+engagement history is close to nothing -- so the campaign as scheduled will
+look like a failure that is actually a distribution problem.
+
+Do these before the 21st, or the launch is shouting into an empty room:
+
+- **Invite connections to follow the page.** LinkedIn gives page admins a
+  monthly allocation of follow invites. This is the single highest-value
+  thing available, it is free, and the allocation is capped -- so start
+  early rather than spending it all in one week.
+- **Post from personal profiles, not just the page.** A person's profile
+  almost always out-reaches a young company page. The page post is the
+  canonical version; the personal post is what people actually see. Whoever
+  is behind IDENTICAL should share each post the morning it goes out, in
+  their own words, linking to the page.
+- **Have StoreBurst and KhutsoGRC reshare.** They are separate brands with
+  their own audiences, and a reshare is legitimate cross-promotion rather
+  than the same text posted twice. This is what the other two pages are
+  worth to this launch.
+- **Seed the first posts with real engagement.** Comments in the first hour
+  determine how far a post travels. Ask colleagues and friendly clients
+  directly, before the post goes out, not after.
+- **Consider running the first two posts as paid.** A small budget against
+  a defined audience is the only reliable way to put a new page in front of
+  strangers. The launch and the pricing post are the two worth spending on.
+
+If none of this is possible before Monday, the honest move is to delay the
+campaign by two or three weeks and spend that time building the follower
+base. The posts do not expire. A launch that nobody sees cannot be run
+again.
 
 ## Claims to make true before publishing
 
@@ -105,9 +131,10 @@ if it is actually the case on the day the post goes out:
 - **"We help you put consent forms and retention terms in place."** Post 6.
   Have the templates before the post runs, because this one will generate
   direct enquiries. The post no longer claims IDENTICAL *is* a governance
-  business -- that leaned on KhutsoGRC's identity, which is not the brand
-  launching. If StoreBurst and KhutsoGRC are connected, say so publicly and
-  this becomes the strongest post in the set. See `docs/positioning.md`.
+  business -- that leaned on KhutsoGRC's identity, and IDENTICAL is its own
+  brand. If the three are openly connected, say so on the IDENTICAL page's
+  About section and this becomes the strongest post in the set, because the
+  claim becomes checkable. See `docs/positioning.md`.
 - **The free 60-second demo.** Every live post offers it. Decide who fulfils
   it and how fast, before Monday. An unanswered demo request is worse than
   never offering one.

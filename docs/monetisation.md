@@ -116,11 +116,13 @@ thing that gets IDENTICAL past an enterprise buyer's legal review, so it is
 worth more than it costs.
 
 Distribution note: these were priced assuming warm introductions into an
-existing compliance client base. IDENTICAL launches under StoreBurst, so that
-only holds if StoreBurst can reach those accounts — through a shared team, a
-referral arrangement, or a co-marketing line. If it cannot, these two
-products still sell, but cold, and they should not be counted on for early
-revenue.
+existing compliance client base. IDENTICAL is its own brand with its own
+page, so that only holds if it can reach KhutsoGRC's accounts — through a
+shared team, a referral arrangement, or a co-marketing line. Agree which it
+is before counting this revenue: a referral arrangement between two brands
+is a conversation to have once, not an assumption to discover later. If
+there is no route, these two products still sell, but cold, and they should
+not carry the early forecast.
 
 ## The funnel
 
