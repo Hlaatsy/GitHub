@@ -1,151 +1,158 @@
 # IDENTICAL — revenue model
 
-Internal. Every rand figure below is a **proposal to confirm**, not a price
-that has been agreed. Nothing here is published until you set the real
-numbers — see "Before any of this is public" at the bottom.
+Internal. Every rand figure is a **proposal to confirm** against your real
+per-video platform cost, which I do not know. See "Before any of this is
+public" at the bottom.
 
-## The shape of it
+## The decision that shapes everything
 
-App subscriptions alone do not build a business at this scale. A self-serve
-tier at a few hundred rand a month needs volume that a company page with a
-young following will not produce this year, and it puts you in a price fight
-with platforms that have venture funding to burn.
+**Entry at R149/mo. No setup fee. The twin is built free on every plan.**
 
-The money is in the service layer. Same product, sold as an outcome, at 10x
-the price, to a buyer who was never going to open the app themselves.
+This is the right call for this market. A R2 500 once-off in front of a
+product nobody has tried is a wall, not a price — and in a market where most
+small businesses are deciding between your subscription and something else
+they also need this month, the wall is where you lose them.
 
-So: the app is the top of the funnel, not the business.
+But it moves the risk. The twin build is real skilled work, and it now
+happens before a single rand arrives. At R149/mo, an hour of setup labour
+takes months of subscription to repay. So the model only works if two things
+are true:
 
-    App subscription   ->  volume, low margin, proves the product
-    Twin setup         ->  one-off, high margin, creates the asset
-    Content retainer   ->  recurring, the actual business
-    White-label         ->  leverage, other people's clients
-    Training           ->  paid audience-building
+1. **Setup has to get cheap to deliver.** Guided self-service with a template,
+   a checklist and one review pass — not an hour of hand-holding per customer.
+   If every twin costs you an hour, R149 is a loss leader with no back end.
+2. **Retention has to be real.** Payback is around month four or five. A
+   customer who leaves at month two cost you money. Annual prepay and the
+   done-for-you ladder below are how that risk gets managed — not by adding
+   the fee back.
 
-## The five streams
+Sell the absence of the fee. "No setup fee, your twin built free" is a
+stronger line than anything in the feature list, because every competitor
+either charges for it or makes you do it yourself badly.
 
-### 1. Self-serve subscription — volume tier
-
-The app, sold as software. Low touch, low margin, and the thing that lets
-someone say yes for R499 instead of thinking about it for six weeks.
+## Self-serve tiers
 
 | Tier | Proposed | Includes |
 | --- | --- | --- |
-| Starter | R499/mo | 1 twin, 10 videos/mo, standard voices |
-| Pro | R1 499/mo | 3 twins, 40 videos/mo, voice cloning, translation |
-| Business | R3 999/mo | 10 twins, unlimited* videos, team seats, priority queue |
+| **Starter** | **R149/mo** | 1 twin built free, 4 videos/mo, standard voices |
+| Pro | R449/mo | 3 twins, 15 videos/mo, voice cloning, translation |
+| Business | R999/mo | 10 twins, 40 videos/mo, team seats, priority queue |
+| Pay-as-you-go | R59/video | No subscription, no commitment |
 
-\* "Unlimited" needs a fair-use ceiling written into the terms before it is
-advertised, or one heavy user erases the tier's margin.
+**Annual prepay: pay for 10 months, get 12.** This is the single most
+important line in the table now that setup is free. It pulls the payback
+forward past the risky months and turns a churn problem into a cash-flow
+advantage. Push it hard at signup, not as an afterthought in the account
+settings.
 
-Set these against your actual per-video platform cost. The gross margin on
-each tier must survive the heaviest plausible user on it, not the average
-one — that is the mistake that kills credit-backed pricing.
+**Every tier has a video cap, including Business.** No "unlimited" anywhere.
+With setup given away, an uncapped heavy user on the entry tier is the one
+customer who can make the whole tier unprofitable. Caps are also how
+customers discover they need the next tier up.
 
-### 2. Twin Setup — one-off, high margin
+Run the arithmetic before publishing: 4 videos at your platform cost must
+leave a real margin inside R149, with the free twin build amortised over an
+expected lifetime you can defend. If it does not, the entry tier is 3 videos,
+not 4 — adjust the volume, keep the R149.
 
-**Proposed: R2 500 once-off.**
+Pay-as-you-go matters more here than it does in wealthier markets. Some
+customers cannot commit to a recurring debit order at all, and R59 for one
+video when they need one is a real sale that a subscription-only price list
+refuses.
 
-You build the avatar and the cloned voice for them, properly: lighting and
-framing guidance for the source recording, a clean voice sample, two or three
-iterations until the twin actually looks like them, and a consent form on
-file.
+## Done-for-you ladder
 
-Why it works: it is the step where DIY buyers give up. It is an hour or two
-of skilled work. And it creates an asset the client cannot take with them
-without starting over, which makes stream 3 an easy yes.
+The service layer is still where the business is. What changed is the
+ladder now starts within reach of the subscription, instead of jumping 50x.
 
-Sell this first. It is the lowest-friction entry point that still pays.
+| Offer | Proposed | What it is |
+| --- | --- | --- |
+| **Done-For-You Starter** | R1 499/mo | 4 videos a month, scripted and produced |
+| **Content Engine** | R3 499/mo | 12 videos a month, calendar, captions, clips |
+| Content Engine+ | R6 499/mo | 30 videos, translation, priority turnaround |
 
-### 3. Content Engine — the retainer
+R149 → R449 → R1 499 → R3 499 is a ladder someone can actually climb. The
+upgrade conversation happens when a customer hits the video cap or admits
+they have not written a script in six weeks — both of which you can see.
 
-**Proposed: R7 500/mo for 12 videos.** R12 500/mo for 30.
+Cap revisions in writing. The cost in this tier is script writing and client
+back-and-forth, never compute. Uncapped revisions is how a good client
+becomes an unprofitable one.
 
-Scripts, production, captions, and delivery in the formats they post in.
-They approve a monthly content calendar; the videos arrive. This is the
-recurring revenue the whole thing is built to reach.
+## White-label partners
 
-The pitch is not "AI video". It is: you have not posted since March, and
-here is the reason that stops being true.
+**Proposed: R4 999/mo flat, or 25% revenue share.**
 
-Margin note: the cost here is script writing and client back-and-forth, not
-compute. Price on turnaround time and revisions, cap both in the agreement,
-and the retainer stays profitable. Uncapped revisions is how agencies lose
-money on good clients.
+Agencies, PR firms, training providers and HR consultancies resell under
+their own brand; you run production behind them. One partner selling to ten
+clients beats ten direct clients for the same effort.
 
-### 4. White-label partner programme — leverage
+Build this after the done-for-you tiers have run for real clients. A partner
+reselling an unproven process damages two reputations at once.
 
-**Proposed: R15 000/mo flat, or 30% revenue share.**
+## Training
 
-Marketing agencies, PR firms, training providers and HR consultancies already
-have the client relationships and get asked for video constantly. They resell
-under their own brand; you run production behind them.
+| Offer | Proposed |
+| --- | --- |
+| Public workshop seat | R450 |
+| In-house corporate half-day | R9 500 |
 
-One partner who sells to ten clients beats ten direct clients for the same
-effort. This is the stream to build once streams 2 and 3 are proven — not
-before, because a partner reselling an unproven process damages two
-reputations at once.
+R450 puts a seat within reach of the solopreneur who is the target customer
+anyway, and every room is full of done-for-you buyers who have just watched
+you demonstrate competence for half a day. The corporate session is where the
+margin is.
 
-### 5. Training and workshops — paid audience-building
+## Compliance products
 
-**Proposed: R1 200/seat public workshop, R25 000 in-house corporate day.**
+The pillar no competitor offers, billed directly:
 
-"AI video for your business, without the compliance headache" — a half day,
-aimed at marketing and HR teams. It pays for itself, and every room is full
-of stream 3 buyers who have just watched you demonstrate competence for four
-hours.
+| Offer | Proposed |
+| --- | --- |
+| Likeness consent pack — forms, retention terms, register | R1 500 |
+| Internal AI content policy | R3 500 |
 
-The compliance angle from `docs/positioning.md` is what makes this bookable
-as a corporate session rather than a webinar.
-
-## Where the compliance pillar earns money directly
-
-Worth pricing separately, because it is the thing no competitor offers:
-
-- **Likeness consent pack** — consent forms, retention terms and a register
-  for employee twins. Proposed R3 500 once-off, and it is the attachment
-  that gets IDENTICAL past an enterprise buyer's legal review.
-- **AI content policy** — a short internal policy for a company rolling out
-  avatar video. Proposed R7 500.
-
-These sell into exactly the accounts KhutsoGRC already talks to, and they
-make the video work an easier second conversation.
+These sell into the accounts KhutsoGRC already talks to, and they make the
+video conversation an easier second one. Note the consent pack is now
+*cheaper* than the old setup fee — it is also the thing that gets IDENTICAL
+past an enterprise buyer's legal review, so it is worth more than it costs.
 
 ## The funnel
 
-1. LinkedIn posts (`content/queue/`) — attention, and proof it works, since
-   every post can be made with the product.
-2. Free offer — a one-minute twin demo made from a photo they send. Costs
-   minutes, converts because they see their own face talking.
-3. Twin Setup at R2 500 — the first transaction.
-4. Content Engine retainer — the business.
-5. White-label or training — leverage, once 3 is running.
+1. LinkedIn posts (`content/queue/`) — attention and proof, since every post
+   can be made with the product.
+2. Free 60-second demo twin from a photo they send. Minutes to fulfil,
+   converts because they see their own face talking.
+3. **R149/mo, twin built free.** The first transaction, and now a small
+   enough yes to make on the spot.
+4. Annual prepay, or the upgrade when they hit the cap.
+5. Done-for-you when they stop writing scripts. This is the margin.
+6. White-label or training — leverage, once 5 is running.
 
-Step 2 is the one to instrument. Track how many demo requests come in per
-post, because that number tells you which of the five pillars in
-`docs/positioning.md` your market actually responds to — and the campaign
-should then be rewritten around it.
+Instrument step 3 to 4. With no setup fee, the conversion you care about is
+no longer "will they pay to start" — it is "are they still here in month
+five". Track month-2 and month-5 retention from the first cohort. If month-5
+retention is under half, fix the onboarding before spending another rand on
+reach.
 
 ## Before any of this is public
 
-- **Set the real numbers.** Every figure above is a starting proposal based
-  on what the work is worth, not on your costs, which I do not know. Work out
-  the per-video platform cost and the hours each stream consumes, then set
-  prices. Do not publish these as-is.
-- **Check the ceiling.** If the underlying platform bills you per video or
-  per minute, every "unlimited" and every fixed-fee retainer carries an
-  uncapped cost. Cap it in writing.
-- **Confirm you may resell.** Reselling capacity, white-labelling it, and
-  putting it in front of partners are three different permissions. Check the
-  agreement covers all three before stream 4 exists.
-- **VAT.** Above the R1m threshold, registration is compulsory, and prices
-  advertised to consumers must include VAT. Decide now whether these are
-  inclusive or exclusive and say which on every page.
-- **Invoicing and terms.** A retainer needs a written agreement: scope,
-  revision cap, payment terms, and what happens to the twin and the source
-  footage when the client leaves. That last one is a POPIA question, not an
-  admin detail.
+- **Cost the entry tier properly.** R149 with a free twin build only works if
+  setup is templated and the video cap is set against real per-video cost.
+  This is the number to check first, before the post goes out.
+- **Cap everything.** Videos per tier, revisions per retainer. No
+  "unlimited".
+- **Debit order and payment methods.** An affordable price that can only be
+  paid by international credit card is not affordable. Check what your
+  processor supports — EFT, debit order, Ozow, SnapScan, Apple Pay — and put
+  the accepted methods on the pricing page. This matters as much as the R149.
+- **Month-to-month, cancel anytime.** Say it explicitly. A lock-in contract
+  undoes the trust the low price buys, and annual prepay should be chosen for
+  the discount, never required.
+- **VAT.** Decide inclusive or exclusive and say which wherever a price
+  appears. For a consumer-facing R149, advertise it inclusive.
+- **Confirm you may resell** before the white-label post. Reselling,
+  white-labelling and partner distribution are three separate permissions.
 
-The draft posts in `content/queue/_draft-*.md` carry these offers in public
-copy. They stay underscore-prefixed — and therefore unpublishable — until
-the numbers above are yours rather than mine.
+The draft posts in `content/queue/_draft-*.md` carry these numbers in public
+copy. They stay underscore-prefixed, and therefore unpublishable, until the
+figures are yours rather than mine.

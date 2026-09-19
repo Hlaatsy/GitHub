@@ -18,14 +18,27 @@ advantaged and a global platform is structurally weak.
 
 ## The five pillars
 
-### 1. Billed in rands, by a South African business
+### 1. Priced for this market, in rands, with no setup fee
 
-Global platforms bill in USD. A R500-equivalent subscription costs the buyer
-the exchange rate, a 2-3% international card fee, and a number that changes
-every month. Some SA cards are declined outright. Local billing removes a
-friction the competitor cannot remove without opening an entity here.
+Global platforms start around USD 40-50/mo — roughly R900 before the bank
+takes its cut — and several charge again to build the avatar. They bill in
+USD, so the buyer absorbs the exchange rate, a 2-3% international card fee
+and a number that moves every month. Some SA cards are declined outright.
 
-Public framing: predictable pricing in rands, no forex surprises.
+IDENTICAL starts at R149/mo with the twin built free. That is not a discount
+on their price, it is a different price band, and it is the pillar that
+decides whether the other four ever get heard.
+
+The free twin build is the sharpest edge here. It is the step where DIY
+buyers give up, every competitor either charges for it or leaves you to it,
+and giving it away costs you once while it removes the reason to say no.
+
+Public framing: from R149 a month. No setup fee. No forex surprises.
+
+The trade this makes is in `docs/monetisation.md` — setup becomes an
+acquisition cost carried before any revenue arrives, so templated onboarding
+and retention stop being nice-to-haves and become the thing the model rests
+on.
 
 ### 2. Done-for-you, not do-it-yourself
 

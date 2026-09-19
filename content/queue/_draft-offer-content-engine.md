@@ -15,10 +15,12 @@ is quiet again.
 Not because the software stopped working. Because writing twelve scripts a
 month is a job, and you already have one.
 
-THE CONTENT ENGINE — from R7 500/mo
+DONE FOR YOU — from R1 499/mo
 
-- 12 videos a month, scripted, produced and delivered in the formats you post
-  in
+R1 499/mo gets you 4 videos a month, written and produced.
+R3 499/mo is the full Content Engine: 12 videos a month.
+
+- Scripted, produced and delivered in the formats you post in
 - A content calendar you approve at the start of the month
 - Your twin, your voice, your positioning — not generic AI filler
 - Captions and short cuts included
@@ -30,7 +32,10 @@ on your side.
 This is the difference between buying AI video software and buying AI video.
 One of those is a login. The other is content that actually went out.
 
-Limited slots — the writing is the bottleneck, and we would rather do a few
+Already on a R149 or R449 plan? This is the same twin, the same voice — you
+just stop being the one who has to write it.
+
+Limited slots. The writing is the bottleneck, and we would rather do a few
 properly.
 
 Reply or DM to see a sample month built around your business.

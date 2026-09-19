@@ -28,7 +28,9 @@ You sell what you already sell. We run production behind you.
 One partner serving ten clients is a better business than ten direct clients,
 for both of us.
 
-Partner terms are flat-fee or revenue share, whichever suits how you bill.
+Partner terms are R4 999/mo flat or 25% revenue share, whichever suits how
+you bill. Your clients can start on a R149 plan and grow into production
+work — the entry point is low enough that the first yes is easy.
 
 If video keeps coming up in your client conversations and you have nowhere to
 put it, let's talk.

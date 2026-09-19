@@ -32,10 +32,10 @@ underscore, and they schedule into the slots below.
 
 | Suggested date | File | Offer |
 | --- | --- | --- |
-| Thu 08 Oct | `_draft-offer-twin-setup.md` | R2 500 once-off setup |
-| Tue 13 Oct | `_draft-offer-content-engine.md` | From R7 500/mo retainer |
+| Thu 08 Oct | `_draft-offer-pricing.md` | R149/mo, twin built free |
+| Tue 13 Oct | `_draft-offer-content-engine.md` | Done-for-you from R1 499/mo |
 | Tue 20 Oct | `_draft-offer-white-label.md` | Agency partner programme |
-| Tue 27 Oct | `_draft-offer-workshop.md` | Paid workshop |
+| Tue 27 Oct | `_draft-offer-workshop.md` | R450 seat / R9 500 in-house |
 
 Sequence matters. The offers land after six posts of demonstrating the thing,
 not before. And the white-label post should not go out until the retainer has
@@ -47,8 +47,14 @@ reputations at once.
 The copy asserts things about how you operate. Each is defensible, but only
 if it is actually the case on the day the post goes out:
 
-- **"Priced in rands."** Needs a ZAR price list that exists, even a simple
-  one. Posts 1 and the offer drafts both say this.
+- **"From R149/mo, no setup fee, twin built free."** Posts 1, 2 and 4 now
+  state this, so it is live from Monday — before the pricing post runs. The
+  price list must exist by then, and the free twin build must be something
+  you can actually deliver at volume without an hour of labour per customer.
+  Check the entry-tier arithmetic in `docs/monetisation.md` first.
+- **Payment methods.** An affordable price payable only by international
+  card is not affordable. Confirm EFT, debit order or a local gateway before
+  the pricing post, and list the methods wherever the price appears.
 - **"We build the twin with you / we produce the videos."** Posts 1, 2 and 4
   sell a service. If that service is not ready to take a client in the week
   of 21 September, move those posts back rather than softening them.

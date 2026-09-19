@@ -15,9 +15,9 @@ expressions and movement, and keeps creating for you around the clock.
 There are global tools that do a version of this. Here is what is different
 about doing it with us:
 
-PRICED IN RANDS
-No exchange rate surprises, no international card fees, no subscription that
-costs something different every month.
+PRICED FOR THIS MARKET
+From R149 a month, in rands. No setup fee — we build your twin free. No
+exchange rate surprises and no international card fees.
 
 WE DO NOT JUST HAND YOU A LOGIN
 Most people who quit AI video tools do not quit because the tool was bad.

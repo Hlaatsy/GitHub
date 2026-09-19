@@ -28,9 +28,9 @@ required.
 
 And the honest part — the step that actually takes time is none of these. It
 is writing the script. Which is exactly why we do not stop at handing you the
-app. If you want the twin built properly the first time, or the videos written
-and produced every month, that is a service we run, not a tutorial we send
-you.
+app. The twin gets built properly the first time because we build it — included
+on every plan, no setup fee. And if you want the videos written and produced
+every month too, that is a service we run, not a tutorial we send you.
 
 The software is the easy half. Most tools sell you that half and call it a
 solution.

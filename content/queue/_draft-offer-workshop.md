@@ -26,7 +26,11 @@ What we cover:
 Everyone leaves with their own twin built in the room, and a consent template
 they can actually use.
 
-Public seats, or an in-house session for your team.
+R450 a seat for the public session. R9 500 for an in-house half-day with
+your team.
+
+Everyone who attends leaves on a R149 plan if they want one — the workshop
+is not a sales pitch with a price wall at the end of it.
 
 The teams that get this wrong do not get it wrong creatively. They get it
 wrong by putting a person's face into content nobody got permission for.

@@ -34,9 +34,13 @@ conclude the technology is not ready.
 
 It is ready. The recording was the problem.
 
-We build twins for clients for exactly this reason — the setup done properly
-once, with a few iterations until it genuinely looks like you, and a consent
-record on file. Ask us about it, or send a photo and see a free 60-second
-demo first.
+We build the twin for you for exactly this reason — done properly, with
+iterations until it genuinely looks like you, and a consent record on file.
+
+There is no setup fee for it. It is included on every plan, from R149 a
+month, because charging you to build the thing before you have seen it work
+is backwards.
+
+Send a photo and see a free 60-second demo first.
 
 #AIAvatar #PhotoToVideo #ContentCreation #VideoProduction
