@@ -141,6 +141,18 @@ def resolve_media(post: QueuedPost) -> tuple[Path | None, str]:
     return path, post.meta.get("alt_text", "")
 
 
+def profile(post: QueuedPost) -> str:
+    """The credential set this post publishes with, or "" for the default.
+
+    A profile names a separate LinkedIn app: its own client ID, secret and
+    token. ``profile: storeburst`` reads LINKEDIN_STOREBURST_ACCESS_TOKEN and
+    LINKEDIN_STOREBURST_AUTHOR_URN. Brands that are separate apps should use
+    this rather than ``author_urn`` alone, because a page ID without a token
+    that administers the page only fails at the API.
+    """
+    return post.meta.get("profile", "").strip()
+
+
 def author_urn(post: QueuedPost) -> str:
     """The page this post publishes as, or "" to use the configured default.
 

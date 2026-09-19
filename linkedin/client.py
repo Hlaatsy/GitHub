@@ -53,9 +53,9 @@ def load_dotenv(path: Path | None = None) -> None:
 EXPIRY_WARNING_DAYS = 7
 
 
-def token_expires_at() -> dt.datetime | None:
+def token_expires_at(profile: str = "") -> dt.datetime | None:
     """When the current access token dies, if auth.py recorded it."""
-    raw = os.environ.get("LINKEDIN_TOKEN_EXPIRES_AT", "").strip()
+    raw = profile_env("TOKEN_EXPIRES_AT", profile)
     if not raw:
         return None
     try:
@@ -64,18 +64,18 @@ def token_expires_at() -> dt.datetime | None:
         return None
 
 
-def days_until_expiry(now: dt.datetime | None = None) -> int | None:
+def days_until_expiry(now: dt.datetime | None = None, profile: str = "") -> int | None:
     """Whole days left on the token, negative once expired, None if unknown."""
-    expiry = token_expires_at()
+    expiry = token_expires_at(profile)
     if expiry is None:
         return None
     delta = expiry - (now or dt.datetime.now(dt.timezone.utc))
     return delta.days
 
 
-def expiry_warning(now: dt.datetime | None = None) -> str:
+def expiry_warning(now: dt.datetime | None = None, profile: str = "") -> str:
     """A line worth printing about the token, or "" when there is nothing to say."""
-    days = days_until_expiry(now)
+    days = days_until_expiry(now, profile)
     if days is None:
         return ""
     if days < 0:
@@ -187,6 +187,36 @@ def _request(
 ORG_URL_RE = re.compile(r"linkedin\.com/company/(\d+)")
 
 
+def env_name(setting: str, profile: str = "") -> str:
+    """The environment variable a setting reads for a given profile.
+
+    Default profile: ``LINKEDIN_ACCESS_TOKEN``.
+    Profile "storeburst": ``LINKEDIN_STOREBURST_ACCESS_TOKEN``.
+    """
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", profile).strip("_").upper()
+    return f"LINKEDIN_{slug}_{setting}" if slug else f"LINKEDIN_{setting}"
+
+
+#: Settings that identify *who is posting*. A named profile must supply these
+#: itself -- they never fall back to the default profile's value. Inheriting a
+#: token or a page from another brand is how a post ends up on the wrong
+#: company page, which is the failure this whole mechanism exists to prevent.
+CREDENTIALS = frozenset({"CLIENT_ID", "CLIENT_SECRET", "ACCESS_TOKEN", "AUTHOR_URN"})
+
+
+def profile_env(setting: str, profile: str = "", default: str = "") -> str:
+    """Read a setting for a profile.
+
+    Non-credential settings (API version, redirect URI, scopes, schedule
+    window) fall back to the shared ``LINKEDIN_*`` value, because they are the
+    same whoever is posting. Credentials do not -- see ``CREDENTIALS``.
+    """
+    value = os.environ.get(env_name(setting, profile), "").strip()
+    if value or (profile and setting in CREDENTIALS):
+        return value
+    return os.environ.get(env_name(setting), "").strip() or default
+
+
 def normalize_author_urn(value: str) -> str:
     """Accept a URN, a bare organization ID, or a company page URL.
 
@@ -222,11 +252,20 @@ class LinkedInClient:
     review) to post as a company page.
     """
 
-    def __init__(self, token: str | None = None, author: str | None = None) -> None:
-        self.token = token or os.environ.get("LINKEDIN_ACCESS_TOKEN") or ""
+    def __init__(
+        self, token: str | None = None, author: str | None = None, profile: str = ""
+    ) -> None:
+        self.profile = profile
+        self.token = token or profile_env("ACCESS_TOKEN", profile)
         if not self.token:
-            raise LinkedInError(0, "LINKEDIN_ACCESS_TOKEN is not set", "")
-        self._author = normalize_author_urn(author or os.environ.get("LINKEDIN_AUTHOR_URN") or "")
+            name = env_name("ACCESS_TOKEN", profile)
+            hint = (
+                f" -- run `python -m linkedin.auth --profile {profile}` to mint one"
+                if profile
+                else ""
+            )
+            raise LinkedInError(0, f"{name} is not set{hint}", "")
+        self._author = normalize_author_urn(author or profile_env("AUTHOR_URN", profile))
 
     @property
     def author(self) -> str:

@@ -47,6 +47,12 @@ jobs:
           LINKEDIN_AUTHOR_URN: ${{ secrets.LINKEDIN_AUTHOR_URN }}
           LINKEDIN_TOKEN_EXPIRES_AT: ${{ secrets.LINKEDIN_TOKEN_EXPIRES_AT }}
           LINKEDIN_SCHEDULE_ENDS_AT: ${{ vars.LINKEDIN_SCHEDULE_ENDS_AT }}
+          # StoreBurst's own app, for posts carrying `profile: storeburst`.
+          # A post whose profile has no token here fails that post and leaves
+          # the rest of the queue alone, rather than publishing as KhutsoGRC.
+          LINKEDIN_STOREBURST_ACCESS_TOKEN: ${{ secrets.LINKEDIN_STOREBURST_ACCESS_TOKEN }}
+          LINKEDIN_STOREBURST_AUTHOR_URN: ${{ secrets.LINKEDIN_STOREBURST_AUTHOR_URN }}
+          LINKEDIN_STOREBURST_TOKEN_EXPIRES_AT: ${{ secrets.LINKEDIN_STOREBURST_TOKEN_EXPIRES_AT }}
         run: |
           python -m linkedin publish ${{ inputs.dry_run && '--dry-run' || '' }}
 

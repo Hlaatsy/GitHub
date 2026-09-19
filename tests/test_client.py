@@ -13,11 +13,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from linkedin.client import (  # noqa: E402
     EXPIRY_WARNING_DAYS,
+    LinkedInClient,
     LinkedInError,
     days_until_expiry,
+    env_name,
     expiry_warning,
     load_dotenv,
     normalize_author_urn,
+    profile_env,
     review_due,
     review_notice,
 )
@@ -58,6 +61,55 @@ class NormalizeAuthorUrnTests(unittest.TestCase):
     def test_nonsense_is_rejected(self):
         with self.assertRaises(LinkedInError):
             normalize_author_urn("not-a-page")
+
+
+class ProfileEnvTests(unittest.TestCase):
+    def setUp(self):
+        self._saved = dict(os.environ)
+
+    def tearDown(self):
+        os.environ.clear()
+        os.environ.update(self._saved)
+
+    def test_default_profile_reads_the_plain_name(self):
+        self.assertEqual(env_name("ACCESS_TOKEN"), "LINKEDIN_ACCESS_TOKEN")
+
+    def test_named_profile_is_prefixed(self):
+        self.assertEqual(
+            env_name("ACCESS_TOKEN", "storeburst"), "LINKEDIN_STOREBURST_ACCESS_TOKEN"
+        )
+
+    def test_profile_name_is_slugified(self):
+        self.assertEqual(env_name("AUTHOR_URN", "store-burst app"),
+                         "LINKEDIN_STORE_BURST_APP_AUTHOR_URN")
+
+    def test_non_credentials_fall_back_to_the_shared_value(self):
+        os.environ.pop("LINKEDIN_STOREBURST_VERSION", None)
+        os.environ["LINKEDIN_VERSION"] = "202505"
+        self.assertEqual(profile_env("VERSION", "storeburst"), "202505")
+
+    def test_credentials_never_fall_back(self):
+        """A brand must supply its own token -- inheriting one posts as the wrong page."""
+        os.environ["LINKEDIN_ACCESS_TOKEN"] = "default-token"
+        os.environ.pop("LINKEDIN_STOREBURST_ACCESS_TOKEN", None)
+        self.assertEqual(profile_env("ACCESS_TOKEN", "storeburst"), "")
+
+    def test_credentials_are_read_when_the_profile_sets_them(self):
+        os.environ["LINKEDIN_STOREBURST_ACCESS_TOKEN"] = "sb-token"
+        self.assertEqual(profile_env("ACCESS_TOKEN", "storeburst"), "sb-token")
+
+    def test_default_profile_still_reads_its_own_credentials(self):
+        os.environ["LINKEDIN_ACCESS_TOKEN"] = "default-token"
+        self.assertEqual(profile_env("ACCESS_TOKEN"), "default-token")
+
+    def test_missing_profile_token_names_the_variable_and_the_fix(self):
+        os.environ["LINKEDIN_ACCESS_TOKEN"] = "default-token"
+        os.environ.pop("LINKEDIN_STOREBURST_ACCESS_TOKEN", None)
+        with self.assertRaises(LinkedInError) as caught:
+            LinkedInClient(profile="storeburst")
+        message = str(caught.exception)
+        self.assertIn("LINKEDIN_STOREBURST_ACCESS_TOKEN", message)
+        self.assertIn("--profile storeburst", message)
 
 
 if __name__ == "__main__":

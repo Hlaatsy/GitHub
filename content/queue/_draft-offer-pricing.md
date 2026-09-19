@@ -7,10 +7,12 @@
 # identical-07-pricing.md to schedule it.
 publish_at: 2026-10-08T07:00:00Z
 visibility: PUBLIC
-# author_urn is the StoreBurst page. Front matter has no inline comments,
-# so keep the value alone on its line. Find the id in the page admin URL:
-# linkedin.com/company/<id>/admin/ -- paste just the number.
-author_urn: SET_STOREBURST_ORGANISATION_ID
+# IDENTICAL publishes through its own LinkedIn app, separate from the one
+# KhutsoGRC uses. `profile` selects that app's credentials
+# (LINKEDIN_STOREBURST_ACCESS_TOKEN, LINKEDIN_STOREBURST_AUTHOR_URN); it
+# never inherits the default app's token. Front matter has no inline
+# comments, so keep each value alone on its line.
+profile: storeburst
 ---
 R149 a month. No setup fee. Your twin built free.
 

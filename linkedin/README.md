@@ -45,6 +45,64 @@ with `python -m linkedin pages` once you have a token. Leaving the variable
 unset posts as *you personally* instead of the page -- so do not unset it by
 accident.
 
+## StoreBurst: a second app
+
+IDENTICAL launches under **StoreBurst**, not KhutsoGRC, as a separate
+LinkedIn app. Not a second page on the same app -- a second app, with its own
+client ID, secret, verification and Community Management API approval.
+
+That is the right shape, and it is also the slower one. LinkedIn ties an app
+to one associated page: verification is done by an admin of *that* page, and
+the API approval is granted to *that* app. Reusing KhutsoGRC's app to post as
+StoreBurst is not a configuration change, it is a re-association that would
+put KhutsoGRC's own publishing at risk. Two apps keep the two brands
+independent -- separate approval, separate tokens, separate blast radius if
+one is revoked.
+
+### Setting it up
+
+Same path as the original app, run again for StoreBurst:
+
+1. Create a new app at <https://www.linkedin.com/developers/apps>, associated
+   with the **StoreBurst** page.
+2. Verify it -- a StoreBurst page admin opens the verification URL.
+3. Request the **Community Management API** on the Products tab. This is the
+   long pole: it is a review, not a checkbox, and it gates posting as the
+   page.
+4. Add `http://localhost:8765/callback` as an authorized redirect URL.
+5. Fill the `LINKEDIN_STOREBURST_*` block in `.env`.
+6. `python -m linkedin.auth --profile storeburst`
+7. `python -m linkedin --profile storeburst pages` -- StoreBurst should be
+   listed.
+
+Add `LINKEDIN_STOREBURST_ACCESS_TOKEN`, `LINKEDIN_STOREBURST_AUTHOR_URN` and
+`LINKEDIN_STOREBURST_TOKEN_EXPIRES_AT` as repository secrets; the workflow
+already passes them.
+
+### While approval is pending
+
+Steps 1-2 and 4-6 work immediately. Only page-posting waits on review. Set
+`LINKEDIN_STOREBURST_SCOPES=openid profile w_member_social` and leave
+`LINKEDIN_STOREBURST_AUTHOR_URN` empty to post as yourself while testing --
+useful for checking the queue and the formatting, not for the launch.
+
+If approval will not land before the first scheduled post, move the dates in
+`content/queue/` rather than publishing IDENTICAL from KhutsoGRC's app. The
+whole point of the separation is lost the moment that happens.
+
+### How a post picks an app
+
+`profile: storeburst` in front matter. It reads that app's credentials and
+**never falls back** to the default app's token -- a missing
+`LINKEDIN_STOREBURST_ACCESS_TOKEN` fails those posts and leaves the rest of
+the queue untouched. `author_urn` overrides the page within a profile, for
+the case where one app administers several pages.
+
+Each brand's token expires on its own clock:
+
+    python -m linkedin token                        # KhutsoGRC
+    python -m linkedin --profile storeburst token   # StoreBurst
+
 ### Publishing to more than one page
 
 `LINKEDIN_AUTHOR_URN` is the default, not the only option. A queued post can

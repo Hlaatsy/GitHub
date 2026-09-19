@@ -4,9 +4,9 @@ A draft note, not a post: `linkedin/queue.py` skips files starting with `_`.
 
 Six live posts for the **StoreBurst** page, plus four offer drafts held back
 until the pricing is confirmed. IDENTICAL launches under StoreBurst, not
-KhutsoGRC, so every post in this campaign names the StoreBurst page in its
-`author_urn` front matter rather than inheriting `LINKEDIN_AUTHOR_URN`, which
-still points at KhutsoGRC for that page's own content. The strategy behind the copy is in
+KhutsoGRC, so every post in this campaign carries `profile: storeburst` and publishes
+through StoreBurst's own LinkedIn app. KhutsoGRC's app, token and page stay
+untouched and keep serving that page's own content. The strategy behind the copy is in
 `docs/positioning.md`; the revenue model is in `docs/monetisation.md`.
 
 ## Scheduled
@@ -45,27 +45,42 @@ not before. And the white-label post should not go out until the retainer has
 run for a real client — a partner reselling an unproven process damages two
 reputations at once.
 
-## Blocker: the StoreBurst page ID
+## Blocker: the StoreBurst app
 
-Every post in this campaign carries:
+IDENTICAL publishes through its own LinkedIn app, separate from KhutsoGRC's.
+Every post in this campaign carries `profile: storeburst`, which reads
+`LINKEDIN_STOREBURST_*` credentials and never falls back to the default
+app's token. Until those exist, these posts fail with a named variable and
+the rest of the queue publishes normally.
 
-    author_urn: SET_STOREBURST_ORGANISATION_ID
+Setup is in `linkedin/README.md` under "StoreBurst: a second app". The short
+version:
 
-That is a placeholder and it **will fail the post**, by design -- a launch
-published to the wrong company page is worse than a red build. Replace it in
-all ten files with the real ID from the StoreBurst page admin URL
-(`linkedin.com/company/<id>/admin/`), then confirm access:
+    python -m linkedin.auth --profile storeburst
+    python -m linkedin --profile storeburst pages    # StoreBurst must appear
+    python -m linkedin queue                         # shows each post's target
 
-    python -m linkedin pages     # StoreBurst must be listed
-    python -m linkedin queue     # prints the destination under every post
+Watch for `-> the token holder (no page set)` in that last command. It means
+the token exists but `LINKEDIN_STOREBURST_AUTHOR_URN` is empty, and the post
+would publish to the authorising person's own profile instead of the
+StoreBurst page. It is the one misroute the tooling cannot fail on, because
+posting as yourself is a legitimate configuration -- so read the target line
+before the 21st rather than trusting it.
 
-A page ID is not access. The LinkedIn app has to be associated with the
-StoreBurst page, verified by a StoreBurst page admin, and the token has to be
-issued by someone who administers it. If the app is currently associated with
-KhutsoGRC, this is a new setup, not a one-line edit -- and the Community
-Management API review in `linkedin/README.md` may need redoing for the new
-page. **Start this now, not on the 20th**, because review time is not in your
-control and the first post is due Monday the 21st.
+**The Community Management API approval is the risk to the 21 September
+date.** It is a LinkedIn review, not a setting, it is granted per app, and a
+new app starts that review from zero. Nothing you do speeds it up.
+
+So decide now, not on the 20th:
+
+- **Start the app creation and approval request today.** Steps 1, 2 and 4 in
+  the README can be done immediately and cost nothing.
+- **If approval has not landed by the 19th, move the dates.** Publishing
+  IDENTICAL from KhutsoGRC's app to hit a date defeats the separation --
+  it puts IDENTICAL's launch on the GRC page's app and its approval at risk
+  for a marketing deadline. Moving six dates costs nothing by comparison.
+- A member-scope token (see the README) lets you rehearse the whole queue on
+  your own profile meanwhile, so nothing is idle while the review runs.
 
 ## Claims to make true before publishing
 

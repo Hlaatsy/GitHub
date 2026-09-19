@@ -17,32 +17,37 @@ from .client import (
     LinkedInClient,
     LinkedInError,
     days_until_expiry,
+    env_name,
     expiry_warning,
     load_dotenv,
+    profile_env,
     review_due,
     review_notice,
 )
-from .queue import archive, author_urn, due_posts, load_queue, post_kwargs, resolve_media
+from .queue import archive, author_urn, due_posts, load_queue, post_kwargs, profile, resolve_media
 
 
-def cmd_whoami(_: argparse.Namespace) -> int:
-    client = LinkedInClient()
+def cmd_whoami(args: argparse.Namespace) -> int:
+    client = LinkedInClient(profile=args.profile)
     info = client.me()
     print(f"signed in as: {info.get('name', '(no name)')}")
     print(f"posts publish as: {client.author}")
+    if args.profile:
+        print(f"using the '{args.profile}' app's credentials")
     return 0
 
 
-def cmd_token(_: argparse.Namespace) -> int:
-    days = days_until_expiry()
+def cmd_token(args: argparse.Namespace) -> int:
+    days = days_until_expiry(profile=args.profile)
     if days is None:
         print(
-            "Token lifetime unknown -- LINKEDIN_TOKEN_EXPIRES_AT is not set. "
-            "Re-run `python -m linkedin.auth` to record it."
+            f"Token lifetime unknown -- {env_name('TOKEN_EXPIRES_AT', args.profile)} "
+            f"is not set. Re-run `python -m linkedin.auth"
+            f"{' --profile ' + args.profile if args.profile else ''}` to record it."
         )
         return 0
 
-    warning = expiry_warning()
+    warning = expiry_warning(profile=args.profile)
     print(warning or f"Access token is healthy: {days} day(s) remaining.")
 
     notice = review_notice()
@@ -51,8 +56,8 @@ def cmd_token(_: argparse.Namespace) -> int:
     return 1 if days < 0 else 0
 
 
-def cmd_pages(_: argparse.Namespace) -> int:
-    client = LinkedInClient()
+def cmd_pages(args: argparse.Namespace) -> int:
+    client = LinkedInClient(profile=args.profile)
     organizations = client.administered_organizations()
     if not organizations:
         print(
@@ -62,16 +67,16 @@ def cmd_pages(_: argparse.Namespace) -> int:
         )
         return 1
 
-    configured = os.environ.get("LINKEDIN_AUTHOR_URN", "")
+    configured = profile_env("AUTHOR_URN", args.profile)
     for urn, name in organizations:
         marker = "*" if configured and urn.endswith(configured.rsplit(":", 1)[-1]) else " "
         print(f"{marker} {urn}  {name}")
-    print("\n* = the page LINKEDIN_AUTHOR_URN currently points at")
+    print(f"\n* = the page {env_name('AUTHOR_URN', args.profile)} currently points at")
     return 0
 
 
 def cmd_post(args: argparse.Namespace) -> int:
-    client = LinkedInClient()
+    client = LinkedInClient(profile=args.profile)
     media_urn = None
     if args.image:
         media_urn = client.upload_image(args.image)
@@ -86,9 +91,11 @@ def cmd_post(args: argparse.Namespace) -> int:
 
 
 def _target(post) -> str:
-    """How a queued post's destination page reads in CLI output."""
-    urn = author_urn(post)
-    return urn or os.environ.get("LINKEDIN_AUTHOR_URN") or "the token holder (no page set)"
+    """How a queued post's destination reads in CLI output."""
+    name = profile(post)
+    urn = author_urn(post) or profile_env("AUTHOR_URN", name)
+    where = urn or "the token holder (no page set)"
+    return f"{where}  [{name} app]" if name else where
 
 
 def cmd_queue(_: argparse.Namespace) -> int:
@@ -130,15 +137,17 @@ def cmd_publish(args: argparse.Namespace) -> int:
             print(f"[dry-run] would publish {post.path.name} as {_target(post)}")
         return 0
 
-    # One client per author URN: a queue can serve several company pages, and
-    # each page needs the post attributed to it rather than to the default.
-    clients: dict[str, LinkedInClient] = {}
+    # One client per (profile, page): a queue can serve several brands, each
+    # with its own LinkedIn app and token, and each post must be attributed to
+    # the right page by a token allowed to post as it.
+    clients: dict[tuple[str, str], LinkedInClient] = {}
     failures = 0
     for post in pending:
         try:
-            key = author_urn(post)
+            # Keyed on both: a page and the app whose token may post as it.
+            key = (profile(post), author_urn(post))
             if key not in clients:
-                clients[key] = LinkedInClient(author=key or None)
+                clients[key] = LinkedInClient(profile=key[0], author=key[1] or None)
             client = clients[key]
             image_path, alt_text = resolve_media(post)
             media_urn = client.upload_image(image_path) if image_path else None
@@ -158,6 +167,14 @@ def cmd_publish(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="linkedin", description=__doc__)
+    # A profile selects a separate LinkedIn app's credentials, so the same CLI
+    # can act for more than one brand. Global, so it works before or after the
+    # subcommand: `linkedin --profile storeburst pages`.
+    parser.add_argument(
+        "--profile",
+        default="",
+        help="credential set to use, e.g. storeburst (default: LINKEDIN_* vars)",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("whoami", help="show the account the token belongs to").set_defaults(

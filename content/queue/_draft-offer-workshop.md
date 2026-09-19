@@ -6,10 +6,12 @@
 # costs more credibility than waiting a week to announce it.
 publish_at: 2026-10-27T07:00:00Z
 visibility: PUBLIC
-# author_urn is the StoreBurst page. Front matter has no inline comments,
-# so keep the value alone on its line. Find the id in the page admin URL:
-# linkedin.com/company/<id>/admin/ -- paste just the number.
-author_urn: SET_STOREBURST_ORGANISATION_ID
+# IDENTICAL publishes through its own LinkedIn app, separate from the one
+# KhutsoGRC uses. `profile` selects that app's credentials
+# (LINKEDIN_STOREBURST_ACCESS_TOKEN, LINKEDIN_STOREBURST_AUTHOR_URN); it
+# never inherits the default app's token. Front matter has no inline
+# comments, so keep each value alone on its line.
+profile: storeburst
 ---
 Half a day, and your team stops guessing about AI video.
 

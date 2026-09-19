@@ -21,7 +21,7 @@ import threading
 import urllib.parse
 import webbrowser
 
-from .client import exchange_code_for_token, load_dotenv
+from .client import env_name, exchange_code_for_token, load_dotenv, profile_env
 
 _result: dict[str, str] = {}
 
@@ -43,20 +43,34 @@ class _CallbackHandler(http.server.BaseHTTPRequestHandler):
         """Silence the default request logging."""
 
 
-def main() -> int:
-    load_dotenv()
-    redirect_uri = os.environ.get("LINKEDIN_REDIRECT_URI", "http://localhost:8765/callback")
-    scopes = os.environ.get("LINKEDIN_SCOPES", "openid profile w_member_social")
+def main(argv: list[str] | None = None) -> int:
+    """Mint a token. ``--profile <name>`` authorizes a second LinkedIn app."""
+    args = argv if argv is not None else sys.argv[1:]
+    profile = ""
+    if args and args[0] == "--profile":
+        if len(args) < 2:
+            print("--profile needs a name, e.g. --profile storeburst", file=sys.stderr)
+            return 1
+        profile = args[1]
 
-    client_id = os.environ.get("LINKEDIN_CLIENT_ID")
-    client_secret = os.environ.get("LINKEDIN_CLIENT_SECRET")
+    load_dotenv()
+    redirect_uri = profile_env("REDIRECT_URI", profile, "http://localhost:8765/callback")
+    scopes = profile_env("SCOPES", profile, "openid profile w_member_social")
+
+    client_id = profile_env("CLIENT_ID", profile)
+    client_secret = profile_env("CLIENT_SECRET", profile)
     if not client_id or not client_secret:
         print(
-            "Set LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET first "
+            f"Set {env_name('CLIENT_ID', profile)} and "
+            f"{env_name('CLIENT_SECRET', profile)} first "
             "(copy .env.example to .env and fill it in).",
             file=sys.stderr,
         )
         return 1
+
+    if profile:
+        print(f"Authorizing the '{profile}' app.")
+        print("Check you are signed in to LinkedIn as an admin of that page.\n")
 
     state = secrets.token_urlsafe(16)
     auth_url = "https://www.linkedin.com/oauth/v2/authorization?" + urllib.parse.urlencode(
@@ -93,11 +107,11 @@ def main() -> int:
     print("\nAccess token acquired.")
     print(f"Valid for roughly {expires_in // 86400} days, until {expires_at:%Y-%m-%d}.\n")
     print("Add both lines to your .env (never commit them):\n")
-    print(f"LINKEDIN_ACCESS_TOKEN={access_token}")
-    print(f"LINKEDIN_TOKEN_EXPIRES_AT={expires_at.isoformat()}\n")
+    print(f"{env_name('ACCESS_TOKEN', profile)}={access_token}")
+    print(f"{env_name('TOKEN_EXPIRES_AT', profile)}={expires_at.isoformat()}\n")
     if "refresh_token" in token:
-        print(f"LINKEDIN_REFRESH_TOKEN={token['refresh_token']}\n")
-    print("For CI, store it as the LINKEDIN_ACCESS_TOKEN repository secret.")
+        print(f"{env_name('REFRESH_TOKEN', profile)}={token['refresh_token']}\n")
+    print(f"For CI, store it as the {env_name('ACCESS_TOKEN', profile)} repository secret.")
     return 0
 
 
