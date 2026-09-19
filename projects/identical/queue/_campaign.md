@@ -2,13 +2,16 @@
 
 A draft note, not a post: `linkedin/queue.py` skips files starting with `_`.
 
+IDENTICAL is its own project (`projects/identical/`) with its own queue,
+archive, assets and docs. `project.conf` sets `profile: identical`, so every
+post here publishes through IDENTICAL's own app without naming it per file.
+
 Six live posts for the **StoreBurst** page, plus four offer drafts held back
 until the pricing is confirmed. IDENTICAL launches under StoreBurst, not
-KhutsoGRC, so every post in this campaign carries `profile: identical` and publishes
-through IDENTICAL's own LinkedIn app and page. KhutsoGRC and StoreBurst are
-separate apps with separate tokens; their pages are untouched by this
-campaign. The strategy behind the copy is in
-`docs/positioning.md`; the revenue model is in `docs/monetisation.md`.
+KhutsoGRC, so this project publishes through IDENTICAL's own LinkedIn app and page.
+KhutsoGRC and StoreBurst are separate projects with separate apps and
+tokens; their pages are untouched by this campaign. The strategy behind the copy is in
+`../docs/positioning.md`; the revenue model is in `../docs/monetisation.md`.
 
 ## Scheduled
 
@@ -53,7 +56,7 @@ credentials and never falls back to another brand's token. Until those
 exist, these posts fail with a named variable and the rest of the queue
 publishes normally.
 
-Setup is in `linkedin/README.md` under "Three separate apps". Check state
+Setup is in `/linkedin/README.md` under "Three separate apps". Check state
 with:
 
     python -m linkedin profiles      # all three brands, and what is missing
@@ -134,7 +137,7 @@ if it is actually the case on the day the post goes out:
   business -- that leaned on KhutsoGRC's identity, and IDENTICAL is its own
   brand. If the three are openly connected, say so on the IDENTICAL page's
   About section and this becomes the strongest post in the set, because the
-  claim becomes checkable. See `docs/positioning.md`.
+  claim becomes checkable. See `../docs/positioning.md`.
 - **The free 60-second demo.** Every live post offers it. Decide who fulfils
   it and how fast, before Monday. An unanswered demo request is worse than
   never offering one.

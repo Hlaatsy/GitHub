@@ -7,12 +7,6 @@
 # identical-07-pricing.md to schedule it.
 publish_at: 2026-10-08T07:00:00Z
 visibility: PUBLIC
-# IDENTICAL publishes through its own LinkedIn app and its own page,
-# separate from both KhutsoGRC and StoreBurst. `profile` selects that app's
-# credentials (LINKEDIN_IDENTICAL_ACCESS_TOKEN, LINKEDIN_IDENTICAL_AUTHOR_URN);
-# it never inherits another profile's token. Front matter has no inline
-# comments, so keep each value alone on its line.
-profile: identical
 ---
 R149 a month. No setup fee. Your twin built free.
 

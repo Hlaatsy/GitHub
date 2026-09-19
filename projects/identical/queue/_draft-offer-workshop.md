@@ -6,12 +6,6 @@
 # costs more credibility than waiting a week to announce it.
 publish_at: 2026-10-27T07:00:00Z
 visibility: PUBLIC
-# IDENTICAL publishes through its own LinkedIn app and its own page,
-# separate from both KhutsoGRC and StoreBurst. `profile` selects that app's
-# credentials (LINKEDIN_IDENTICAL_ACCESS_TOKEN, LINKEDIN_IDENTICAL_AUTHOR_URN);
-# it never inherits another profile's token. Front matter has no inline
-# comments, so keep each value alone on its line.
-profile: identical
 ---
 Half a day, and your team stops guessing about AI video.
 

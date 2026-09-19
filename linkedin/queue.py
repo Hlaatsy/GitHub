@@ -31,8 +31,18 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# The original single-project layout. Still KhutsoGRC's own queue.
 QUEUE_DIR = REPO_ROOT / "content" / "queue"
 PUBLISHED_DIR = REPO_ROOT / "content" / "published"
+
+# Separate brands live as separate projects: projects/<name>/queue/ and
+# projects/<name>/published/, each with its own assets, docs and defaults.
+# One publisher serves them all, but nothing else is shared.
+PROJECTS_DIR = REPO_ROOT / "projects"
+
+#: Filename holding a project's front-matter defaults (e.g. its profile).
+PROJECT_CONF = "project.conf"
 
 
 @dataclass
@@ -92,27 +102,65 @@ def is_ignored(path: Path) -> bool:
     return path.stem.upper() == "README" or path.name.startswith(("_", "."))
 
 
-def load_queue(queue_dir: Path = QUEUE_DIR) -> list[QueuedPost]:
-    """Read every queued markdown file, oldest scheduled first."""
+def queue_dirs(projects_dir: Path = PROJECTS_DIR) -> list[Path]:
+    """Every queue this repo publishes from, oldest layout first.
+
+    ``content/queue`` plus one per project directory. A project is any
+    directory under ``projects/`` that has a ``queue/`` in it, so adding a
+    brand means adding a folder, not editing this file.
+    """
+    dirs = [QUEUE_DIR] if QUEUE_DIR.is_dir() else []
+    if projects_dir.is_dir():
+        dirs.extend(sorted(p / "queue" for p in projects_dir.iterdir() if (p / "queue").is_dir()))
+    return dirs
+
+
+def project_defaults(queue_dir: Path) -> dict[str, str]:
+    """Front-matter defaults for a project, from ``project.conf`` beside its queue.
+
+    Lets a project set its ``profile`` and ``visibility`` once instead of on
+    every post. A post's own front matter always wins.
+    """
+    conf = queue_dir.parent / PROJECT_CONF
+    if not conf.is_file():
+        return {}
+    meta, _ = parse_front_matter("---\n" + conf.read_text(encoding="utf-8") + "\n---\n")
+    return meta
+
+
+def load_queue(queue_dir: Path | None = None) -> list[QueuedPost]:
+    """Read every queued markdown file, oldest scheduled first.
+
+    With no argument, reads every project's queue. Passing one reads only
+    that directory, which is what the tests do.
+    """
     posts: list[QueuedPost] = []
-    for path in sorted(queue_dir.glob("*.md")):
-        if is_ignored(path):
-            continue
-        meta, body = parse_front_matter(path.read_text(encoding="utf-8"))
-        if not body:
-            continue
-        posts.append(QueuedPost(path=path, body=body, meta=meta))
+    for directory in [queue_dir] if queue_dir is not None else queue_dirs():
+        defaults = project_defaults(directory)
+        for path in sorted(directory.glob("*.md")):
+            if is_ignored(path):
+                continue
+            meta, body = parse_front_matter(path.read_text(encoding="utf-8"))
+            if not body:
+                continue
+            posts.append(QueuedPost(path=path, body=body, meta={**defaults, **meta}))
 
     far_future = dt.datetime.max.replace(tzinfo=dt.timezone.utc)
     return sorted(posts, key=lambda p: p.publish_at or far_future)
 
 
-def due_posts(now: dt.datetime | None = None, queue_dir: Path = QUEUE_DIR) -> list[QueuedPost]:
+def due_posts(now: dt.datetime | None = None, queue_dir: Path | None = None) -> list[QueuedPost]:
     return [post for post in load_queue(queue_dir) if post.is_due(now)]
 
 
-def archive(post: QueuedPost, urn: str, published_dir: Path = PUBLISHED_DIR) -> Path:
-    """Move a published post out of the queue, recording the URN it became."""
+def archive(post: QueuedPost, urn: str, published_dir: Path | None = None) -> Path:
+    """Move a published post out of the queue, recording the URN it became.
+
+    Files into the ``published/`` beside the post's own queue, so each
+    project keeps its own archive rather than pooling them.
+    """
+    if published_dir is None:
+        published_dir = post.path.parent.parent / "published"
     published_dir.mkdir(parents=True, exist_ok=True)
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d")
     destination = published_dir / f"{stamp}-{post.path.name}"

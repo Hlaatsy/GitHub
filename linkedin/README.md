@@ -15,6 +15,20 @@ LinkedIn also has no scheduled-post endpoint -- posts publish the moment you
 call the API. So "scheduling" here is a queue of markdown files plus a job
 that publishes whatever is due. See `content/queue/README.md`.
 
+## One publisher, several projects
+
+Each brand is a project with its own queue, archive, assets and defaults:
+
+    content/queue/                  KhutsoGRC (the original layout)
+    projects/identical/             IDENTICAL
+
+`publish` reads every project's queue. A project names its LinkedIn app once
+in `project.conf`, so a post cannot publish as the wrong brand by omitting a
+line, and each project archives into its own `published/`.
+
+Adding a brand is adding a directory with a `queue/` in it -- no code change.
+`projects/identical/README.md` is the worked example.
+
 ## Where this fits in TaxSorted
 
 The site's **Social Post Generator** (`#social` in `index.html`) writes

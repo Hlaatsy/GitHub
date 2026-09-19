@@ -147,7 +147,7 @@ def _target(post) -> str:
 def cmd_queue(_: argparse.Namespace) -> int:
     posts = load_queue()
     if not posts:
-        print("Queue is empty. Add a markdown file to content/queue/.")
+        print("Queue is empty. Add a markdown file to content/queue/ or projects/<name>/queue/.")
         return 0
     for post in posts:
         when = post.publish_at.isoformat() if post.publish_at else "next run"

@@ -1,13 +1,7 @@
 ---
 publish_at: 2026-09-29T07:00:00Z
 visibility: PUBLIC
-# IDENTICAL publishes through its own LinkedIn app and its own page,
-# separate from both KhutsoGRC and StoreBurst. `profile` selects that app's
-# credentials (LINKEDIN_IDENTICAL_ACCESS_TOKEN, LINKEDIN_IDENTICAL_AUTHOR_URN);
-# it never inherits another profile's token. Front matter has no inline
-# comments, so keep each value alone on its line.
-profile: identical
-# image: assets/identical-avatar4.png
+# image: projects/identical/assets/identical-avatar4.png
 # alt_text: A single portrait photo transforming into a talking video avatar
 ---
 One photo. One talking video.

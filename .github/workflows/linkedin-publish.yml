@@ -66,12 +66,14 @@ jobs:
       - name: Commit archived posts
         if: ${{ !inputs.dry_run }}
         run: |
-          if [ -z "$(git status --porcelain content/)" ]; then
+          # Every project's archive, not just content/: each brand files its
+          # published posts under its own projects/<name>/published/.
+          if [ -z "$(git status --porcelain content/ projects/)" ]; then
             echo "Nothing published this run."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add content/
+          git add content/ projects/
           git commit -m "Archive published LinkedIn posts"
           git push

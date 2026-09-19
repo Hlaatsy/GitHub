@@ -1,7 +1,18 @@
 # Post queue
 
 One markdown file per post. `publish` picks up everything whose `publish_at`
-has passed, publishes it, then moves the file to `content/published/`.
+has passed, publishes it, then moves the file to the `published/` directory
+beside its queue.
+
+This queue is **KhutsoGRC's**. Other brands are separate projects with their
+own queues, archives and defaults:
+
+    content/queue/                  KhutsoGRC
+    projects/identical/queue/       IDENTICAL
+
+`publish` reads all of them. A project sets its LinkedIn app once in
+`project.conf` beside its queue, and a post's own front matter overrides it.
+The format below is the same wherever the file lives.
 
 ```markdown
 ---

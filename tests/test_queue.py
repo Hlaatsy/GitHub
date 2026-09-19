@@ -17,6 +17,8 @@ from linkedin.queue import (  # noqa: E402
     QueuedPost,
     archive,
     author_urn,
+    project_defaults,
+    queue_dirs,
     due_posts,
     is_ignored,
     load_queue,
@@ -205,6 +207,65 @@ class AuthorUrnTests(unittest.TestCase):
             path=Path("x.md"), body="b", meta={"author_urn": "urn:li:organization:999"}
         )
         self.assertNotIn("author_urn", post_kwargs(post))
+
+
+class ProjectLayoutTests(unittest.TestCase):
+    """Each brand is a project directory with its own queue, archive and defaults."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def _project(self, name: str, conf: str | None = None) -> Path:
+        queue = self.root / "projects" / name / "queue"
+        queue.mkdir(parents=True)
+        if conf is not None:
+            (queue.parent / "project.conf").write_text(conf, encoding="utf-8")
+        return queue
+
+    def test_discovers_a_directory_with_a_queue(self):
+        self._project("identical")
+        found = queue_dirs(self.root / "projects")
+        self.assertIn(self.root / "projects" / "identical" / "queue", found)
+
+    def test_ignores_a_project_directory_with_no_queue(self):
+        (self.root / "projects" / "notes").mkdir(parents=True)
+        self.assertEqual(
+            [d for d in queue_dirs(self.root / "projects") if "notes" in str(d)], []
+        )
+
+    def test_missing_projects_directory_is_not_an_error(self):
+        queue_dirs(self.root / "nope")
+
+    def test_conf_supplies_defaults(self):
+        queue = self._project("identical", "profile: identical\nvisibility: PUBLIC\n")
+        self.assertEqual(
+            project_defaults(queue), {"profile": "identical", "visibility": "PUBLIC"}
+        )
+
+    def test_no_conf_means_no_defaults(self):
+        self.assertEqual(project_defaults(self._project("bare")), {})
+
+    def test_a_post_overrides_the_project_default(self):
+        queue = self._project("identical", "profile: identical\n")
+        (queue / "post.md").write_text(
+            "---\nprofile: storeburst\n---\nBody", encoding="utf-8"
+        )
+        post = load_queue(queue)[0]
+        self.assertEqual(post.meta["profile"], "storeburst")
+
+    def test_a_post_inherits_the_project_default(self):
+        queue = self._project("identical", "profile: identical\n")
+        (queue / "post.md").write_text("---\nvisibility: PUBLIC\n---\nBody", encoding="utf-8")
+        self.assertEqual(load_queue(queue)[0].meta["profile"], "identical")
+
+    def test_archive_files_into_the_projects_own_published_dir(self):
+        queue = self._project("identical")
+        path = queue / "post.md"
+        path.write_text("Body", encoding="utf-8")
+        destination = archive(QueuedPost(path=path, body="Body", meta={}), "urn:li:share:1")
+        self.assertEqual(destination.parent, queue.parent / "published")
 
 
 if __name__ == "__main__":

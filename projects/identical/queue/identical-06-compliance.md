@@ -1,13 +1,7 @@
 ---
 publish_at: 2026-10-06T07:00:00Z
 visibility: PUBLIC
-# IDENTICAL publishes through its own LinkedIn app and its own page,
-# separate from both KhutsoGRC and StoreBurst. `profile` selects that app's
-# credentials (LINKEDIN_IDENTICAL_ACCESS_TOKEN, LINKEDIN_IDENTICAL_AUTHOR_URN);
-# it never inherits another profile's token. Front matter has no inline
-# comments, so keep each value alone on its line.
-profile: identical
-# image: assets/identical-use-cases.png
+# image: projects/identical/assets/identical-use-cases.png
 # alt_text: A consent form beside a video avatar, representing likeness and data governance
 ---
 The question that stops AI video projects is never the creative one.

@@ -1,8 +1,10 @@
 # Campaign assets
 
-Images referenced by queued posts live here. `linkedin/queue.py` resolves an
-`image:` front-matter path from the repository root, so a post refers to
-`assets/identical-hero.png`, not a path relative to the queue file.
+Images referenced by this project's posts live here. `linkedin/queue.py`
+resolves an `image:` front-matter path from the **repository root**, not from
+the project, so a post refers to
+`projects/identical/assets/identical-hero.png` even though the file sits
+right next to this README.
 
 A post that names an image which is not on disk raises `FileNotFoundError`
 and stops the run, so the IDENTICAL posts in `content/queue/` ship with their
