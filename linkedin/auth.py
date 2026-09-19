@@ -12,6 +12,7 @@ on your app at https://www.linkedin.com/developers/apps.
 
 from __future__ import annotations
 
+import datetime as dt
 import http.server
 import os
 import secrets
@@ -86,12 +87,14 @@ def main() -> int:
 
     token = exchange_code_for_token(_result["code"], client_id, client_secret, redirect_uri)
     access_token = token["access_token"]
-    expires_days = int(token.get("expires_in", 0)) // 86400
+    expires_in = int(token.get("expires_in", 0))
+    expires_at = dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=expires_in)
 
     print("\nAccess token acquired.")
-    print(f"Valid for roughly {expires_days} days.\n")
-    print("Add this to your .env (never commit it):\n")
-    print(f"LINKEDIN_ACCESS_TOKEN={access_token}\n")
+    print(f"Valid for roughly {expires_in // 86400} days, until {expires_at:%Y-%m-%d}.\n")
+    print("Add both lines to your .env (never commit them):\n")
+    print(f"LINKEDIN_ACCESS_TOKEN={access_token}")
+    print(f"LINKEDIN_TOKEN_EXPIRES_AT={expires_at.isoformat()}\n")
     if "refresh_token" in token:
         print(f"LINKEDIN_REFRESH_TOKEN={token['refresh_token']}\n")
     print("For CI, store it as the LINKEDIN_ACCESS_TOKEN repository secret.")

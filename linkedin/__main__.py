@@ -13,7 +13,7 @@ import argparse
 import os
 import sys
 
-from .client import LinkedInClient, LinkedInError, load_dotenv
+from .client import LinkedInClient, LinkedInError, days_until_expiry, expiry_warning, load_dotenv
 from .queue import archive, due_posts, load_queue, post_kwargs, resolve_media
 
 
@@ -23,6 +23,20 @@ def cmd_whoami(_: argparse.Namespace) -> int:
     print(f"signed in as: {info.get('name', '(no name)')}")
     print(f"posts publish as: {client.author}")
     return 0
+
+
+def cmd_token(_: argparse.Namespace) -> int:
+    days = days_until_expiry()
+    if days is None:
+        print(
+            "Token lifetime unknown -- LINKEDIN_TOKEN_EXPIRES_AT is not set. "
+            "Re-run `python -m linkedin.auth` to record it."
+        )
+        return 0
+
+    warning = expiry_warning()
+    print(warning or f"Access token is healthy: {days} day(s) remaining.")
+    return 1 if days < 0 else 0
 
 
 def cmd_pages(_: argparse.Namespace) -> int:
@@ -73,6 +87,11 @@ def cmd_queue(_: argparse.Namespace) -> int:
 
 
 def cmd_publish(args: argparse.Namespace) -> int:
+    # Surfaced every run so an expiring token is noticed before posts start failing.
+    warning = expiry_warning()
+    if warning:
+        print(warning, file=sys.stderr)
+
     pending = due_posts()
     if not pending:
         print("Nothing due.")
@@ -113,6 +132,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("pages", help="list company pages this token can post for").set_defaults(
         func=cmd_pages
+    )
+
+    sub.add_parser("token", help="how many days the access token has left").set_defaults(
+        func=cmd_token
     )
 
     post = sub.add_parser("post", help="publish a post immediately")

@@ -2,9 +2,12 @@ name: Publish scheduled LinkedIn posts
 
 on:
   schedule:
-    # Hourly. LinkedIn has no scheduled-post endpoint, so granularity is
-    # however often this job runs.
-    - cron: "0 * * * *"
+    # Hourly during SA business hours on weekdays (05:00-15:00 UTC is
+    # 07:00-17:00 SAST). LinkedIn has no scheduled-post endpoint, so this
+    # cadence is the granularity a publish_at time can be honoured to.
+    # ~240 runs/month instead of ~730, which matters on a private repo
+    # drawing from the 2,000 free Actions minutes.
+    - cron: "0 5-15 * * 1-5"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -32,10 +35,16 @@ jobs:
       - name: Run tests
         run: python -m unittest discover -s tests
 
+      - name: Report token lifetime
+        env:
+          LINKEDIN_TOKEN_EXPIRES_AT: ${{ secrets.LINKEDIN_TOKEN_EXPIRES_AT }}
+        run: python -m linkedin token || true
+
       - name: Publish due posts
         env:
           LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
           LINKEDIN_AUTHOR_URN: ${{ secrets.LINKEDIN_AUTHOR_URN }}
+          LINKEDIN_TOKEN_EXPIRES_AT: ${{ secrets.LINKEDIN_TOKEN_EXPIRES_AT }}
         run: |
           python -m linkedin publish ${{ inputs.dry_run && '--dry-run' || '' }}
 

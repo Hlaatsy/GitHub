@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import os
 import sys
 import tempfile
@@ -10,7 +11,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from linkedin.client import LinkedInError, load_dotenv, normalize_author_urn  # noqa: E402
+from linkedin.client import (  # noqa: E402
+    EXPIRY_WARNING_DAYS,
+    LinkedInError,
+    days_until_expiry,
+    expiry_warning,
+    load_dotenv,
+    normalize_author_urn,
+)
 
 ORG_URN = "urn:li:organization:145207663"
 
@@ -99,3 +107,42 @@ class LoadDotenvTests(unittest.TestCase):
 
     def test_missing_file_is_not_an_error(self):
         load_dotenv(Path(self._tmp.name) / "does-not-exist")
+
+
+class TokenExpiryTests(unittest.TestCase):
+    """The schedule runs only as long as the token does, so it must warn early."""
+
+    def setUp(self):
+        self._saved = dict(os.environ)
+        self.addCleanup(lambda: (os.environ.clear(), os.environ.update(self._saved)))
+
+    def _set_expiry(self, days: float) -> None:
+        when = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=days)
+        os.environ["LINKEDIN_TOKEN_EXPIRES_AT"] = when.isoformat()
+
+    def test_unknown_when_unset(self):
+        os.environ.pop("LINKEDIN_TOKEN_EXPIRES_AT", None)
+        self.assertIsNone(days_until_expiry())
+        self.assertEqual(expiry_warning(), "")
+
+    def test_healthy_token_says_nothing(self):
+        self._set_expiry(45)
+        self.assertEqual(expiry_warning(), "")
+
+    def test_warns_inside_the_notice_window(self):
+        self._set_expiry(3.5)
+        self.assertIn("expires in 3 day(s)", expiry_warning())
+
+    def test_warns_on_the_boundary(self):
+        self._set_expiry(EXPIRY_WARNING_DAYS + 0.5)
+        self.assertIn("expires in", expiry_warning())
+
+    def test_expired_token_is_called_out(self):
+        self._set_expiry(-2.5)
+        warning = expiry_warning()
+        self.assertIn("EXPIRED", warning)
+        self.assertLess(days_until_expiry(), 0)
+
+    def test_unparseable_value_is_treated_as_unknown(self):
+        os.environ["LINKEDIN_TOKEN_EXPIRES_AT"] = "whenever"
+        self.assertIsNone(days_until_expiry())

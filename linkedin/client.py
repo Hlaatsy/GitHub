@@ -7,6 +7,7 @@ header; see LINKEDIN_VERSION below.
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import mimetypes
 import os
@@ -17,6 +18,8 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from .queue import parse_timestamp
 
 API_BASE = "https://api.linkedin.com"
 
@@ -45,6 +48,48 @@ def load_dotenv(path: Path | None = None) -> None:
         key, sep, value = line.partition("=")
         if sep:
             os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+
+
+EXPIRY_WARNING_DAYS = 7
+
+
+def token_expires_at() -> dt.datetime | None:
+    """When the current access token dies, if auth.py recorded it."""
+    raw = os.environ.get("LINKEDIN_TOKEN_EXPIRES_AT", "").strip()
+    if not raw:
+        return None
+    try:
+        return parse_timestamp(raw)
+    except ValueError:
+        return None
+
+
+def days_until_expiry(now: dt.datetime | None = None) -> int | None:
+    """Whole days left on the token, negative once expired, None if unknown."""
+    expiry = token_expires_at()
+    if expiry is None:
+        return None
+    delta = expiry - (now or dt.datetime.now(dt.timezone.utc))
+    return delta.days
+
+
+def expiry_warning(now: dt.datetime | None = None) -> str:
+    """A line worth printing about the token, or "" when there is nothing to say."""
+    days = days_until_expiry(now)
+    if days is None:
+        return ""
+    if days < 0:
+        return (
+            "Access token EXPIRED "
+            f"{abs(days)} day(s) ago. Re-run `python -m linkedin.auth` -- "
+            "posts will fail until you do."
+        )
+    if days <= EXPIRY_WARNING_DAYS:
+        return (
+            f"Access token expires in {days} day(s). "
+            "Re-run `python -m linkedin.auth` to renew it."
+        )
+    return ""
 
 
 class LinkedInError(RuntimeError):

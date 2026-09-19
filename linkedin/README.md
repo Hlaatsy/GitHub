@@ -15,6 +15,23 @@ LinkedIn also has no scheduled-post endpoint -- posts publish the moment you
 call the API. So "scheduling" here is a queue of markdown files plus a job
 that publishes whatever is due. See `content/queue/README.md`.
 
+## Where this fits in TaxSorted
+
+The site's **Social Post Generator** (`#social` in `index.html`) writes
+captions in the browser and hands them to you on the clipboard. This package
+is the other half: it takes caption text and actually publishes it.
+
+The handoff is manual by design. TaxSorted is a static site, so the generator
+runs entirely in the visitor's browser -- it cannot call the LinkedIn API
+itself. An access token in client-side JavaScript would be readable by anyone
+who opened the page, and LinkedIn's API rejects browser-origin calls anyway.
+Publishing therefore happens server-side, from GitHub Actions:
+
+    generator -> caption text -> content/queue/*.md -> Actions -> LinkedIn
+
+So the site stays a static site with no secrets in it, and the token lives
+only in repository secrets.
+
 ## Target page
 
 Posts publish to the **KhutsoGRC** company page:
@@ -89,9 +106,18 @@ CI job would publish to a personal profile rather than the page.
 
 ## Token expiry
 
-Access tokens last about 60 days. When posting starts failing with a 401,
-re-run `python -m linkedin.auth` and update `.env` and the repository secret.
-Refresh tokens are only issued to apps LinkedIn has approved for them.
+Access tokens last about 60 days, so the schedule runs only as long as the
+current token does. `python -m linkedin.auth` prints a
+`LINKEDIN_TOKEN_EXPIRES_AT` line alongside the token -- keep both in `.env`
+(and as repository secrets) and the tooling can warn you before posts start
+failing rather than after.
+
+    python -m linkedin token     # days remaining
+
+`publish` prints the same warning inside the notice window, so it shows up in
+the Actions log too. To renew, re-run `python -m linkedin.auth` and update
+both values. Refresh tokens are only issued to apps LinkedIn has approved
+for them.
 
 ## API versioning
 
