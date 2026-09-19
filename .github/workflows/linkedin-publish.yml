@@ -1,0 +1,53 @@
+name: Publish scheduled LinkedIn posts
+
+on:
+  schedule:
+    # Hourly. LinkedIn has no scheduled-post endpoint, so granularity is
+    # however often this job runs.
+    - cron: "0 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "List what is due without posting"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: linkedin-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run tests
+        run: python -m unittest discover -s tests
+
+      - name: Publish due posts
+        env:
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+          LINKEDIN_AUTHOR_URN: ${{ secrets.LINKEDIN_AUTHOR_URN }}
+        run: |
+          python -m linkedin publish ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      - name: Commit archived posts
+        if: ${{ !inputs.dry_run }}
+        run: |
+          if [ -z "$(git status --porcelain content/)" ]; then
+            echo "Nothing published this run."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add content/
+          git commit -m "Archive published LinkedIn posts"
+          git push
