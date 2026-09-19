@@ -16,7 +16,8 @@ There are global tools that do a version of this. Here is what is different
 about doing it with us:
 
 PRICED FOR THIS MARKET
-From R149 a month, in rands. No setup fee — we build your twin free. No
+From R149 a month, in rands. No setup fee — we build your twin free. Need
+more videos one month? Buy tokens or move up a plan, your choice. No
 exchange rate surprises and no international card fees.
 
 WE DO NOT JUST HAND YOU A LOGIN
