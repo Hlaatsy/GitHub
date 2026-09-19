@@ -92,6 +92,43 @@ def expiry_warning(now: dt.datetime | None = None) -> str:
     return ""
 
 
+def review_date() -> dt.datetime | None:
+    """When the agreed run window closes, if one was configured."""
+    raw = os.environ.get("LINKEDIN_SCHEDULE_ENDS_AT", "").strip()
+    if not raw:
+        return None
+    try:
+        return parse_timestamp(raw)
+    except ValueError:
+        return None
+
+
+def review_due(now: dt.datetime | None = None) -> bool:
+    """True once the run window has closed, so publishing should pause."""
+    ends = review_date()
+    if ends is None:
+        return False
+    return (now or dt.datetime.now(dt.timezone.utc)) >= ends
+
+
+def review_notice(now: dt.datetime | None = None) -> str:
+    """A line about the run window, or "" when there is nothing to say."""
+    ends = review_date()
+    if ends is None:
+        return ""
+
+    now = now or dt.datetime.now(dt.timezone.utc)
+    if now >= ends:
+        return (
+            f"Run window ended {ends:%Y-%m-%d}. Publishing is paused pending review. "
+            "Extend or clear LINKEDIN_SCHEDULE_ENDS_AT to resume."
+        )
+    days = (ends - now).days
+    if days <= EXPIRY_WARNING_DAYS:
+        return f"Run window closes in {days} day(s), on {ends:%Y-%m-%d}."
+    return ""
+
+
 class LinkedInError(RuntimeError):
     """An API call failed. Carries the HTTP status and LinkedIn's response body."""
 

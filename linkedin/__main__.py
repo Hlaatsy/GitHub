@@ -13,7 +13,15 @@ import argparse
 import os
 import sys
 
-from .client import LinkedInClient, LinkedInError, days_until_expiry, expiry_warning, load_dotenv
+from .client import (
+    LinkedInClient,
+    LinkedInError,
+    days_until_expiry,
+    expiry_warning,
+    load_dotenv,
+    review_due,
+    review_notice,
+)
 from .queue import archive, due_posts, load_queue, post_kwargs, resolve_media
 
 
@@ -36,6 +44,10 @@ def cmd_token(_: argparse.Namespace) -> int:
 
     warning = expiry_warning()
     print(warning or f"Access token is healthy: {days} day(s) remaining.")
+
+    notice = review_notice()
+    if notice:
+        print(notice)
     return 1 if days < 0 else 0
 
 
@@ -88,9 +100,15 @@ def cmd_queue(_: argparse.Namespace) -> int:
 
 def cmd_publish(args: argparse.Namespace) -> int:
     # Surfaced every run so an expiring token is noticed before posts start failing.
-    warning = expiry_warning()
-    if warning:
-        print(warning, file=sys.stderr)
+    for notice in (expiry_warning(), review_notice()):
+        if notice:
+            print(notice, file=sys.stderr)
+
+    # A closed window pauses publishing rather than failing the job, so the
+    # schedule goes quiet instead of turning the Actions log red every run.
+    if review_due():
+        print("Publishing paused: the run window has ended.")
+        return 0
 
     pending = due_posts()
     if not pending:

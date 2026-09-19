@@ -104,6 +104,19 @@ the archived files back. Add both `LINKEDIN_ACCESS_TOKEN` and
 under Settings -> Secrets and variables -> Actions. Without the URN secret the
 CI job would publish to a personal profile rather than the page.
 
+## Run window
+
+The schedule is set to run for 60 days, to 2026-11-18 -- roughly one token
+lifetime -- and then pause for review rather than continuing unattended.
+
+    LINKEDIN_SCHEDULE_ENDS_AT=2026-11-18T00:00:00Z
+
+Past that date `publish` prints a notice and exits cleanly without posting,
+so the Actions log goes quiet instead of red. `python -m linkedin token`
+shows how much of the window is left. To carry on, move the date forward or
+delete the line; in CI it is a repository *variable*, not a secret, so it can
+be edited without re-entering the token.
+
 ## Token expiry
 
 Access tokens last about 60 days, so the schedule runs only as long as the

@@ -38,6 +38,7 @@ jobs:
       - name: Report token lifetime
         env:
           LINKEDIN_TOKEN_EXPIRES_AT: ${{ secrets.LINKEDIN_TOKEN_EXPIRES_AT }}
+          LINKEDIN_SCHEDULE_ENDS_AT: ${{ vars.LINKEDIN_SCHEDULE_ENDS_AT }}
         run: python -m linkedin token || true
 
       - name: Publish due posts
@@ -45,6 +46,7 @@ jobs:
           LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
           LINKEDIN_AUTHOR_URN: ${{ secrets.LINKEDIN_AUTHOR_URN }}
           LINKEDIN_TOKEN_EXPIRES_AT: ${{ secrets.LINKEDIN_TOKEN_EXPIRES_AT }}
+          LINKEDIN_SCHEDULE_ENDS_AT: ${{ vars.LINKEDIN_SCHEDULE_ENDS_AT }}
         run: |
           python -m linkedin publish ${{ inputs.dry_run && '--dry-run' || '' }}
 

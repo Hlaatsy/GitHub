@@ -18,6 +18,8 @@ from linkedin.client import (  # noqa: E402
     expiry_warning,
     load_dotenv,
     normalize_author_urn,
+    review_due,
+    review_notice,
 )
 
 ORG_URN = "urn:li:organization:145207663"
@@ -146,3 +148,39 @@ class TokenExpiryTests(unittest.TestCase):
     def test_unparseable_value_is_treated_as_unknown(self):
         os.environ["LINKEDIN_TOKEN_EXPIRES_AT"] = "whenever"
         self.assertIsNone(days_until_expiry())
+
+
+class RunWindowTests(unittest.TestCase):
+    """The 60-day window must close on its own, without failing the job."""
+
+    def setUp(self):
+        self._saved = dict(os.environ)
+        self.addCleanup(lambda: (os.environ.clear(), os.environ.update(self._saved)))
+
+    def _set_end(self, days: float) -> None:
+        when = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=days)
+        os.environ["LINKEDIN_SCHEDULE_ENDS_AT"] = when.isoformat()
+
+    def test_no_window_configured_never_pauses(self):
+        os.environ.pop("LINKEDIN_SCHEDULE_ENDS_AT", None)
+        self.assertFalse(review_due())
+        self.assertEqual(review_notice(), "")
+
+    def test_open_window_is_silent(self):
+        self._set_end(45)
+        self.assertFalse(review_due())
+        self.assertEqual(review_notice(), "")
+
+    def test_closing_window_gives_notice(self):
+        self._set_end(3.5)
+        self.assertFalse(review_due())
+        self.assertIn("closes in 3 day(s)", review_notice())
+
+    def test_closed_window_pauses(self):
+        self._set_end(-1)
+        self.assertTrue(review_due())
+        self.assertIn("paused", review_notice())
+
+    def test_unparseable_value_does_not_pause_publishing(self):
+        os.environ["LINKEDIN_SCHEDULE_ENDS_AT"] = "soon"
+        self.assertFalse(review_due())
