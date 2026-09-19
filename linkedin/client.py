@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -80,6 +81,36 @@ def _request(
         raise LinkedInError(exc.code, exc.read().decode("utf-8", "replace"), url) from exc
 
 
+ORG_URL_RE = re.compile(r"linkedin\.com/company/(\d+)")
+
+
+def normalize_author_urn(value: str) -> str:
+    """Accept a URN, a bare organization ID, or a company page URL.
+
+    The admin dashboard URL carries the organization ID, so pasting it
+    straight from the browser is the common case:
+    ``linkedin.com/company/145207663/admin/`` -> ``urn:li:organization:145207663``
+    """
+    value = value.strip()
+    if not value:
+        return ""
+    if value.startswith("urn:li:"):
+        return value
+
+    match = ORG_URL_RE.search(value)
+    if match:
+        return f"urn:li:organization:{match.group(1)}"
+    if value.isdigit():
+        return f"urn:li:organization:{value}"
+
+    raise LinkedInError(
+        0,
+        f"cannot read an author URN from {value!r}; expected urn:li:organization:<id>, "
+        "a numeric page ID, or a linkedin.com/company/<id> URL",
+        "",
+    )
+
+
 class LinkedInClient:
     """Publishes posts as a member or as an organization page.
 
@@ -92,7 +123,7 @@ class LinkedInClient:
         self.token = token or os.environ.get("LINKEDIN_ACCESS_TOKEN") or ""
         if not self.token:
             raise LinkedInError(0, "LINKEDIN_ACCESS_TOKEN is not set", "")
-        self._author = author or os.environ.get("LINKEDIN_AUTHOR_URN") or ""
+        self._author = normalize_author_urn(author or os.environ.get("LINKEDIN_AUTHOR_URN") or "")
 
     @property
     def author(self) -> str:
@@ -175,6 +206,38 @@ class LinkedInClient:
             content_type=content_type,
         )
         return image_urn
+
+
+    def administered_organizations(self) -> list[tuple[str, str]]:
+        """Pages this token may act for, as ``(urn, name)``.
+
+        Needs ``rw_organization_admin``, so it only works once LinkedIn has
+        approved the app for the Community Management API.
+        """
+        url = (
+            f"{API_BASE}/rest/organizationAcls"
+            "?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED"
+        )
+        _, _, body = _request("GET", url, token=self.token)
+
+        organizations: list[tuple[str, str]] = []
+        for element in json.loads(body).get("elements", []):
+            urn = element.get("organization", "")
+            if urn:
+                organizations.append((urn, self.organization_name(urn)))
+        return organizations
+
+    def organization_name(self, urn: str) -> str:
+        """Display name for an organization URN, or "" if it cannot be read."""
+        org_id = urn.rsplit(":", 1)[-1]
+        try:
+            _, _, body = _request(
+                "GET", f"{API_BASE}/rest/organizations/{org_id}", token=self.token
+            )
+        except LinkedInError:
+            return ""
+        data = json.loads(body)
+        return data.get("localizedName") or data.get("vanityName") or ""
 
 
 def exchange_code_for_token(

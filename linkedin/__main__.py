@@ -1,6 +1,7 @@
 """Command line entry point.
 
     python -m linkedin whoami
+    python -m linkedin pages
     python -m linkedin post "Text of the post" [--image path] [--visibility PUBLIC]
     python -m linkedin queue
     python -m linkedin publish [--dry-run]
@@ -35,8 +36,27 @@ def load_dotenv(path: Path = REPO_ROOT / ".env") -> None:
 def cmd_whoami(_: argparse.Namespace) -> int:
     client = LinkedInClient()
     info = client.me()
-    print(f"{info.get('name', '(no name)')} <{info.get('email', 'no email scope')}>")
-    print(f"author URN: urn:li:person:{info['sub']}")
+    print(f"signed in as: {info.get('name', '(no name)')}")
+    print(f"posts publish as: {client.author}")
+    return 0
+
+
+def cmd_pages(_: argparse.Namespace) -> int:
+    client = LinkedInClient()
+    organizations = client.administered_organizations()
+    if not organizations:
+        print(
+            "No administered pages returned. Either the token lacks "
+            "rw_organization_admin, or the app is not yet approved for the "
+            "Community Management API."
+        )
+        return 1
+
+    configured = os.environ.get("LINKEDIN_AUTHOR_URN", "")
+    for urn, name in organizations:
+        marker = "*" if configured and urn.endswith(configured.rsplit(":", 1)[-1]) else " "
+        print(f"{marker} {urn}  {name}")
+    print("\n* = the page LINKEDIN_AUTHOR_URN currently points at")
     return 0
 
 
@@ -105,6 +125,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("whoami", help="show the account the token belongs to").set_defaults(
         func=cmd_whoami
+    )
+
+    sub.add_parser("pages", help="list company pages this token can post for").set_defaults(
+        func=cmd_pages
     )
 
     post = sub.add_parser("post", help="publish a post immediately")
