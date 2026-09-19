@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="AMAWELE AI Clone app icon: two overlapping profile faces forming one">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#EFA873"/>
+      <stop offset="0.45" stop-color="#C96F45"/>
+      <stop offset="1" stop-color="#8C4025"/>
+    </linearGradient>
+
+    <radialGradient id="glow" cx="0.5" cy="0.38" r="0.66">
+      <stop offset="0" stop-color="#F9E7D1" stop-opacity="0.55"/>
+      <stop offset="0.55" stop-color="#F0C9A4" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#8C4025" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="vignette" cx="0.5" cy="0.5" r="0.74">
+      <stop offset="0.58" stop-color="#3A1608" stop-opacity="0"/>
+      <stop offset="1" stop-color="#3A1608" stop-opacity="0.34"/>
+    </radialGradient>
+
+    <radialGradient id="contact" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#4A1B08" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#4A1B08" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="faceDark" x1="0" y1="0" x2="0.45" y2="1">
+      <stop offset="0" stop-color="#2C2219"/>
+      <stop offset="1" stop-color="#12100D"/>
+    </linearGradient>
+
+    <linearGradient id="faceLight" x1="1" y1="0" x2="0.25" y2="1">
+      <stop offset="0" stop-color="#FDF4E8"/>
+      <stop offset="1" stop-color="#E6CFB2"/>
+    </linearGradient>
+
+    <linearGradient id="faceCore" x1="0" y1="140" x2="0" y2="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#EE9256"/>
+      <stop offset="0.50" stop-color="#D5753F"/>
+      <stop offset="0.76" stop-color="#C25E38" stop-opacity="1"/>
+      <stop offset="0.93" stop-color="#C25E38" stop-opacity="0"/>
+      <stop offset="1" stop-color="#C25E38" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Subtle bogolan / mudcloth motif -->
+    <pattern id="mudcloth" width="160" height="160" patternUnits="userSpaceOnUse">
+      <g fill="none" stroke="#F8EBD9" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.55">
+        <path d="M0 26 L32 6 L64 26 L96 6 L128 26"/>
+        <path d="M0 44 L32 24 L64 44 L96 24 L128 44"/>
+      </g>
+      <g fill="#F8EBD9" opacity="0.5">
+        <circle cx="16" cy="76" r="4"/>
+        <circle cx="48" cy="76" r="4"/>
+        <circle cx="80" cy="76" r="4"/>
+        <circle cx="112" cy="76" r="4"/>
+        <path d="M32 98 L48 124 L16 124 Z"/>
+        <path d="M96 98 L112 124 L80 124 Z"/>
+      </g>
+    </pattern>
+
+    <!-- Profile bust, facing right, local box ~468 x 560 -->
+    <path id="profile" d="M112 0
+      C176 -4 231 44 239 98
+      C243 120 229 132 232 146
+      C235 168 258 176 265 198
+      C269 210 252 213 236 215
+      C227 217 225 222 228 230
+      C234 237 238 240 235 247
+      C231 254 221 253 220 262
+      C218 272 233 278 232 292
+      C231 313 222 329 210 336
+      C211 346 212 352 213 360
+      C250 378 306 400 360 434
+      C384 476 394 516 400 560
+      L-68 560
+      C-24 452 38 398 40 336
+      C34 314 14 258 14 196
+      C14 110 48 4 112 0 Z"/>
+
+    <clipPath id="clipRight">
+      <use href="#profile" transform="translate(1024,0) scale(-1,1) translate(225,240) scale(1.4)"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#mudcloth)" opacity="0.11"/>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+
+  <!-- Soft contact shadow beneath the heads -->
+  <ellipse cx="512" cy="450" rx="360" ry="300" fill="url(#contact)"/>
+
+  <!-- Twin profiles: dark face, light face, shared core -->
+  <use href="#profile" transform="translate(225,240) scale(1.4)" fill="url(#faceDark)"/>
+  <use href="#profile" transform="translate(1024,0) scale(-1,1) translate(225,240) scale(1.4)" fill="url(#faceLight)"/>
+  <g clip-path="url(#clipRight)">
+    <use href="#profile" transform="translate(225,240) scale(1.4)" fill="url(#faceCore)"/>
+  </g>
+
+  <rect width="1024" height="1024" fill="url(#vignette)"/>
+</svg>
