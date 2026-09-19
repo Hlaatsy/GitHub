@@ -6,30 +6,37 @@ visibility: PUBLIC
 ---
 One photo. One talking video.
 
-Avatar 4 is our most dynamic photo-to-video model: take a single face photo
-and turn it into a natural, talking identical video.
+Avatar 4 is our most dynamic photo-to-video model: a single face photo
+becomes a natural, talking identical video.
 
-That is the shortcut for anyone who has been putting this off because they did
-not want to sit in front of a camera.
-
-Three ways into IDENTICAL, depending on what you have on hand:
+Three ways in, depending on what you have:
 
 CREATE YOUR DIGITAL TWIN
-Record a short video of yourself and get a personalised avatar that mirrors
-your look and your expressions.
+Record a short video and get an avatar that mirrors your look and your
+expressions.
 
 BUILD FROM PHOTOS
-Upload photos and have a lifelike twin in minutes.
+Upload photos, have a lifelike twin in minutes.
 
 DESIGN WITH AI
-Describe the style you want in text and let AI create the twin — no studio,
-no shoot.
+Describe the style you want in text. No studio, no shoot.
 
-Then bring it to life with your own recorded voice or an AI voice via
-text-to-speech. Or skip straight to text-to-video: paste a script, get a
-realistic avatar speaking it.
+Then give it your voice — your own recording, or an AI voice via
+text-to-speech. Or skip straight to text-to-video: paste a script, get your
+twin speaking it. Not comfortable using your own face? There are thousands of
+pre-made avatars.
 
-Prefer not to use your own likeness at all? There are thousands of pre-made
-avatars in the library to choose from.
+One thing worth knowing before you try it yourself: the difference between a
+twin that looks like you and a twin that looks *almost* like you comes down
+to the source recording. Lighting, framing, how you sit, how long the sample
+runs. Most people's first attempt lands in the uncanny valley and they
+conclude the technology is not ready.
+
+It is ready. The recording was the problem.
+
+We build twins for clients for exactly this reason — the setup done properly
+once, with a few iterations until it genuinely looks like you, and a consent
+record on file. Ask us about it, or send a photo and see a free 60-second
+demo first.
 
 #AIAvatar #PhotoToVideo #ContentCreation #VideoProduction
