@@ -1,7 +1,12 @@
 # IDENTICAL
 
-AI clone video maker. Own brand, own LinkedIn page, own app — separate from
-KhutsoGRC and StoreBurst, which are separate projects with separate apps.
+AI clone video maker for Sub-Saharan Africa. Own brand, own LinkedIn page,
+own app — separate from KhutsoGRC and StoreBurst, which are separate projects
+with separate apps.
+
+South Africa is the first market, not the only one. Nigeria, Kenya and Ghana
+are next, and the pricing and product decisions are made to extend rather
+than be redone — see `docs/monetisation.md` and `docs/product.md`.
 
 This directory is the whole project. Nothing here is shared with the other
 brands except the publisher itself (`linkedin/`, at the repository root).
@@ -11,7 +16,7 @@ brands except the publisher itself (`linkedin/`, at the repository root).
       queue/          posts waiting to publish
       published/      posts after they have gone out, with their URNs
       assets/         artwork, and the prompts that generated it
-      docs/           positioning and revenue model
+      docs/           product requirements, positioning, revenue model
 
 ## Status
 
@@ -51,7 +56,10 @@ Setup is in `linkedin/README.md` under "Three separate apps".
 1. `queue/_campaign.md` — what is scheduled, what is blocking, what to do
    before the launch date.
 2. `docs/positioning.md` — why the copy says what it says.
-3. `docs/monetisation.md` — the revenue model behind the offer posts.
+3. `docs/monetisation.md` — tiers, credits, payment rails, revenue model.
+4. `docs/product.md` — what the product must do to work across African
+   markets, and which of those depend on the underlying platform rather than
+   on us.
 
 ## If this outgrows the repo
 
