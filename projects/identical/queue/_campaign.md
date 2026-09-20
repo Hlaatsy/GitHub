@@ -111,6 +111,33 @@ campaign by two or three weeks and spend that time building the follower
 base. The posts do not expire. A launch that nobody sees cannot be run
 again.
 
+## Open: is this launch South African or pan-African?
+
+The six scheduled posts are written for a South African audience — rands,
+POPIA, "twelve official languages", #SouthAfrica. That is right for a first
+market and wrong as a permanent frame, now that Nigeria, Kenya and Ghana are
+in scope.
+
+Nothing needs rewriting yet. A launch aimed at one market you can actually
+serve beats a regional launch you cannot, and the SA framing is an asset
+while the page has no followers anywhere. But decide which of these it is:
+
+- **SA-first, region later.** Keep this campaign as written. Plan a second
+  campaign per market, in that market's currency and idiom, once the payment
+  rails and language testing for it exist. Regional claims stay out of the
+  copy until then.
+- **Pan-African from day one.** Posts 1 and 5 need rewriting — the rand
+  pricing becomes "priced in your own currency", the POPIA post widens to
+  data protection across the region (Nigeria's NDPA, Kenya's DPA), and the
+  language post leads on code-mixing rather than SA's twelve languages. Only
+  do this if you can actually take a Kenyan customer's M-Pesa payment on the
+  day the post runs.
+
+Recommended: SA-first. The product work in `../docs/product.md` — WhatsApp,
+payment rails, code-mixing tests — is what makes the other markets real, and
+none of it is done. Posting to a market you cannot serve converts nobody and
+spends credibility you have not built yet.
+
 ## Claims to make true before publishing
 
 The copy asserts things about how you operate. Each is defensible, but only
@@ -130,7 +157,13 @@ if it is actually the case on the day the post goes out:
 - **"Checked by people who speak the language."** Post 5. Only true if you
   have someone to check isiZulu, isiXhosa, Sesotho and Afrikaans output
   before it ships. If not, cut that line — it is the one claim in the set
-  that a single bad video disproves publicly.
+  that a single bad video disproves publicly. `../docs/product.md` section 1
+  has the test set this depends on, and it is not built yet.
+- **Nothing from the roadmap.** The WhatsApp pipeline, regional avatar
+  presets, bandwidth-optimised exports and subtitles are all planned and none
+  are live. They are the most tempting things in the whole product to post
+  about and the easiest to be caught on. Keep them out until they work on a
+  real device.
 - **"We help you put consent forms and retention terms in place."** Post 6.
   Have the templates before the post runs, because this one will generate
   direct enquiries. The post no longer claims IDENTICAL *is* a governance

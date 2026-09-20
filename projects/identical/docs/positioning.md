@@ -18,7 +18,7 @@ advantaged and a global platform is structurally weak.
 
 ## The five pillars
 
-### 1. Priced for this market, in rands, with no setup fee
+### 1. Priced for this market, in its own money, with no setup fee
 
 Global platforms start around USD 40-50/mo — roughly R900 before the bank
 takes its cut — and several charge again to build the avatar. They bill in
@@ -29,11 +29,17 @@ IDENTICAL starts at R149/mo with the twin built free. That is not a discount
 on their price, it is a different price band, and it is the pillar that
 decides whether the other four ever get heard.
 
+Across the region the same pillar is really two things: a local price, and a
+way to pay it. Card-only checkout excludes most buyers in Kenya and Ghana
+outright, so M-Pesa and mobile money are not a convenience feature — they are
+the difference between a market and no market. A competitor cannot match this
+without local payment infrastructure and a local entity.
+
 The free twin build is the sharpest edge here. It is the step where DIY
 buyers give up, every competitor either charges for it or leaves you to it,
 and giving it away costs you once while it removes the reason to say no.
 
-Public framing: from R149 a month. No setup fee. No forex surprises.
+Public framing: from R149 a month. No setup fee. Pay the way you already pay.
 
 The trade this makes is in `docs/monetisation.md` — setup becomes an
 acquisition cost carried before any revenue arrives, so templated onboarding
@@ -50,12 +56,20 @@ the software (a login) is both the differentiator and the margin. See
 
 Public framing: we do not hand you a login, we hand you finished videos.
 
-### 3. South African languages, spoken properly
+### 3. African languages, spoken the way people actually speak them
 
 "100+ languages" is a number every platform quotes. What it hides is quality
-per language. isiZulu, isiXhosa, Sesotho, Setswana, Afrikaans and South
-African English are where a local operator can hear what a global QA process
-cannot: whether it actually sounds right to the person receiving it.
+per language — and, more to the point here, quality on *mixed* speech.
+
+Almost nobody in these markets speaks one language per sentence. Pidgin in
+Nigeria and Ghana, Sheng in Kenya, Tsotsitaal and English-isiZulu switching
+in South Africa: the real test is a sentence that moves between languages
+mid-way, which is where a foreign engine pauses or mispronounces and the
+illusion collapses. A local operator can hear that. A global QA process
+cannot.
+
+See `product.md` section 1 — this pillar is only as true as the test set
+behind it, and it is the claim a single bad clip disproves in public.
 
 Public framing: content your market hears in their own language, checked by
 people who speak it.
@@ -99,14 +113,26 @@ Public framing: AI video from people who understand consent, likeness rights
 and POPIA — because the compliance question arrives right after the
 creative one.
 
-### 5. Mobile-first, for people without a production day
+### 5. WhatsApp-first, for people without a production day
 
-Shortcuts and Video Agent on iOS 2.0 mean a video gets made between meetings,
-on a phone. The enterprise platforms are desktop studio tools sold to
-marketing teams. The buyer here does not have a marketing team — they are
-it.
+Shortcuts and Video Agent on iOS mean a video gets made between meetings, on
+a phone. The enterprise platforms are desktop studio tools sold to marketing
+teams. The buyer here does not have a marketing team — they are it.
 
-Public framing: made on your phone, between meetings.
+The sharper version of this pillar is WhatsApp. Send a voice note, get a
+finished video back in the thread: no app to install, no interface to learn,
+no storage to free up, no data spent on a download that fails. In most of
+these markets WhatsApp is where business is already conducted, and a product
+that lives there reaches people no web onboarding will.
+
+No global platform is going to build this, because their buyer does not work
+this way. That makes it the most defensible item on the roadmap as well as
+the most useful.
+
+Public framing: send a voice note, get a video back.
+
+Not yet true — see `product.md` section 3. Do not put it in a post until it
+works.
 
 ## What we do not claim
 
@@ -115,7 +141,13 @@ Public framing: made on your phone, between meetings.
   on a third-party platform, naming that platform as an inferior competitor
   is both a contractual risk and an invitation to look into the plumbing.
   Compare against the category ("generic global avatar tools"), not a brand.
-- Not language quality we have not personally listened to.
+- Not language quality we have not personally listened to, and not
+  code-mixing quality until the test set in `product.md` says so. This claim
+  fails publicly, instantly, in one clip.
+- Not the WhatsApp pipeline, regional avatar presets or subtitle quality
+  until each works on a real device in the market it is claimed for.
+  `product.md` says which of these depend on the underlying platform rather
+  than on us — those are not ours to promise at all yet.
 - Not compliance guarantees. "We understand the questions and help you answer
   them" is defensible. "POPIA compliant" as a blanket claim about someone
   else's deployment is not.
