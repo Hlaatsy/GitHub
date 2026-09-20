@@ -85,8 +85,8 @@ the answer, and it has to work without leaving the thread.
 Target under 10-15MB per clip so a video sends instantly on mobile data and
 does not cost the recipient a meaningful share of a bundle to receive.
 
-**One correction worth making before this is specified as HEVC/WebM.** The
-brief suggests H.265 or WebM presets. In practice:
+**Decided: H.264, not HEVC or WebM.** The original brief suggested H.265 or
+WebM presets. In practice:
 
 - **WhatsApp re-encodes video on send anyway**, so an exotic codec buys
   nothing and risks a file the app refuses or mangles.
@@ -94,10 +94,15 @@ brief suggests H.265 or WebM presets. In practice:
   web codec, not a sharing codec.
 - **H.265 support varies** by device and carries licensing considerations.
 
-**Recommend H.264 (main profile) + AAC, 720p, capped bitrate around
+**The sharing default is H.264 (main profile) + AAC, 720p, capped around
 1.5-2 Mbps**, which lands near 10-15MB per minute and plays everywhere with
-no exceptions. Offer 1080p as a paid-tier export for users posting to
-desktop-viewed platforms, and keep the sharing default at 720p.
+no exceptions. 1080p is a paid-tier export for users posting to
+desktop-viewed platforms; the default stays 720p.
+
+Note how this interacts with pricing: a 2-minute cap at this bitrate is
+roughly 20-30MB at source, which needs to come down to under 16MB to pass
+through WhatsApp. Budget for a second, smaller encode of every video
+specifically for sharing, rather than assuming one file serves both.
 
 The goal is a file that sends first time on a weak connection. Universality
 beats compression efficiency at these file sizes.
@@ -106,9 +111,9 @@ beats compression efficiency at these file sizes.
 
 Auto-synced captions, because social video is watched muted.
 
-**Burn them in.** TikTok, Instagram and WhatsApp do not read a sidecar `.srt`
-file, so a separate subtitle track is invisible exactly where it is needed.
-Render captions into the frame by default, and offer the `.srt` as an extra
+**Decided: burned in by default.** TikTok, Instagram and WhatsApp do not read
+a sidecar `.srt` file, so a separate subtitle track is invisible exactly where
+it is needed. Captions render into the frame; the `.srt` is an extra download
 for platforms that do use it, such as YouTube.
 
 Generate in the spoken language and in English or French, since a mixed
@@ -118,14 +123,21 @@ depends on the same engine as section 1, so the two succeed or fail together
 
 ## Build order
 
+South Africa is the first and only market until this list is substantially
+done — that is a decision, recorded in `../queue/_campaign.md`. The items
+below are what turn the other markets from intention into something you can
+invoice, so treat the sequence as the market-entry plan, not a wishlist.
+
 Sequenced by what unlocks revenue rather than what is most interesting:
 
 1. **Bandwidth-optimised rendering.** Cheapest, unblocks everything that
    involves sharing, and is entirely within our control.
 2. **Burned-in subtitles.** Small, high perceived value, no dependency.
-3. **WhatsApp pipeline.** The distribution unlock. Start it early because the
-   Business Platform has an approval process, like every other approval on
-   this project.
+3. **WhatsApp pipeline, with mobile money inside it.** The distribution
+   unlock, and the thing that makes Kenya and Ghana reachable at all. Start
+   it early: the Business Platform has an approval process, like every other
+   approval on this project, and the payment integration behind it is its
+   own piece of work.
 4. **Regional avatar presets.** Commissioned work, so it runs in parallel
    rather than blocking.
 5. **Code-mixing quality.** Continuous, and gated on what the platform

@@ -6,12 +6,16 @@ IDENTICAL is its own project (`projects/identical/`) with its own queue,
 archive, assets and docs. `project.conf` sets `profile: identical`, so every
 post here publishes through IDENTICAL's own app without naming it per file.
 
-Six live posts for the **StoreBurst** page, plus four offer drafts held back
-until the pricing is confirmed. IDENTICAL launches under StoreBurst, not
-KhutsoGRC, so this project publishes through IDENTICAL's own LinkedIn app and page.
-KhutsoGRC and StoreBurst are separate projects with separate apps and
-tokens; their pages are untouched by this campaign. The strategy behind the copy is in
-`../docs/positioning.md`; the revenue model is in `../docs/monetisation.md`.
+Six live posts for the **IDENTICAL** page, plus four offer drafts held back
+until the pricing is confirmed.
+
+IDENTICAL publishes through its own LinkedIn app and its own page. KhutsoGRC
+and StoreBurst are separate projects with separate apps and separate tokens;
+their pages are untouched by this campaign.
+
+The strategy behind the copy is in `../docs/positioning.md`, the revenue
+model in `../docs/monetisation.md`, and what the product must do to work in
+these markets in `../docs/product.md`.
 
 ## Scheduled
 

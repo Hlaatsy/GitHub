@@ -44,38 +44,53 @@ entry tier plus credit packs, paid through the rails people actually use.
 
 ## Self-serve tiers — South Africa
 
-| Tier | Price | Videos/mo | Per video | Custom AI voice |
-| --- | --- | --- | --- | --- |
-| **Free** | R0 | 2 | — | No — standard voices only |
-| **Starter** | **R149/mo** | 7 | R21.29 | Yes |
-| **Pro** | **R299/mo** | 16 | R18.69 | Yes, 3 twins, translation |
-| **Premium** | **R449/mo** | 28 | R16.04 | Yes, 10 twins, team seats |
+Priced in videos, each up to **2 minutes** long.
+
+| Tier | Price | Videos/mo | Up to | Per video | Per minute | Custom AI voice |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Free** | R0 | 2 | 4 min | — | — | No — standard voices only |
+| **Starter** | **R149/mo** | 7 | 14 min | R21.29 | R10.64 | Yes |
+| **Pro** | **R299/mo** | 16 | 32 min | R18.69 | R9.34 | Yes, 3 twins, translation |
+| **Premium** | **R449/mo** | 28 | 56 min | R16.04 | R8.02 | Yes, 10 twins, team seats |
 
 Cost per video falls at every step (R21 → R19 → R16), each paid upgrade is
 R150, and the marginal cost of the extra videos falls too: R16.67 each going
 to Pro, R12.50 going to Premium. Nothing is unlimited.
 
-### Two open questions on this table
+### Decided: videos, capped at two minutes
 
-**1. Videos or minutes?** This table counts videos. Counting *minutes* is
-fairer — a 20-second clip and a three-minute explainer cost very different
-amounts to render, and charging the same for both means short-form users
-subsidise long-form ones. It also tracks platform cost directly.
+Minute-billing is fairer — a 20-second clip and a three-minute explainer cost
+very different amounts to render, and a flat per-video price means short-form
+users subsidise long-form ones. But "20 minutes" makes a customer do
+arithmetic before they know what they are buying, and "7 videos" does not.
 
-The cost is comprehension. "7 videos" is a number a customer can picture;
-"20 minutes" makes them do arithmetic before they know what they are buying.
+Capping the length gets both. The customer reads a number they can picture;
+the cap protects the margin that minute-billing would have protected. Two
+minutes is well above what social video actually runs to, so in practice it
+constrains almost nobody while removing the one user who would otherwise
+render forty-minute webinars on the entry tier.
 
-Recommended: **price in videos, cap the length.** Seven videos of up to two
-minutes each. The customer reads a number they understand, and the cap
-protects the margin that minute-billing would protect. Revisit if long-form
-turns out to be common.
+**This also settles the allowance question**, which turned out to be mostly an
+argument about units rather than generosity. Converted to minutes, the two
+proposals nearly agree:
 
-**2. Is the allowance right?** Seven videos for R149 is one view; a suggested
-alternative was 15-20 minutes for roughly the same money, which is two to
-three times more generous. Both are defensible and the difference is not a
-matter of taste — it is whether your per-video platform cost leaves margin at
-R21.29. Work that number out and let it decide. The prices are the promise to
-the market; the allowances are the lever.
+| | Entry | Top self-serve |
+| --- | --- | --- |
+| This model, 2-min cap | R149, up to 14 min (R10.64/min) | R449, up to 56 min (R8.02/min) |
+| Suggested table | ~R150, 15-20 min (R7.50-10.00/min) | ~R500, 60 min (R8.33/min) |
+
+Premium at 56 minutes for R449 is within a rounding error of a Growth tier at
+60 minutes for R500. The entry tier here is slightly tighter, which is the
+right way to be wrong while the per-video cost is still unverified — it is
+easier to raise an allowance than to cut one.
+
+A 2.5-minute cap would put the entry tier at 18 minutes (R8.51/min), dead
+centre of the suggested band. Hold that as the lever to pull if the entry
+tier proves too tight in practice, rather than dropping the price.
+
+**Still yours to close:** none of this is safe until the real per-video
+platform cost is known. If R21.29 a video does not leave margin, cut the
+allowance or the cap — not the R149, which is the promise to the market.
 
 ### The free tier earns its place with the voice, not the video count
 
@@ -109,9 +124,10 @@ every paying customer, which is who it was aimed at.
 ### Decide before launch
 
 - **Two videos per month, or two ever?** Per month is an ongoing cost with no
-  ceiling on how long someone sits there. Recommend per month, with the voice
-  restriction doing the conversion work — but know what it costs at a
-  thousand users.
+  ceiling on how long someone sits there. Decided: **per month**, with the
+  voice restriction doing the conversion work — but model what it costs at a
+  thousand free users before opening signups, and keep the 2-minute cap on
+  the free tier too.
 - **Watermark free videos.** Every free video becomes distribution, and it is
   a second upgrade trigger that costs nothing to implement.
 - **Cap free accounts per person.** Email-only signup lets one person farm
@@ -363,8 +379,8 @@ not carry the early forecast.
    converts because they see their own face talking.
 3. **R149/mo, twin built free.** The first transaction, and now a small
    enough yes to make on the spot.
-4. **The cap.** Every Starter customer meets it, by design. Tokens for the
-   occasional spike, Pro or Premium for sustained volume — and the token
+4. **The cap.** Every Starter customer meets it, by design. Credits for the
+   occasional spike, Pro or Premium for sustained volume — and the credit
    price is set so the arithmetic recommends the upgrade itself.
 5. Done-for-you when they stop writing scripts. This is the margin.
 6. White-label or training — leverage, once 5 is running.
@@ -387,10 +403,10 @@ reach.
   This is the number to check first, before the post goes out.
 - **Cap everything.** Videos per tier, revisions per retainer. No
   "unlimited".
-- **Check the token-to-tier ratio.** A token must cost more per video than
+- **Check the credit-to-tier ratio.** A credit must cost more per video than
   the next tier up, or the tiers stop meaning anything. Re-check whenever any
   price moves.
-- **Token terms on the purchase screen**: expiry, roll-over, consumption
+- **Credit terms on the purchase screen**: expiry, roll-over, consumption
   order, refund on cancellation. Not buried in the terms page.
 - **Payment rails before prices.** See the payment rails section. In Kenya
   and Ghana this decides whether the product can be bought at all, not merely
