@@ -73,6 +73,19 @@ def read_token(token: str) -> dict:
 # --------------------------------------------------------------------------
 # sign-in links
 
+#: Sign-in and invitation links carry a short random selector rather than a
+#: self-contained token. A signed payload runs to 130-odd characters, which
+#: makes a 170-character URL that email encoding wraps across three lines --
+#: recoverable by a compliant client, fragile everywhere else, and impossible
+#: to read out to somebody over the phone. A 22-character selector is
+#: unguessable, revocable, and fits on one line.
+SELECTOR_BYTES = 16
+
+
+def new_selector() -> str:
+    return secrets.token_urlsafe(SELECTOR_BYTES)
+
+
 def start_sign_in(conn: sqlite3.Connection, email: str, name: str = "") -> str:
     """Issue a sign-in link, creating the user if they are new.
 
@@ -95,35 +108,34 @@ def start_sign_in(conn: sqlite3.Connection, email: str, name: str = "") -> str:
     else:
         user_id = row["id"]
 
-    token = make_token({"sub": user_id, "kind": "signin"}, LINK_TTL_SECONDS)
+    selector = new_selector()
     conn.execute(
-        "INSERT INTO sign_in_tokens (user_id, jti, created_at) VALUES (?, ?, ?)",
-        (user_id, read_token(token)["jti"], now()),
+        "INSERT INTO sign_in_tokens (user_id, jti, expires_at, created_at)"
+        " VALUES (?, ?, ?, ?)",
+        (user_id, selector, int(time.time()) + LINK_TTL_SECONDS, now()),
     )
     conn.commit()
-    return token
+    return selector
 
 
-def complete_sign_in(conn: sqlite3.Connection, token: str) -> int:
+def complete_sign_in(conn: sqlite3.Connection, selector: str) -> int:
     """Redeem a sign-in link once. Returns the user id."""
-    payload = read_token(token)
-    if payload.get("kind") != "signin":
-        raise AuthError("wrong token kind")
-
     row = conn.execute(
-        "SELECT * FROM sign_in_tokens WHERE jti = ?", (payload["jti"],)
+        "SELECT * FROM sign_in_tokens WHERE jti = ?", (selector.strip(),)
     ).fetchone()
     if row is None:
-        raise AuthError("unknown token")
+        raise AuthError("unknown or already-used link")
     if row["used_at"]:
         # Mail scanners and link previews follow links, so a second use is not
         # necessarily an attack -- but it is never a sign-in.
-        raise AuthError("already used")
+        raise AuthError("this link has already been used")
+    if row["expires_at"] < time.time():
+        raise AuthError("this link has expired -- ask for another")
 
     conn.execute("UPDATE sign_in_tokens SET used_at = ? WHERE id = ?", (now(), row["id"]))
-    conn.execute("UPDATE users SET email_verified = 1 WHERE id = ?", (payload["sub"],))
+    conn.execute("UPDATE users SET email_verified = 1 WHERE id = ?", (row["user_id"],))
     conn.commit()
-    return int(payload["sub"])
+    return int(row["user_id"])
 
 
 # --------------------------------------------------------------------------

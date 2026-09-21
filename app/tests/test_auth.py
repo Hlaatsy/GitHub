@@ -72,15 +72,25 @@ class SignInTests(unittest.TestCase):
         with self.assertRaises(auth.AuthError):
             auth.complete_sign_in(self.conn, token)
 
-    def test_a_token_we_never_issued_is_rejected(self):
-        forged = auth.make_token({"sub": 1, "kind": "signin"}, 60)
+    def test_a_selector_we_never_issued_is_rejected(self):
         with self.assertRaises(auth.AuthError):
-            auth.complete_sign_in(self.conn, forged)
+            auth.complete_sign_in(self.conn, auth.new_selector())
 
-    def test_wrong_kind_is_rejected(self):
-        token = auth.make_token({"sub": 1, "kind": "something-else"}, 60)
+    def test_an_empty_selector_is_rejected(self):
+        with self.assertRaises(auth.AuthError):
+            auth.complete_sign_in(self.conn, "")
+
+    def test_an_expired_link_is_rejected(self):
+        token = auth.start_sign_in(self.conn, "a@b.c")
+        self.conn.execute("UPDATE sign_in_tokens SET expires_at = 1 WHERE jti = ?", (token,))
+        self.conn.commit()
         with self.assertRaises(auth.AuthError):
             auth.complete_sign_in(self.conn, token)
+
+    def test_the_link_fits_on_one_line_of_an_email(self):
+        """170 characters wraps across three lines and stops being clickable."""
+        token = auth.start_sign_in(self.conn, "a@b.c")
+        self.assertLess(len(f"https://app.identical.africa/signin/{token}"), 78)
 
 
 class OtpTests(unittest.TestCase):

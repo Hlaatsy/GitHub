@@ -44,6 +44,7 @@ consumer pricing left, but it still has to be a number rather than a hope.
 ## Layout
 
     app/auth.py       sign-in links and phone verification
+    app/mail.py       delivering those links -- SMTP, console or memory
     app/teams.py      organisations, memberships, invitations, seats
     app/plans.py      plans, credit packs, and the pricing invariants
     app/billing.py    quota, credits, expiry, consumption order
@@ -51,6 +52,25 @@ consumer pricing left, but it still has to be a number rather than a hope.
     app/provider.py   the vendor boundary, and the WhatsApp size ceiling
     app/server.py     routes and views
     app/app.css       one stylesheet, shared with the pricing page design
+
+## Email
+
+Sign-in and invitation links are delivered by `app/mail.py`. With no SMTP
+host set it prints to the console, which is what development wants; set one
+and it sends for real:
+
+    IDENTICAL_BASE_URL=https://app.identical.africa   # links must be absolute
+    IDENTICAL_SMTP_HOST=smtp.your-provider.net
+    IDENTICAL_SMTP_PORT=587                           # 465 for implicit TLS
+    IDENTICAL_SMTP_USER=...
+    IDENTICAL_SMTP_PASSWORD=...
+    IDENTICAL_MAIL_FROM="IDENTICAL <no-reply@identical.africa>"
+
+Plain SMTP rather than a vendor SDK, so Mailgun, SES, Postmark, Brevo or your
+own relay all work and changing provider is four environment variables.
+
+`IDENTICAL_BASE_URL` is the one that bites: a relative link works in the app
+and is dead in an inbox.
 
 ## Why there is a browser test as well
 
@@ -112,13 +132,8 @@ In the order that unlocks revenue:
    mobile money work — card-only excludes most of this market. See
    `docs/monetisation.md`, "Payment rails".
 2. **A real provider** behind `VideoProvider`, which settles the cost question.
-4. **Wire up email delivery.** Sign-in and invitation links are printed to
-   the console rather than emailed. Anything that delivers a link will do;
-   until then the portal cannot be used by anyone not watching the log.
-5. **Old note on `app/auth.py`.** Sign-in links and phone verification are
-   written and tested but not yet connected to the server, which still takes
-   an email on trust. Connecting it needs an email sender — anything that
-   delivers a link will do.
+4. **Payments.** Buying tokens and changing plan still move state without
+   taking money.
 4. **Async rendering.** Rendering is synchronous, which is fine against a stub
    and wrong against a vendor that takes 40 seconds. Queue and notify.
 5. **The WhatsApp pipeline** — voice note in, video back. `docs/product.md`

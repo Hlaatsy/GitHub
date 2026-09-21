@@ -18,6 +18,7 @@ Two rules worth stating because they are easy to get wrong:
 from __future__ import annotations
 
 import sqlite3
+import time
 
 from . import auth, plans
 from .db import log, now
@@ -121,32 +122,28 @@ def invite(conn: sqlite3.Connection, org: sqlite3.Row, actor: sqlite3.Row,
             f"seat{'s' if allowed != 1 else ''}, and all of them are taken or invited"
         )
 
-    token = auth.make_token({"org": org["id"], "email": email, "kind": "invite"},
-                            INVITE_TTL_SECONDS)
+    selector = auth.new_selector()
     conn.execute(
         "INSERT INTO memberships (org_id, user_id, invited_email, role, status,"
-        " invite_jti, invited_at) VALUES (?, NULL, ?, ?, ?, ?, ?)",
-        (org["id"], email, MEMBER, INVITED, auth.read_token(token)["jti"], now()),
+        " invite_jti, invite_expires_at, invited_at) VALUES (?, NULL, ?, ?, ?, ?, ?, ?)",
+        (org["id"], email, MEMBER, INVITED, selector,
+         int(time.time()) + INVITE_TTL_SECONDS, now()),
     )
     log(conn, org["id"], "member_invited", detail=email, user_id=actor["user_id"])
     conn.commit()
-    return token
+    return selector
 
 
-def accept(conn: sqlite3.Connection, token: str, user_id: int) -> int:
+def accept(conn: sqlite3.Connection, selector: str, user_id: int) -> int:
     """Take up an invitation. Returns the organisation id."""
-    try:
-        payload = auth.read_token(token)
-    except auth.AuthError as exc:
-        raise InviteError(str(exc)) from exc
-    if payload.get("kind") != "invite":
-        raise InviteError("wrong token kind")
-
     row = conn.execute(
-        "SELECT * FROM memberships WHERE invite_jti = ?", (payload["jti"],)
+        "SELECT * FROM memberships WHERE invite_jti = ? AND invite_jti != ''",
+        (selector.strip(),),
     ).fetchone()
     if row is None:
         raise InviteError("unknown invitation")
+    if row["invite_expires_at"] and row["invite_expires_at"] < time.time():
+        raise InviteError("this invitation has expired -- ask for another")
     if row["status"] == REVOKED:
         raise InviteError("this invitation was withdrawn")
     if row["status"] == ACTIVE:
@@ -186,6 +183,25 @@ def check_downgrade(conn: sqlite3.Connection, org: sqlite3.Row, target: str) -> 
         )
     # Avatars are not capped by plan -- they cost tokens like everything else --
     # so a downgrade only has to reconcile seats.
+
+
+def withdraw_unsent(conn: sqlite3.Connection, selector: str) -> None:
+    """Undo an invitation whose email could not be delivered.
+
+    The seat is reserved the moment the row is written, so a failed send would
+    otherwise hold a seat for someone who never heard about it -- and the
+    owner could not re-invite them, because the address already has a pending
+    invitation.
+    """
+    row = conn.execute(
+        "SELECT * FROM memberships WHERE invite_jti = ? AND invite_jti != ''",
+        (selector.strip(),),
+    ).fetchone()
+    if row is None or row["status"] != INVITED:
+        return
+    conn.execute("DELETE FROM memberships WHERE id = ?", (row["id"],))
+    log(conn, row["org_id"], "invite_undelivered", detail=row["invited_email"])
+    conn.commit()
 
 
 def revoke(conn: sqlite3.Connection, org: sqlite3.Row, actor: sqlite3.Row,
