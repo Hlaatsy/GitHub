@@ -24,12 +24,31 @@ product before a real conversation, not as the business.
 
 ## Subscription tiers
 
-| Tier | Price | Seats | Videos/mo | Per video | Per seat |
-| --- | --- | --- | --- | --- | --- |
-| **Starter** | **R499/mo** | 1 | 10 | R49.90 | R499 |
-| **Pro** | **R1 499/mo** | 3 | 40 | R37.48 | R500 |
-| **Team 5** | **R3 999/mo** | 5 | 120 | R33.33 | R800 |
-| **Enterprise** | Custom, annual | Unlimited | Negotiated | — | — |
+| Tier | Price | Seats | Avatars | Videos/mo | Per video | Per seat |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Starter** | **R499/mo** | 1 | 1 | 10 | R49.90 | R499 |
+| **Pro** | **R1 499/mo** | 3 | 3 | 40 | R37.48 | R500 |
+| **Team 5** | **R3 999/mo** | 5 | 5 | 120 | R33.33 | R800 |
+| **Enterprise** | Custom, annual | Negotiated | Negotiated | Negotiated | — | — |
+
+### Why avatars are capped
+
+An organisation cannot add unlimited avatars, and only the first reason is
+about money:
+
+- **Each one is a guided build** — recording direction, a clean voice sample,
+  iterations. That is human time, and we sell it as Avatar Setup at R2 500.
+- **A cloned voice carries a per-avatar cost** with the provider, unlike a
+  stock voice.
+- **Every avatar is a real person's likeness.** An uncapped account is an
+  uncapped consent surface: more faces on file than anyone is tracking, which
+  is exactly the failure the compliance pillar exists to prevent. A cap is
+  what makes the consent register finite enough to actually maintain.
+
+Extra avatars beyond the plan are sold as Avatar Setup, or the account moves
+up a tier. Enterprise negotiates the number, because a bank presenting in
+four languages with a different face per division genuinely needs more than
+five — and at that size the consent register is part of the contract.
 
 Every video up to 2 minutes. Cost per video falls at each step — R49.90,
 R37.48, R33.33 — which is the rate that matters when a buyer is costing a
@@ -226,7 +245,9 @@ Not monthly signups. In this model the numbers that matter are:
   the moment pricing changed, and it broke silently.
 - **Seats need enforcing, not just advertising.** A five-seat plan with no
   seat limit is a one-seat plan the customer shares, and you find out at
-  renewal.
+  renewal. Avatar limits are now enforced in the app; seats are not, because
+  team accounts do not exist yet — that is the next real piece of work if
+  Team 5 is going to be the tier we lead with.
 - **Contracts, not just checkout.** B2B buyers need an order form, payment
   terms, a revision cap on services, and an answer to what happens to avatars
   and source footage when the contract ends — that last one is a POPIA

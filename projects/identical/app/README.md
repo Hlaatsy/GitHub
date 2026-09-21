@@ -67,6 +67,8 @@ These are the ones that cost money or trust when they break:
   cloning (per-user compute) and no guided build, which is a paid service.
 - **Team 5 carries more videos per seat than Pro**, which is what justifies
   its higher per-seat price.
+- **Avatar limits are enforced on the endpoint**, not just hidden in the UI.
+  A form that disappears at the limit is not a limit; the route refuses too.
 - **Old plan keys migrate.** Accounts created under the consumer model carry
   keys that no longer exist; without the mapping every lookup raises and the
   account cannot load.
