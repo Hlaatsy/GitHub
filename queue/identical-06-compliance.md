@@ -20,8 +20,8 @@ What exactly did the person agree to when they recorded that sample? One
 campaign, or anything you make from now on?
 
 WHEN SOMEONE LEAVES
-An employee's twin is in six training modules. They resign. What happens to
-the twin, and to the source footage?
+An employee's avatar is in six training modules. They resign. What happens to
+the avatar, and to the source footage?
 
 POPIA
 A face and a voice are personal information, and biometric data at that.
@@ -33,7 +33,7 @@ When does your audience need to be told a video is AI-generated? Increasingly
 the answer is "sooner than you think".
 
 We built IDENTICAL so these are answered before the content goes out, not
-after someone queries it. Every twin we build comes with a consent record on
+after someone queries it. Every avatar we build comes with a consent record on
 file, defined retention terms, and an internal AI content policy you can hand
 to your own legal or HR team.
 
@@ -44,7 +44,7 @@ Use it for social media, marketing, training, onboarding, virtual events. But
 use it with the paperwork done.
 
 Getting asked these questions already? Let's talk. And if you just want to see
-the output first, send a photo and we will send back a 60-second twin video,
+the output first, send a photo and we will send back a 60-second avatar video,
 free.
 
 #POPIA #AIGovernance #Compliance #AIVideo #RiskManagement

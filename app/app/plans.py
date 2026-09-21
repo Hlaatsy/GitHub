@@ -28,7 +28,7 @@ class Plan:
     name: str
     cents: int
     videos: int
-    twins: int
+    avatars: int
     seats: int
     custom_voice: bool
     guided_build: bool
@@ -69,21 +69,21 @@ PLANS: dict[str, Plan] = {
         name="Trial",
         cents=0,
         videos=2,
-        twins=1,
+        avatars=1,
         seats=1,
         custom_voice=False,
-        # The guided build is human time. It is a paid service (Twin Setup),
+        # The guided build is human time. It is a paid service (Avatar Setup),
         # not something a trial account consumes.
         guided_build=False,
         watermark=True,
-        features=("Library avatar or photo twin", "Standard voices"),
+        features=("Library avatar or photo avatar", "Standard voices"),
     ),
     "starter": Plan(
         key="starter",
         name="Starter",
         cents=49900,
         videos=10,
-        twins=1,
+        avatars=1,
         seats=1,
         custom_voice=True,
         guided_build=True,
@@ -95,7 +95,7 @@ PLANS: dict[str, Plan] = {
         name="Pro",
         cents=149900,
         videos=40,
-        twins=3,
+        avatars=3,
         seats=3,
         custom_voice=True,
         guided_build=True,
@@ -108,7 +108,7 @@ PLANS: dict[str, Plan] = {
         name="Team 5",
         cents=399900,
         videos=120,
-        twins=5,
+        avatars=5,
         seats=5,
         custom_voice=True,
         guided_build=True,
@@ -117,7 +117,7 @@ PLANS: dict[str, Plan] = {
         # What a communications lead is actually accountable for, and usually
         # what decides the purchase.
         approvals=True,
-        features=("5 seats for marketing and PR", "Shared brand twins",
+        features=("5 seats for marketing and PR", "Shared brand avatars",
                   "Approval workflow", "Consent register across the team"),
     ),
 }

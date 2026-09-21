@@ -25,7 +25,7 @@ takes its cut — and several charge again to build the avatar. They bill in
 USD, so the buyer absorbs the exchange rate, a 2-3% international card fee
 and a number that moves every month. Some SA cards are declined outright.
 
-IDENTICAL starts at R149/mo with the twin built free. That is not a discount
+IDENTICAL starts at R149/mo with the avatar built free. That is not a discount
 on their price, it is a different price band, and it is the pillar that
 decides whether the other four ever get heard.
 
@@ -35,7 +35,7 @@ outright, so M-Pesa and mobile money are not a convenience feature — they are
 the difference between a market and no market. A competitor cannot match this
 without local payment infrastructure and a local entity.
 
-The free twin build is the sharpest edge here. It is the step where DIY
+The free avatar build is the sharpest edge here. It is the step where DIY
 buyers give up, every competitor either charges for it or leaves you to it,
 and giving it away costs you once while it removes the reason to say no.
 
@@ -84,7 +84,7 @@ This is the pillar nobody else has, and it should lead.
 AI likeness video raises questions most vendors skip past: who consented to
 that face, what happens to the biometric data, how long is it kept, what does
 POPIA say about processing a person's image and voice, what happens when an
-employee whose twin is in a training video leaves. A vendor selling into a
+employee whose avatar is in a training video leaves. A vendor selling into a
 regulated South African business gets asked these questions and has nothing
 to say.
 

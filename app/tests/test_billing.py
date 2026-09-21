@@ -104,5 +104,52 @@ class LengthTests(unittest.TestCase):
         self.assertLessEqual(billing.check_length("word " * 100), plans.MAX_VIDEO_SECONDS)
 
 
+class LegacyDatabaseTests(unittest.TestCase):
+    """An installation created before the rename must survive the upgrade."""
+
+    def test_twins_table_and_columns_are_renamed_not_recreated(self):
+        import sqlite3
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = Path(tmp.name) / "legacy.db"
+
+        old = sqlite3.connect(str(path))
+        old.executescript(
+            "CREATE TABLE accounts (id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE,"
+            " name TEXT NOT NULL DEFAULT '', plan TEXT NOT NULL DEFAULT 'free',"
+            " period_start TEXT NOT NULL, used INTEGER NOT NULL DEFAULT 0,"
+            " created_at TEXT NOT NULL);"
+            "CREATE TABLE twins (id INTEGER PRIMARY KEY, account_id INTEGER NOT NULL,"
+            " name TEXT NOT NULL, source TEXT NOT NULL, guided INTEGER NOT NULL DEFAULT 0,"
+            " voice_kind TEXT NOT NULL DEFAULT 'stock', provider_ref TEXT NOT NULL DEFAULT '',"
+            " created_at TEXT NOT NULL);"
+            "CREATE TABLE videos (id INTEGER PRIMARY KEY, account_id INTEGER NOT NULL,"
+            " twin_id INTEGER NOT NULL, title TEXT NOT NULL, script TEXT NOT NULL,"
+            " seconds INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'queued',"
+            " paid_with TEXT NOT NULL DEFAULT '', bytes INTEGER NOT NULL DEFAULT 0,"
+            " provider_ref TEXT NOT NULL DEFAULT '', error TEXT NOT NULL DEFAULT '',"
+            " created_at TEXT NOT NULL);"
+        )
+        old.execute("INSERT INTO accounts (email, plan, period_start, created_at)"
+                    " VALUES ('old@co.za', 'premium', '2026-09-01', '2026-09-01')")
+        old.execute("INSERT INTO twins (account_id, name, source, created_at)"
+                    " VALUES (1, 'Brand presenter', 'photo', '2026-09-01')")
+        old.commit()
+        old.close()
+
+        conn = connect(path)
+        rows = conn.execute("SELECT * FROM avatars").fetchall()
+        self.assertEqual(len(rows), 1, "the existing avatar must survive the rename")
+        self.assertEqual(rows[0]["name"], "Brand presenter")
+
+        columns = {r["name"] for r in conn.execute("PRAGMA table_info(videos)")}
+        self.assertIn("avatar_id", columns)
+        self.assertNotIn("twin_id", columns)
+
+        plan = conn.execute("SELECT plan FROM accounts").fetchone()["plan"]
+        self.assertEqual(plan, "team5", "old plan keys migrate too")
+
+
 if __name__ == "__main__":
     unittest.main()

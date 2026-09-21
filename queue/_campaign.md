@@ -27,12 +27,12 @@ All at 07:00 UTC (09:00 SAST), on weekdays, inside the workflow's
 | Mon 21 Sep | `identical-01-launch.md` | Launch — all five differentiators |
 | Wed 23 Sep | `identical-02-how-it-works.md` | Done-for-you, not do-it-yourself |
 | Fri 25 Sep | `identical-03-ios-2.md` | Mobile-first, no production day |
-| Tue 29 Sep | `identical-04-avatar-4.md` | Twin quality, leads to Twin Setup |
+| Tue 29 Sep | `identical-04-avatar-4.md` | Avatar quality, leads to Avatar Setup |
 | Thu 01 Oct | `identical-05-translation.md` | SA languages, repurposing |
 | Tue 06 Oct | `identical-06-compliance.md` | Consent and POPIA — the wedge |
 
 Every live post ends with the same free offer: send a photo, get a 60-second
-twin video back. That is the conversion step, and it costs minutes rather
+avatar video back. That is the conversion step, and it costs minutes rather
 than a price you have not set yet.
 
 ## Held as drafts
@@ -43,7 +43,7 @@ underscore, and they schedule into the slots below.
 
 | Suggested date | File | Offer |
 | --- | --- | --- |
-| Thu 08 Oct | `_draft-offer-pricing.md` | R149/mo, twin built free |
+| Thu 08 Oct | `_draft-offer-pricing.md` | R149/mo, avatar built free |
 | Tue 13 Oct | `_draft-offer-content-engine.md` | Done-for-you from R1 499/mo |
 | Tue 20 Oct | `_draft-offer-white-label.md` | Agency partner programme |
 | Tue 27 Oct | `_draft-offer-workshop.md` | R450 seat / R9 500 in-house |
@@ -147,15 +147,15 @@ spends credibility you have not built yet.
 The copy asserts things about how you operate. Each is defensible, but only
 if it is actually the case on the day the post goes out:
 
-- **"From R149/mo, no setup fee, twin built free."** Posts 1, 2 and 4 now
+- **"From R149/mo, no setup fee, avatar built free."** Posts 1, 2 and 4 now
   state this, so it is live from Monday — before the pricing post runs. The
-  price list must exist by then, and the free twin build must be something
+  price list must exist by then, and the free avatar build must be something
   you can actually deliver at volume without an hour of labour per customer.
   Check the entry-tier arithmetic in `docs/monetisation.md` first.
 - **Payment methods.** An affordable price payable only by international
   card is not affordable. Confirm EFT, debit order or a local gateway before
   the pricing post, and list the methods wherever the price appears.
-- **"We build the twin with you / we produce the videos."** Posts 1, 2 and 4
+- **"We build the avatar with you / we produce the videos."** Posts 1, 2 and 4
   sell a service. If that service is not ready to take a client in the week
   of 21 September, move those posts back rather than softening them.
 - **"Checked by people who speak the language."** Post 5. Only true if you

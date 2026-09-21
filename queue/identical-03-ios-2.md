@@ -28,6 +28,6 @@ park before your next appointment.
 
 That is what 2.0 is for.
 
-Your twins can now create for you 24/7. Download the update today.
+Your avatars can now create for you 24/7. Download the update today.
 
 #ProductUpdate #iOS #AIVideo #Automation #SmallBusiness

@@ -9,7 +9,7 @@ visibility: PUBLIC
 When did you last post?
 
 Not a criticism — an observation about how this always goes. The tool gets
-bought in January, the twin gets made in February, and by March the account
+bought in January, the avatar gets made in February, and by March the account
 is quiet again.
 
 Not because the software stopped working. Because writing twelve scripts a
@@ -22,7 +22,7 @@ R3 499/mo is the full Content Engine: 12 videos a month.
 
 - Scripted, produced and delivered in the formats you post in
 - A content calendar you approve at the start of the month
-- Your twin, your voice, your positioning — not generic AI filler
+- Your avatar, your voice, your positioning — not generic AI filler
 - Captions and short cuts included
 - Translation into your market's languages where it earns its place
 
@@ -32,7 +32,7 @@ on your side.
 This is the difference between buying AI video software and buying AI video.
 One of those is a login. The other is content that actually went out.
 
-Already on a R149, R299 or R449 plan? This is the same twin, the same voice
+Already on a R149, R299 or R449 plan? This is the same avatar, the same voice
 — you just stop being the one who has to write it.
 
 Limited slots. The writing is the bottleneck, and we would rather do a few

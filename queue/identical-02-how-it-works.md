@@ -9,7 +9,7 @@ visibility: PUBLIC
 Four steps. Here is the whole workflow.
 
 1. START
-Upload a video or a photo, record your voice, or describe your twin in plain
+Upload a video or a photo, record your voice, or describe your avatar in plain
 text.
 
 2. CUSTOMISE
@@ -17,7 +17,7 @@ Choose an avatar from the library or create your own, then pick a voice —
 text-to-speech, or a recording of your own.
 
 3. CREATE
-The AI animates your twin with realistic expressions and movement, speaking
+The AI animates your avatar with realistic expressions and movement, speaking
 whatever you wrote.
 
 4. SHARE
@@ -28,7 +28,7 @@ required.
 
 And the honest part — the step that actually takes time is none of these. It
 is writing the script. Which is exactly why we do not stop at handing you the
-app. The twin gets built properly the first time because we build it — included
+app. The avatar gets built properly the first time because we build it — included
 on every plan, no setup fee. And if you want the videos written and produced
 every month too, that is a service we run, not a tutorial we send you.
 
@@ -36,7 +36,7 @@ The software is the easy half. Most tools sell you that half and call it a
 solution.
 
 Send us a photo and we will show you the first half for free — a 60-second
-video of your twin talking, so you can judge the output before you judge the
+video of your avatar talking, so you can judge the output before you judge the
 price.
 
 #AIVideo #MarketingAutomation #ContentStrategy #SmallBusiness

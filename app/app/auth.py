@@ -6,7 +6,7 @@ database is a liability we would rather not hold at all. A signed, expiring,
 single-use link is less to get wrong.
 
 Phone verification exists for a different reason: email alone lets one person
-farm unlimited free accounts, and each free account costs us a twin build.
+farm unlimited free accounts, and each free account costs us a avatar build.
 """
 
 from __future__ import annotations

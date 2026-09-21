@@ -45,7 +45,7 @@ A library of generic Western corporate wear tells every African user this
 product was not made for them, before they have evaluated anything else.
 
 **What to build:** commission presets per region rather than filtering an
-existing library, which will not contain them. Photo-to-twin (Avatar 4)
+existing library, which will not contain them. Photo-to-avatar (Avatar 4)
 sidesteps the problem for anyone using their own face, so presets matter most
 for users who do not want to appear themselves — which is a large share of
 business use.

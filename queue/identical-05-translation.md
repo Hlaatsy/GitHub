@@ -26,7 +26,7 @@ Point it at a long-form video and get short clips out automatically. The
 webinar becomes a week of posts.
 
 VOICE-TO-AVATAR ANIMATION
-Record your own voice, or use an AI voice, and your twin delivers it.
+Record your own voice, or use an AI voice, and your avatar delivers it.
 
 The pattern worth noticing: the cheapest content you will ever make is the
 content you have already made.

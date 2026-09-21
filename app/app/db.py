@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     created_at    TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS twins (
+CREATE TABLE IF NOT EXISTS avatars (
     id          INTEGER PRIMARY KEY,
     account_id  INTEGER NOT NULL REFERENCES accounts(id),
     name        TEXT NOT NULL,
@@ -37,12 +37,12 @@ CREATE TABLE IF NOT EXISTS twins (
     created_at  TEXT NOT NULL
 );
 
--- A consent record per twin built from a real person. Written at build time,
+-- A consent record per avatar built from a real person. Written at build time,
 -- never backfilled: the compliance pillar is worth nothing if our own product
 -- cannot show who agreed to what.
 CREATE TABLE IF NOT EXISTS consents (
     id           INTEGER PRIMARY KEY,
-    twin_id      INTEGER NOT NULL REFERENCES twins(id),
+    avatar_id      INTEGER NOT NULL REFERENCES avatars(id),
     subject_name TEXT NOT NULL,
     scope        TEXT NOT NULL,
     retention_until TEXT NOT NULL,
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS consents (
 CREATE TABLE IF NOT EXISTS videos (
     id           INTEGER PRIMARY KEY,
     account_id   INTEGER NOT NULL REFERENCES accounts(id),
-    twin_id      INTEGER NOT NULL REFERENCES twins(id),
+    avatar_id      INTEGER NOT NULL REFERENCES avatars(id),
     title        TEXT NOT NULL,
     script       TEXT NOT NULL,
     seconds      INTEGER NOT NULL DEFAULT 0,
@@ -132,8 +132,33 @@ ACCOUNT_COLUMNS = (
 )
 
 
+def rename_legacy(conn: sqlite3.Connection) -> None:
+    """Renames that must happen BEFORE the schema script runs.
+
+    ``CREATE TABLE IF NOT EXISTS avatars`` would otherwise create an empty new
+    table beside the old ``twins`` one still holding every row, and the app
+    would come up looking like every customer had lost their avatar.
+    """
+    tables = {row["name"] for row in
+              conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    if not tables:
+        return  # fresh database; nothing to rename
+
+    # "twin" became "avatar": an organisation says avatar, and digital twin
+    # reads as consumer novelty. Renamed rather than recreated, so no existing
+    # avatar or consent record is lost.
+    if "twins" in tables and "avatars" not in tables:
+        conn.execute("ALTER TABLE twins RENAME TO avatars")
+    for table in ("videos", "consents"):
+        if table in tables:
+            columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+            if "twin_id" in columns and "avatar_id" not in columns:
+                conn.execute(f"ALTER TABLE {table} RENAME COLUMN twin_id TO avatar_id")
+    conn.commit()
+
+
 def migrate(conn: sqlite3.Connection) -> None:
-    """Bring an older database up to the current schema. Safe to run every start."""
+    """Additions and data fixes, run AFTER the schema script. Safe every start."""
     have = {row["name"] for row in conn.execute("PRAGMA table_info(accounts)")}
     for name, spec in ACCOUNT_COLUMNS:
         if name not in have:
@@ -156,6 +181,7 @@ def connect(path: Path | str | None = None) -> sqlite3.Connection:
     # Readers do not block the writer, which matters as soon as more than one
     # request is in flight.
     conn.execute("PRAGMA journal_mode = WAL")
+    rename_legacy(conn)
     conn.executescript(SCHEMA)
     migrate(conn)
     return conn
