@@ -48,12 +48,45 @@ consumer pricing left, but it still has to be a number rather than a hope.
     app/auth.py       sign-in links and phone verification
     app/mail.py       delivering those links -- SMTP, console or memory
     app/teams.py      organisations, memberships, invitations, seats
+    app/health.py     account health and retention, from the ledger
     app/plans.py      plans, credit packs, and the pricing invariants
     app/billing.py    quota, credits, expiry, consumption order
     app/db.py         SQLite schema and a per-thread connection pool
     app/provider.py   the vendor boundary, and the WhatsApp size ceiling
     app/server.py     routes and views
     app/app.css       one stylesheet, shared with the pricing page design
+
+## Account health
+
+    python -m app health
+
+Who is about to leave, and who should be moved up a plan — computed from the
+ledger and the tables beside it, sorted worst first.
+
+Bought customer-success platforms start around $12 000 a year and work by
+scoring exactly these signals. This scores them from the history the app
+already records, which is worth doing long before there is a book of business
+large enough to justify buying anything.
+
+Three risk signals and one opportunity:
+
+| Signal | Why it is the one to watch |
+| --- | --- |
+| **Dormant** — nothing made in 21 days | Accounts go quiet long before they cancel |
+| **Under-using** — under 25% of a paid allowance | They will notice at renewal even if they have not yet |
+| **Empty seats** — under half the paid seats active | A five-seat plan one person uses will not renew |
+| **Near the cap** — 85% or more, or topping up | Ask before they are blocked, not after |
+
+Two deliberate choices. The cap signal fires at 85%, not 100%, because having
+the upgrade conversation after someone has been told no is the worst moment
+to ask for money. And every flag carries the sentence that explains it — a
+test asserts each one is a full sentence somebody could act on, because a
+number nobody can argue with is a number nobody acts on.
+
+`cohorts()` gives sign-ups by month and how many still pay. The number worth
+watching is **month five**: with the avatar build given away up front, that is
+roughly where an account has repaid what it cost to win. A cohort from this
+month reading 0% is a trial that has not converted yet, not a churn.
 
 ## Payments
 
