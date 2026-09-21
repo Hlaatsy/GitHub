@@ -144,18 +144,21 @@ def view_new_org(user: sqlite3.Row) -> str:
 
 
 def meter(conn: sqlite3.Connection, org: sqlite3.Row) -> str:
+    """One meter, because there is one pool."""
     plan = plans.PLANS[org["plan"]]
-    left = billing.allowance_left(org)
-    credits = billing.live_credits(conn, org["id"])
-    pct = (left / plan.videos * 100) if plan.videos else 0
-    extra = f" · plus {credits} credit{'s' if credits != 1 else ''}" if credits else ""
+    included = billing.allowance_left(org)
+    topped = billing.live_tokens(conn, org["id"])
+    total = included + topped
+    pct = (included / plan.tokens * 100) if plan.tokens else 0
+    extra = f" · plus {topped} topped up" if topped else ""
     return (
         '<div class="meter"><div class="meter-top">'
-        f'<span class="meter-n">{left} of {plan.videos}</span>'
+        f'<span class="meter-n">{total} tokens</span>'
         f'<span class="meter-plan">{e(plan.name)} · {plan.rand}</span></div>'
-        f'<div class="track"><div class="fill{"" if left else " out"}" '
+        f'<div class="track"><div class="fill{"" if total else " out"}" '
         f'style="width:{pct:.0f}%"></div></div>'
-        f"<small>videos left this month{extra}</small></div>"
+        f"<small>{included} of {plan.tokens} included left{extra} · "
+        f"a video is {plans.VIDEO_TOKENS}, an avatar is {plans.AVATAR_TOKENS}</small></div>"
     )
 
 
@@ -169,14 +172,14 @@ def view_home(conn: sqlite3.Connection, org: sqlite3.Row, member: sqlite3.Row,
         "SELECT v.*, u.name AS author FROM videos v LEFT JOIN users u ON u.id = v.created_by"
         " WHERE v.org_id = ? ORDER BY v.id DESC LIMIT 6", (org["id"],)
     ).fetchall()
-    allowed = billing.avatars_allowed(conn, org)
-    spare = billing.avatars_left(conn, org)
+    spare = billing.avatars_affordable(conn, org)
 
     cards = "".join(
         f'<div class="avatar"><div class="face"></div><div>'
         f'<div class="avatar-name">{e(a["name"])}</div>'
-        f'<div class="sub">{e(a["source"])} · {e(a["voice_kind"])} voice'
-        f'{" · guided build" if a["guided"] else ""}</div></div></div>'
+        f'<div class="sub">'
+        f'{"real person · consent on file" if a["source"] == "upload" else "generated · synthetic"}'
+        f' · {e(a["voice_kind"])} voice</div></div></div>'
         for a in avatars
     )
 
@@ -184,20 +187,28 @@ def view_home(conn: sqlite3.Connection, org: sqlite3.Row, member: sqlite3.Row,
         build = (
             '<form method="post" action="/avatar" class="avatar-new">'
             f'<h2>{"Build your first avatar" if not avatars else "Add an avatar"}</h2>'
-            f"<p class=sub>{'One photo is enough, and the guided build is included.' if plan.guided_build else 'A photo avatar is included. Upgrade for the guided build and a cloned voice.'}</p>"
+            f'<p class=sub>Either way it is {plans.AVATAR_TOKENS} tokens from the '
+            f'same pool as your videos — no separate fee.</p>'
+            '<label class=fld>How'
+            '<select name=source>'
+            '<option value="upload">Upload a photo or footage of a real person</option>'
+            '<option value="generated">Generate a presenter — no real person</option>'
+            "</select></label>"
             '<label class=fld>Whose avatar is this'
             '<input name=name placeholder="Name of the presenter" required></label>'
             '<button class="act cool">Build it</button></form>'
         )
     else:
         build = (
-            f'<div class="warn">All {allowed} avatars are in use. '
-            f'<a href="/plan">Buy more slots or move up a plan</a>.</div>'
+            f'<div class="warn">An avatar is {plans.AVATAR_TOKENS} tokens and you '
+            f'have {billing.tokens_left(conn, org)}. '
+            f'<a href="/plan">Top up or move up a plan</a>.</div>'
         )
 
     count = (
-        f'<div class="sub">{len(avatars)} of {allowed} avatars'
-        f'{" · " + str(spare) + " left" if spare else " · at your limit"}</div>'
+        f'<div class="sub">{len(avatars)} avatar{"s" if len(avatars) != 1 else ""}'
+        f'{f" · tokens for {spare} more" if spare else " · not enough tokens for another"}'
+        "</div>"
     ) if avatars else ""
 
     left = billing.videos_left(conn, org)
@@ -321,23 +332,13 @@ def view_plan(conn: sqlite3.Connection, org: sqlite3.Row, member: sqlite3.Row) -
     is_owner = member["role"] == teams.OWNER
 
     packs = "".join(
-        '<form method="post" action="/credits" class="m-row">'
-        f'<input type=hidden name=credits value="{pack.credits}">'
-        f"<span>{pack.credits} video{'s' if pack.credits > 1 else ''}</span>"
+        '<form method="post" action="/tokens" class="m-row">'
+        f'<input type=hidden name=tokens value="{pack.tokens}">'
+        f"<span>{pack.tokens} tokens<small> · {rand(pack.cents_per_token)} each</small></span>"
         f"<b>{rand(pack.cents)}</b>"
         + ('<button class="mini">Buy</button>' if is_owner else "")
         + "</form>"
-        for pack in plans.CREDIT_PACKS
-    )
-    slots = "".join(
-        '<form method="post" action="/avatar-slots" class="m-row">'
-        f'<input type=hidden name=avatars value="{pack.avatars}">'
-        f"<span>{pack.avatars} avatar{'s' if pack.avatars > 1 else ''}"
-        f"<small> · {rand(pack.cents_each)} each</small></span>"
-        f"<b>{rand(pack.cents)}</b>"
-        + ('<button class="mini">Buy</button>' if is_owner else "")
-        + "</form>"
-        for pack in plans.AVATAR_PACKS
+        for pack in plans.TOKEN_PACKS
     )
     upgrade = ""
     if advice.upgrade is not None and is_owner:
@@ -348,18 +349,16 @@ def view_plan(conn: sqlite3.Connection, org: sqlite3.Row, member: sqlite3.Row) -
             f"{advice.upgrade.rand}/mo</button></form>"
         )
 
-    allowed = billing.avatars_allowed(conn, org)
-    granted = billing.avatars_granted(conn, org["id"])
     return (
         f'<h1 class="app-h">{e(plan.name)}</h1>{meter(conn, org)}'
-        f'<div class="sub">{plan.seats} seats · {allowed} avatars'
-        f'{f" ({plan.avatars} included, {granted} bought)" if granted else ""}</div>'
-        f'<div class="cap"><h2>More videos</h2><div class="maths">{packs}</div>'
+        f'<div class="sub">{plan.seats} seat{"s" if plan.seats != 1 else ""} · '
+        f'{plan.tokens} tokens a month · a video is {plans.VIDEO_TOKENS}, '
+        f'an avatar is {plans.AVATAR_TOKENS}</div>'
+        f'<div class="cap"><h2>Top up</h2><div class="maths">{packs}</div>'
         f'<p class="verdict">{e(advice.verdict)}</p></div>'
-        f'<div class="cap"><h2>More avatars</h2><div class="maths">{slots}</div>'
-        '<p class="verdict">Each slot is permanent and includes the guided build. '
-        "Slots raise the avatar limit only — seats and monthly videos come with the "
-        "plan.</p></div>"
+        '<p class="sub">Tokens pay for everything you make — videos and avatars '
+        "alike. Topped-up tokens do not expire at month end, and there is no "
+        "separate charge for creating an avatar.</p>"
         f"{upgrade}"
         + ("" if is_owner else '<p class="sub">Only an owner can change the plan.</p>')
         + '<a class="act ghost" href="/">Back</a>'
@@ -531,29 +530,34 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/avatar":
             try:
                 billing.claim_avatar(db(), org)
-            except billing.AvatarLimitReached:
-                # The form is hidden at the limit, but a hidden form is not a
-                # limit -- the route has to refuse as well.
+            except billing.OutOfTokens:
+                # The form is hidden when the tokens will not stretch, but a
+                # hidden form is not a limit -- the route has to refuse too.
                 self.redirect("/plan")
                 return
             plan = plans.PLANS[org["plan"]]
-            ref = PROVIDER.build_avatar("photo", b"")
+            source = "generated" if data.get("source") == "generated" else "upload"
+            ref = PROVIDER.build_avatar(source, b"")
             name = data.get("name", "").strip() or "Presenter"
             avatar_id = db().execute(
                 "INSERT INTO avatars (org_id, name, source, guided, voice_kind,"
                 " provider_ref, created_by, created_at)"
-                " VALUES (?, ?, 'photo', ?, ?, ?, ?, ?)",
-                (org["id"], name, int(plan.guided_build),
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (org["id"], name, source, int(plan.guided_build),
                  "cloned" if plan.custom_voice else "stock", ref, user["id"], now()),
             ).lastrowid
-            # Written with the avatar, never backfilled.
-            db().execute(
-                "INSERT INTO consents (avatar_id, subject_name, scope, retention_until,"
-                " agreed_at) VALUES (?, ?, ?, ?, ?)",
-                (avatar_id, name, "Videos this organisation creates, until withdrawn",
-                 now(), now()),
-            )
-            log(db(), org["id"], "avatar_built", detail=name, user_id=user["id"])
+            # An uploaded avatar is a real person, so a consent record is
+            # written with it and never backfilled. A generated one has no
+            # subject to consent -- recording one anyway would put a fictional
+            # name in the register the organisation shows its regulator.
+            if source == "upload":
+                db().execute(
+                    "INSERT INTO consents (avatar_id, subject_name, scope,"
+                    " retention_until, agreed_at) VALUES (?, ?, ?, ?, ?)",
+                    (avatar_id, name,
+                     "Videos this organisation creates, until withdrawn", now(), now()),
+                )
+            billing.spend(db(), org, plans.AVATAR_TOKENS, "avatar", user_id=user["id"])
             db().commit()
             self.redirect("/")
 
@@ -573,8 +577,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.redirect("/")
                 return
             try:
-                paid_with = billing.spend_one(db(), org)
-            except billing.OutOfQuota:
+                paid_with = billing.spend(db(), org, plans.VIDEO_TOKENS, "video",
+                                          user_id=user["id"])
+            except billing.OutOfTokens:
                 self.redirect("/plan")
                 return
             render = share_encode(
@@ -610,29 +615,17 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self.redirect("/team")
 
-        elif path == "/credits":
+        elif path == "/tokens":
             try:
                 teams.require_owner(member)
             except teams.NotPermitted:
                 self.redirect("/plan")
                 return
-            wanted = int(data.get("credits", 0))
-            pack = next((p for p in plans.CREDIT_PACKS if p.credits == wanted), None)
+            wanted = int(data.get("tokens", 0))
+            pack = next((p for p in plans.TOKEN_PACKS if p.tokens == wanted), None)
             if pack is not None:
                 # A real deployment takes payment here.
-                billing.add_credits(db(), org["id"], pack)
-            self.redirect("/plan")
-
-        elif path == "/avatar-slots":
-            try:
-                teams.require_owner(member)
-            except teams.NotPermitted:
-                self.redirect("/plan")
-                return
-            wanted = int(data.get("avatars", 0))
-            pack = next((p for p in plans.AVATAR_PACKS if p.avatars == wanted), None)
-            if pack is not None:
-                billing.add_avatar_slots(db(), org["id"], pack, user_id=user["id"])
+                billing.add_tokens(db(), org["id"], pack, user_id=user["id"])
             self.redirect("/plan")
 
         elif path == "/upgrade":

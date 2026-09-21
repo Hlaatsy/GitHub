@@ -54,6 +54,12 @@ class VideoProvider:
     cents_per_video: int | None = None
 
     def build_avatar(self, source: str, reference: bytes) -> str:
+        """Build from an upload, or generate a synthetic presenter.
+
+        ``source`` is "upload" when the organisation supplies footage or a
+        photo of a real person, and "generated" when there is no real subject
+        and the presenter is produced from a description.
+        """
         raise NotImplementedError
 
     def render(self, avatar_ref: str, script: str, seconds: int, voice: str) -> Render:

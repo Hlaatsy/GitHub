@@ -12,22 +12,22 @@ from app import plans  # noqa: E402
 
 
 class InvariantTests(unittest.TestCase):
-    def test_credits_cost_more_per_video_than_every_plan(self):
-        """The load-bearing rule: if credits undercut a plan, nobody subscribes."""
-        for pack in plans.CREDIT_PACKS:
+    def test_top_ups_cost_more_per_token_than_every_plan(self):
+        """The load-bearing rule: if a top-up undercuts a plan, nobody subscribes."""
+        for pack in plans.TOKEN_PACKS:
             for key in plans.PAID:
                 plan = plans.PLANS[key]
                 self.assertGreater(
-                    pack.cents_per_video, plan.cents_per_video,
-                    f"{pack.credits}-credit pack undercuts {plan.name}",
+                    pack.cents_per_token, plan.cents_per_token,
+                    f"{pack.tokens}-token pack undercuts {plan.name}",
                 )
 
-    def test_cost_per_video_falls_as_plans_get_bigger(self):
-        rates = [plans.PLANS[key].cents_per_video for key in plans.PAID]
+    def test_cost_per_token_falls_as_plans_get_bigger(self):
+        rates = [plans.PLANS[key].cents_per_token for key in plans.PAID]
         self.assertEqual(rates, sorted(rates, reverse=True))
 
     def test_bigger_packs_are_better_value(self):
-        rates = [pack.cents_per_video for pack in plans.CREDIT_PACKS]
+        rates = [pack.cents_per_token for pack in plans.TOKEN_PACKS]
         self.assertEqual(rates, sorted(rates, reverse=True))
 
     def test_trial_withholds_the_costly_features(self):
@@ -35,10 +35,6 @@ class InvariantTests(unittest.TestCase):
         self.assertFalse(trial.custom_voice, "voice cloning is per-user compute")
         self.assertFalse(trial.guided_build, "the guided build is a paid service")
         self.assertTrue(trial.watermark)
-
-    def test_seats_grow_with_the_tiers(self):
-        seats = [plans.PLANS[key].seats for key in plans.ORDER]
-        self.assertEqual(seats, sorted(seats))
 
     def test_team_bundle_is_five_seats_with_team_features(self):
         """The marketing and PR bundle is the tier this model is built around."""
@@ -50,8 +46,21 @@ class InvariantTests(unittest.TestCase):
     def test_team_seats_carry_more_capacity_than_pro_seats(self):
         """Per-seat price rises at Team 5; this is what justifies it."""
         self.assertGreater(
-            plans.PLANS["team5"].videos_per_seat, plans.PLANS["pro"].videos_per_seat
+            plans.PLANS["team5"].tokens_per_seat, plans.PLANS["pro"].tokens_per_seat
         )
+
+    def test_an_avatar_costs_more_than_a_video(self):
+        """Same pool, different price: a build is more work than a render."""
+        self.assertGreater(plans.AVATAR_TOKENS, plans.VIDEO_TOKENS)
+
+    def test_the_trial_can_afford_an_avatar_and_some_videos(self):
+        """A trial that cannot make an avatar cannot show anyone anything."""
+        trial = plans.PLANS["trial"]
+        self.assertGreaterEqual(trial.tokens, plans.AVATAR_TOKENS + 2)
+
+    def test_every_plan_affords_at_least_one_avatar(self):
+        for key in plans.ORDER:
+            self.assertGreaterEqual(plans.PLANS[key].tokens, plans.AVATAR_TOKENS, key)
 
     def test_every_paid_plan_includes_the_guided_build(self):
         for key in plans.PAID:
@@ -59,12 +68,12 @@ class InvariantTests(unittest.TestCase):
 
     def test_no_plan_is_unlimited(self):
         for plan in plans.PLANS.values():
-            self.assertGreater(plan.videos, 0)
+            self.assertGreater(plan.tokens, 0)
 
 
 class AdviceTests(unittest.TestCase):
     def test_recommends_the_upgrade_when_overage_costs_more(self):
-        biggest = max(pack.credits for pack in plans.CREDIT_PACKS)
+        biggest = max(pack.tokens for pack in plans.TOKEN_PACKS)
         advice = plans.advise_at_cap("starter", wanted=biggest)
         self.assertIn("rather move you up", advice.verdict)
         self.assertEqual(advice.upgrade.key, "pro")
@@ -81,6 +90,10 @@ class AdviceTests(unittest.TestCase):
         self.assertEqual(plans.PLANS["starter"].max_minutes, 20)
         self.assertEqual(plans.PLANS["pro"].max_minutes, 80)
         self.assertEqual(plans.PLANS["team5"].max_minutes, 240)
+
+    def test_seats_grow_with_the_tiers(self):
+        seats = [plans.PLANS[key].seats for key in plans.ORDER]
+        self.assertEqual(seats, sorted(seats))
 
 
 if __name__ == "__main__":

@@ -191,29 +191,9 @@ class DowngradeTests(unittest.TestCase):
     def test_downgrade_is_allowed_once_seats_are_freed(self):
         teams.check_downgrade(self.conn, self.org(), "starter")
 
-    def test_downgrade_is_refused_while_too_many_avatars_exist(self):
-        for _ in range(3):
-            self.conn.execute(
-                "INSERT INTO avatars (org_id, name, source, created_at)"
-                " VALUES (?, 'P', 'photo', ?)", (self.org_id, now()),
-            )
-        self.conn.commit()
-        with self.assertRaises(teams.SeatLimitReached):
-            teams.check_downgrade(self.conn, self.org(), "starter")
 
-    def test_bought_slots_can_make_a_downgrade_possible(self):
-        for _ in range(3):
-            self.conn.execute(
-                "INSERT INTO avatars (org_id, name, source, created_at)"
-                " VALUES (?, 'P', 'photo', ?)", (self.org_id, now()),
-            )
-        self.conn.commit()
-        billing.add_avatar_slots(self.conn, self.org_id, plans.AVATAR_PACKS[1])
-        teams.check_downgrade(self.conn, self.org(), "starter")
-
-
-class AvatarSlotTests(unittest.TestCase):
-    """Bought slots raise the avatar cap, and nothing else."""
+class AvatarCostTests(unittest.TestCase):
+    """Avatars are paid for from the same pool as videos, with no extra fee."""
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -230,43 +210,65 @@ class AvatarSlotTests(unittest.TestCase):
             "SELECT * FROM organisations WHERE id = ?", (self.org_id,)
         ).fetchone()
 
-    def add_avatar(self):
-        self.conn.execute(
-            "INSERT INTO avatars (org_id, name, source, created_at)"
-            " VALUES (?, 'P', 'photo', ?)", (self.org_id, now()),
-        )
-        self.conn.commit()
-
-    def test_a_pack_raises_the_cap(self):
-        self.add_avatar()
-        with self.assertRaises(billing.AvatarLimitReached):
+    def test_there_is_no_avatar_limit_beyond_the_tokens(self):
+        """Starter can have several avatars if it spends its tokens on them."""
+        for _ in range(plans.PLANS["starter"].tokens // plans.AVATAR_TOKENS):
             billing.claim_avatar(self.conn, self.org())
-        billing.add_avatar_slots(self.conn, self.org_id, plans.AVATAR_PACKS[0])
+            billing.spend(self.conn, self.org(), plans.AVATAR_TOKENS, "avatar")
+        with self.assertRaises(billing.OutOfTokens):
+            billing.claim_avatar(self.conn, self.org())
+
+    def test_topping_up_buys_more_avatars(self):
+        self.conn.execute("UPDATE organisations SET used = ? WHERE id = ?",
+                          (plans.PLANS["starter"].tokens, self.org_id))
+        self.conn.commit()
+        with self.assertRaises(billing.OutOfTokens):
+            billing.claim_avatar(self.conn, self.org())
+        billing.add_tokens(self.conn, self.org_id, plans.TOKEN_PACKS[0])
         billing.claim_avatar(self.conn, self.org())
 
-    def test_packs_accumulate(self):
-        billing.add_avatar_slots(self.conn, self.org_id, plans.AVATAR_PACKS[0])
-        billing.add_avatar_slots(self.conn, self.org_id, plans.AVATAR_PACKS[1])
-        self.assertEqual(billing.avatars_granted(self.conn, self.org_id), 4)
-        self.assertEqual(billing.avatars_allowed(self.conn, self.org()),
-                         plans.PLANS["starter"].avatars + 4)
+    def test_an_uploaded_avatar_gets_a_consent_record(self):
+        """A real person's likeness, so the register must name them."""
+        avatar_id = self.conn.execute(
+            "INSERT INTO avatars (org_id, name, source, created_at)"
+            " VALUES (?, 'Thandi Mokoena', 'upload', ?)", (self.org_id, now()),
+        ).lastrowid
+        self.conn.execute(
+            "INSERT INTO consents (avatar_id, subject_name, scope, retention_until,"
+            " agreed_at) VALUES (?, 'Thandi Mokoena', 'x', ?, ?)",
+            (avatar_id, now(), now()),
+        )
+        self.conn.commit()
+        row = self.conn.execute(
+            "SELECT * FROM consents WHERE avatar_id = ?", (avatar_id,)
+        ).fetchone()
+        self.assertEqual(row["subject_name"], "Thandi Mokoena")
 
-    def test_slots_do_not_add_seats_or_videos(self):
-        """A pack must never substitute for moving up a tier."""
-        before_seats = teams.seats_left(self.conn, self.org())
-        before_videos = billing.videos_left(self.conn, self.org())
-        billing.add_avatar_slots(self.conn, self.org_id, plans.AVATAR_PACKS[2])
-        self.assertEqual(teams.seats_left(self.conn, self.org()), before_seats)
-        self.assertEqual(billing.videos_left(self.conn, self.org()), before_videos)
+    def test_a_generated_avatar_has_no_consent_subject(self):
+        """Recording one would put a fictional name in the regulator's register."""
+        avatar_id = self.conn.execute(
+            "INSERT INTO avatars (org_id, name, source, created_at)"
+            " VALUES (?, 'Studio presenter', 'generated', ?)", (self.org_id, now()),
+        ).lastrowid
+        self.conn.commit()
+        rows = self.conn.execute(
+            "SELECT * FROM consents WHERE avatar_id = ?", (avatar_id,)
+        ).fetchall()
+        self.assertEqual(rows, [])
 
-    def test_bigger_packs_cost_less_each(self):
-        rates = [pack.cents_each for pack in plans.AVATAR_PACKS]
-        self.assertEqual(rates, sorted(rates, reverse=True))
+    def test_both_routes_cost_the_same_tokens(self):
+        """Upload or generate is a consent question, not a pricing one."""
+        for _ in range(2):
+            billing.claim_avatar(self.conn, self.org())
+            billing.spend(self.conn, self.org(), plans.AVATAR_TOKENS, "avatar")
+        self.assertEqual(
+            billing.allowance_left(self.org()),
+            plans.PLANS["starter"].tokens - 2 * plans.AVATAR_TOKENS,
+        )
 
-    def test_a_pack_is_recorded_in_the_ledger(self):
-        billing.add_avatar_slots(self.conn, self.org_id, plans.AVATAR_PACKS[0])
-        kinds = [r["kind"] for r in self.conn.execute("SELECT kind FROM ledger")]
-        self.assertIn("avatar_slots_bought", kinds)
+    def test_affordable_count_is_reported(self):
+        expected = plans.PLANS["starter"].tokens // plans.AVATAR_TOKENS
+        self.assertEqual(billing.avatars_affordable(self.conn, self.org()), expected)
 
 
 if __name__ == "__main__":

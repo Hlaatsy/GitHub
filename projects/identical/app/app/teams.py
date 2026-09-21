@@ -177,8 +177,6 @@ def check_downgrade(conn: sqlite3.Connection, org: sqlite3.Row, target: str) -> 
     billing page was clicked. So the owner is asked to remove members first,
     which is the only version of this that is honest to everyone involved.
     """
-    from . import billing
-
     plan = plans.PLANS[target]
     taken = seats_taken(conn, org["id"])
     if taken > plan.seats:
@@ -186,13 +184,8 @@ def check_downgrade(conn: sqlite3.Connection, org: sqlite3.Row, target: str) -> 
             f"{plan.name} includes {plan.seats} seat{'s' if plan.seats != 1 else ''} "
             f"and {taken} are in use. Remove {taken - plan.seats} before moving down."
         )
-    avatars = billing.avatars_used(conn, org["id"])
-    allowed = plan.avatars + billing.avatars_granted(conn, org["id"])
-    if avatars > allowed:
-        raise SeatLimitReached(
-            f"{plan.name} allows {allowed} avatar{'s' if allowed != 1 else ''} "
-            f"and {avatars} exist. Buying avatar slots keeps them."
-        )
+    # Avatars are not capped by plan -- they cost tokens like everything else --
+    # so a downgrade only has to reconcile seats.
 
 
 def revoke(conn: sqlite3.Connection, org: sqlite3.Row, actor: sqlite3.Row,

@@ -1,4 +1,4 @@
-"""Plans, credits and the rules that hold the pricing together.
+"""Plans, tokens and the rules that hold the pricing together.
 
 Single source of truth for anything with a price on it. The numbers here must
 match ``docs/monetisation.md``; ``test_plans.py`` fails if the invariants that
@@ -12,14 +12,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+#: What each thing costs from the token pool. A video is the unit; an avatar
+#: is a voice clone and a build, which is materially more compute than one
+#: render -- but not so much that it swallows a whole month on the entry tier.
+VIDEO_TOKENS = 1
+AVATAR_TOKENS = 5
+
 #: Longest single video, on every plan. Keeps a flat per-video price honest:
 #: without it, one user rendering forty-minute webinars on the entry tier
 #: erases the tier's margin.
 MAX_VIDEO_SECONDS = 120
 
-#: Credits stay usable across months but not forever -- an unexpiring credit is
+#: Tokens stay usable across months but not forever -- an unexpiring credit is
 #: an open-ended liability against platform cost. Stated at purchase.
-CREDIT_EXPIRY_DAYS = 365
+TOKEN_EXPIRY_DAYS = 365
 
 
 @dataclass(frozen=True)
@@ -27,8 +33,7 @@ class Plan:
     key: str
     name: str
     cents: int
-    videos: int
-    avatars: int
+    tokens: int
     seats: int
     custom_voice: bool
     guided_build: bool
@@ -42,11 +47,16 @@ class Plan:
         return f"R{self.cents // 100:,}".replace(",", " ")
 
     @property
-    def cents_per_video(self) -> int | None:
-        """What a video costs on this plan, or None when the plan is free."""
-        if not self.cents or not self.videos:
+    def cents_per_token(self) -> int | None:
+        """What a token costs on this plan, or None when the plan is free."""
+        if not self.cents or not self.tokens:
             return None
-        return round(self.cents / self.videos)
+        return round(self.cents / self.tokens)
+
+    @property
+    def videos(self) -> int:
+        """Tokens expressed as videos, which is how a buyer reads the plan."""
+        return self.tokens // VIDEO_TOKENS
 
     @property
     def cents_per_seat(self) -> int | None:
@@ -55,12 +65,13 @@ class Plan:
         return round(self.cents / self.seats)
 
     @property
-    def videos_per_seat(self) -> float:
-        return self.videos / self.seats if self.seats else 0
+    def tokens_per_seat(self) -> float:
+        return self.tokens / self.seats if self.seats else 0
 
     @property
     def max_minutes(self) -> int:
-        return self.videos * MAX_VIDEO_SECONDS // 60
+        """If every token went on a full-length video."""
+        return self.tokens * MAX_VIDEO_SECONDS // 60
 
 
 PLANS: dict[str, Plan] = {
@@ -68,22 +79,23 @@ PLANS: dict[str, Plan] = {
         key="trial",
         name="Trial",
         cents=0,
-        videos=2,
-        avatars=1,
+        # An avatar is 5 tokens, so a 2-token trial could not make one at all.
+        # 8 buys an avatar and three videos: enough to judge the output, which
+        # is the only thing a trial has to do.
+        tokens=8,
         seats=1,
         custom_voice=False,
         # The guided build is human time. It is a paid service (Avatar Setup),
         # not something a trial account consumes.
         guided_build=False,
         watermark=True,
-        features=("Library avatar or photo avatar", "Standard voices"),
+        features=("1 avatar and 3 videos", "Standard voices", "Watermarked"),
     ),
     "starter": Plan(
         key="starter",
         name="Starter",
         cents=49900,
-        videos=10,
-        avatars=1,
+        tokens=10,
         seats=1,
         custom_voice=True,
         guided_build=True,
@@ -94,8 +106,7 @@ PLANS: dict[str, Plan] = {
         key="pro",
         name="Pro",
         cents=149900,
-        videos=40,
-        avatars=3,
+        tokens=40,
         seats=3,
         custom_voice=True,
         guided_build=True,
@@ -107,8 +118,7 @@ PLANS: dict[str, Plan] = {
         key="team5",
         name="Team 5",
         cents=399900,
-        videos=120,
-        avatars=5,
+        tokens=120,
         seats=5,
         custom_voice=True,
         guided_build=True,
@@ -136,48 +146,22 @@ PAID = ORDER[1:]
 
 
 @dataclass(frozen=True)
-class CreditPack:
-    credits: int
+class TokenPack:
+    tokens: int
     cents: int
 
     @property
-    def cents_per_video(self) -> int:
-        return round(self.cents / self.credits)
+    def cents_per_token(self) -> int:
+        return round(self.cents / self.tokens)
 
 
-#: Overage, bought past the monthly allowance. Priced above every subscription
-#: tier's per-video rate on purpose -- see ``credits_stay_dearer_than_plans``.
-CREDIT_PACKS: tuple[CreditPack, ...] = (
-    CreditPack(credits=1, cents=7900),
-    CreditPack(credits=10, cents=69000),
-    CreditPack(credits=25, cents=147500),
-)
-
-
-@dataclass(frozen=True)
-class AvatarPack:
-    """Extra avatar slots, bought once and kept.
-
-    Priced from Avatar Setup at R2 500, because that is what an extra avatar
-    actually is: a guided build plus a permanent slot. One number, with a
-    volume discount above it, rather than two prices for the same work.
-
-    A pack raises the avatar cap and nothing else -- not seats, not videos --
-    so buying slots can never stand in for moving up a tier.
-    """
-
-    avatars: int
-    cents: int
-
-    @property
-    def cents_each(self) -> int:
-        return round(self.cents / self.avatars)
-
-
-AVATAR_PACKS: tuple[AvatarPack, ...] = (
-    AvatarPack(avatars=1, cents=250000),
-    AvatarPack(avatars=3, cents=675000),
-    AvatarPack(avatars=5, cents=1000000),
+#: Top-ups, bought when the monthly tokens run out. Priced above every
+#: subscription tier's per-token rate on purpose -- see
+#: ``top_ups_stay_dearer_than_plans``.
+TOKEN_PACKS: tuple[TokenPack, ...] = (
+    TokenPack(tokens=5, cents=39500),
+    TokenPack(tokens=20, cents=138000),
+    TokenPack(tokens=50, cents=295000),
 )
 
 
@@ -187,24 +171,24 @@ def next_plan(key: str) -> Plan | None:
     return PLANS[ORDER[index + 1]] if index + 1 < len(ORDER) else None
 
 
-def cheapest_credit_rate() -> int:
-    return min(pack.cents_per_video for pack in CREDIT_PACKS)
+def cheapest_top_up_rate() -> int:
+    return min(pack.cents_per_token for pack in TOKEN_PACKS)
 
 
 def dearest_plan_rate() -> int:
-    rates = [PLANS[key].cents_per_video for key in PAID]
+    rates = [PLANS[key].cents_per_token for key in PAID]
     return max(rate for rate in rates if rate is not None)
 
 
-def credits_stay_dearer_than_plans() -> bool:
+def top_ups_stay_dearer_than_plans() -> bool:
     """The load-bearing rule: topping up must never beat subscribing.
 
-    If a credit is cheaper per video than a plan, nobody upgrades -- they top
-    up forever, and the subscription tiers stop meaning anything. This is
-    checked in tests rather than trusted, because it breaks silently when any
-    single price moves.
+    If a topped-up token is cheaper than a subscribed one, nobody upgrades --
+    they top up forever, and the tiers stop meaning anything. Checked in tests
+    rather than trusted, because it breaks silently when any single price
+    moves, and it has broken twice already.
     """
-    return cheapest_credit_rate() > dearest_plan_rate()
+    return cheapest_top_up_rate() > dearest_plan_rate()
 
 
 @dataclass
@@ -226,45 +210,46 @@ def advise_at_cap(plan_key: str, wanted: int = 5) -> Advice:
     """
     plan = PLANS[plan_key]
     upgrade = next_plan(plan_key)
-    packs = tuple(pack for pack in CREDIT_PACKS if pack.credits >= 1)
+    packs = tuple(pack for pack in TOKEN_PACKS if pack.tokens >= 1)
 
     if upgrade is None:
-        return Advice(packs=packs, upgrade=None, verdict="You are on the top plan -- credits it is.")
+        return Advice(packs=packs, upgrade=None,
+                      verdict="You are on the top plan -- topping up it is.")
 
     # Cheapest way to buy `wanted` videos from whole packs, largest first.
     remaining, spend = wanted, 0
-    for pack in sorted(CREDIT_PACKS, key=lambda p: -p.credits):
-        while remaining >= pack.credits:
+    for pack in sorted(TOKEN_PACKS, key=lambda p: -p.tokens):
+        while remaining >= pack.tokens:
             spend += pack.cents
-            remaining -= pack.credits
+            remaining -= pack.tokens
     if remaining:
-        smallest = min(CREDIT_PACKS, key=lambda p: p.credits)
+        smallest = min(TOKEN_PACKS, key=lambda p: p.tokens)
         spend += smallest.cents * remaining
 
-    extra = upgrade.videos - plan.videos
+    extra = upgrade.tokens - plan.tokens
 
     # Compare against what upgrading actually costs *extra* per month, not the
     # whole plan price -- they are already paying for the plan underneath. At
-    # R149 vs R299 the full-price comparison makes credits look like the
-    # bargain when the upgrade buys nine more videos a month for R150.
+    # The full-price comparison makes topping up look like the bargain when
+    # the upgrade buys far more tokens every month for the difference.
     marginal = upgrade.cents - plan.cents
 
-    noun = "video" if wanted == 1 else "videos"
+    noun = "token" if wanted == 1 else "tokens"
     if spend >= marginal:
         verdict = (
-            f"{wanted} more {noun} in credits is {_rand(spend)}, once. "
+            f"{wanted} more {noun} topped up is {_rand(spend)}, once. "
             f"Moving to {upgrade.name} is {_rand(marginal)} more a month and gives you "
             f"{extra} more videos, every month. "
             "We would rather move you up a plan than take the difference."
         )
         if extra < wanted:
             verdict += (
-                f" ({upgrade.name} adds {extra}, so you would still need "
-                f"{wanted - extra} on credit this month.)"
+                f" ({upgrade.name} adds {extra}, so you would still top up "
+                f"{wanted - extra} this month.)"
             )
     else:
         verdict = (
-            f"{wanted} more {noun} in credits is {_rand(spend)} this month only. "
+            f"{wanted} more {noun} topped up is {_rand(spend)} this month only. "
             f"{upgrade.name} is {_rand(marginal)} more a month for {extra} extra -- "
             "better value the moment this stops being a one-off."
         )

@@ -24,55 +24,44 @@ product before a real conversation, not as the business.
 
 ## Subscription tiers
 
-| Tier | Price | Seats | Avatars | Videos/mo | Per video | Per seat |
-| --- | --- | --- | --- | --- | --- | --- |
-| **Starter** | **R499/mo** | 1 | 1 | 10 | R49.90 | R499 |
-| **Pro** | **R1 499/mo** | 3 | 3 | 40 | R37.48 | R500 |
-| **Team 5** | **R3 999/mo** | 5 | 5 | 120 | R33.33 | R800 |
-| **Enterprise** | Custom, annual | Negotiated | Negotiated | Negotiated | — | — |
+One currency. A plan buys tokens each month, and everything the organisation
+makes spends them:
 
-### Why avatars are capped
+| | Cost |
+| --- | --- |
+| A video (up to 2 minutes) | 1 token |
+| An avatar | 5 tokens |
 
-An organisation cannot add unlimited avatars, and only the first reason is
-about money:
+| Tier | Price | Seats | Tokens/mo | Per token | Per seat |
+| --- | --- | --- | --- | --- | --- |
+| **Trial** | R0 | 1 | 8 | — | — |
+| **Starter** | **R499/mo** | 1 | 10 | R49.90 | R499 |
+| **Pro** | **R1 499/mo** | 3 | 40 | R37.48 | R500 |
+| **Team 5** | **R3 999/mo** | 5 | 120 | R33.32 | R800 |
+| **Enterprise** | Custom, annual | Negotiated | Negotiated | — | — |
 
-- **Each one is a guided build** — recording direction, a clean voice sample,
-  iterations. That is human time, and we sell it as Avatar Setup at R2 500.
-- **A cloned voice carries a per-avatar cost** with the provider, unlike a
-  stock voice.
-- **Every avatar is a real person's likeness.** An uncapped account is an
-  uncapped consent surface: more faces on file than anyone is tracking, which
-  is exactly the failure the compliance pillar exists to prevent. A cap is
-  what makes the consent register finite enough to actually maintain.
+### Why one pool
 
-### Buying more avatars
+There is no charge for creating an avatar and no per-plan avatar limit. An
+avatar is simply a dearer thing to buy than a video, out of the same tokens,
+and when they run out you top up. That single rule covers everything the
+organisation makes.
 
-The cap is raised by buying slots, not only by moving up a tier.
+It replaces a separate avatar-slot product, and it is better for three
+reasons:
 
-| Pack | Price | Each |
-| --- | --- | --- |
-| 1 avatar | R2 500 | R2 500 |
-| 3 avatars | R6 750 | R2 250 |
-| 5 avatars | R10 000 | R2 000 |
+- **One number to explain.** A buyer asks "what do I get for R1 499" and the
+  answer is 40 tokens, not a plan allowance plus a slot count plus a
+  once-off build fee.
+- **The customer decides the mix.** A training team wants twelve presenters
+  and few videos; a marketing team wants one presenter and forty videos.
+  Neither has to buy a product shaped for the other.
+- **Nothing is stranded.** Under the old model a paid-for avatar slot sat
+  unused if plans changed. A token is spendable on whatever is needed.
 
-Priced from Avatar Setup at R2 500, because that is what an extra avatar
-actually is — a guided build plus a permanent slot. One number, with a volume
-discount above it, rather than two prices for the same work. Slots are
-permanent, not monthly: the build behind each one is work done once.
-
-**A slot raises the avatar cap and nothing else.** Not seats, not monthly
-videos. So a Starter account with four extra slots has five avatars, one seat
-and ten videos a month — nowhere near Team 5, which is the point. Buying
-slots can never stand in for moving up a tier, and the enforcement in the app
-matches: `test_slots_do_not_add_seats_or_videos`.
-
-Enterprise negotiates the number, because a bank presenting in four languages
-with a different face per division genuinely needs more than five — and at
-that size the consent register is part of the contract.
-
-Every video up to 2 minutes. Cost per video falls at each step — R49.90,
-R37.48, R33.33 — which is the rate that matters when a buyer is costing a
-campaign.
+Trial is 8 tokens deliberately: an avatar is 5, so anything less and a trial
+account cannot make an avatar at all — which is the only thing a trial has
+to do.
 
 ### Team 5 — the marketing and PR bundle
 
@@ -83,10 +72,10 @@ time.
 
 What those seats get that the tiers below do not:
 
-- **Shared brand avatars.** One presenter used by all five, rather than five
-  people each building their own and the brand drifting.
-- **Shared asset library** — scripts, avatars, voices, past videos in one place
-  instead of on five laptops.
+- **Shared avatars.** One presenter used by all five, rather than five people
+  each building their own and the brand drifting.
+- **Shared asset library** — scripts, avatars, voices, past videos in one
+  place instead of on five laptops.
 - **Approval workflow.** Nothing publishes under the company name without a
   named person approving it. This is often what decides the purchase, because
   it is what the communications lead is accountable for.
@@ -94,9 +83,24 @@ What those seats get that the tiers below do not:
   organisation rather than one user.
 
 The per-seat price rises here, R500 to R800, and that is deliberate. Each Team
-seat carries 24 videos a month against Pro's 13, plus the collaboration
+seat carries 24 tokens a month against Pro's 13, plus the collaboration
 features above. The number that falls is the one the buyer budgets against:
-cost per video.
+cost per token.
+
+### Two ways to get an avatar
+
+Both cost the same 5 tokens. The difference is not pricing, it is consent:
+
+| | What it is | What it needs |
+| --- | --- | --- |
+| **Upload** | Footage or a photo of a real person | A consent record, written with the avatar and never backfilled |
+| **Generate** | A synthetic presenter, no real subject | No consent subject — a disclosure on the video instead |
+
+Keeping these apart is the whole compliance pillar applied to our own
+product. An organisation has to be able to say which of its presenters is a
+real employee and which is not, and a register that records a consenting
+"subject" for a fictional person answers that question wrongly. The app
+enforces the distinction rather than leaving it to a naming convention.
 
 ### Enterprise
 
@@ -104,47 +108,33 @@ Custom, annual, negotiated. API access, custom corporate avatars, SLAs, a data
 processing agreement, named support.
 
 Price on the value of the alternative — a production agency on retainer — not
-on video count. The self-serve arithmetic is irrelevant at this size.
+on token count. The self-serve arithmetic is irrelevant at this size.
 
 Sell it last. An enterprise pilot that goes badly because the pipeline was not
 ready costs more than the contract was worth, and these buyers talk to each
 other.
 
-## Avatar Setup
+## Topping up
 
-**R2 500 per avatar, once-off.**
+When the monthly tokens run out.
 
-The setup fee comes back, and here it belongs. A free build was right when the
-buyer was weighing R149 against airtime. An organisation reads a free
-implementation as a product with nobody behind it — a stated onboarding fee is
-what a procurement process expects to see.
-
-It is also real work: recording direction, a clean voice sample, iterations
-until the avatar genuinely resembles the presenter, and a consent record filed
-against the organisation. Included free on annual Team 5 and Enterprise
-contracts, where the commitment covers it.
-
-## Overage
-
-Extra videos beyond the monthly allowance. One credit, one video.
-
-| Pack | Price | Per video |
+| Pack | Price | Per token |
 | --- | --- | --- |
-| 1 extra | R79 | R79.00 |
-| 10 | R690 | R69.00 |
-| 25 | R1 475 | R59.00 |
+| 5 tokens | R395 | R79.00 |
+| 20 tokens | R1 380 | R69.00 |
+| 50 tokens | R2 950 | R59.00 |
 
-**The rule still holds and still has to be checked:** overage runs R59-R79 a
-video against a dearest tier rate of R49.90, so buying past the allowance is
-always dearer than moving up a tier. Reversed, nobody upgrades — they run on
-overage forever and the tiers stop meaning anything.
+**The rule still holds and still has to be checked:** top-ups run R59-R79 a
+token against a dearest tier rate of R49.90, so buying past the allowance is
+always dearer than moving up a tier. Reversed, nobody upgrades — they top up
+forever and the tiers stop meaning anything.
 
-The consumer credit packs this replaces (R26.60-R35) broke that rule
-immediately against B2B pricing: every one of them undercut every tier. Any
-time a price moves, re-check the ordering before it ships.
+This rule has now broken twice on a price change, both times silently, so it
+is asserted in the test suite rather than trusted.
 
-Credits do not expire monthly — twelve months from purchase, stated at
-purchase rather than in the terms page.
+Topped-up tokens do not expire monthly — twelve months from purchase, stated
+at purchase rather than in the terms page. Subscribed tokens do not roll over;
+that is what a monthly allowance means.
 
 ## Done-for-you ladder
 
