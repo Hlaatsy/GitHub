@@ -15,6 +15,7 @@ Run it before shipping a change that touches a view.
 
 import contextlib
 import io
+import os
 import pathlib
 import re
 import sys
@@ -22,14 +23,21 @@ import tempfile
 import threading
 import time
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-from app import server
-from playwright.sync_api import sync_playwright
 
-out, log = sys.stderr, io.StringIO()
-SHOTS = pathlib.Path(__import__("os").environ.get("SHOTS", "/tmp/identical-shots"))
-SHOTS.mkdir(parents=True, exist_ok=True)
 PORT = 8441
 B = f"http://localhost:{PORT}"
+
+# Emails carry absolute links, so the app has to know where it answers. Set
+# before importing the server, which is also how a deployment does it.
+os.environ.setdefault("IDENTICAL_BASE_URL", B)
+
+from app import server  # noqa: E402
+from playwright.sync_api import sync_playwright  # noqa: E402
+
+out, log = sys.stderr, io.StringIO()
+SHOTS = pathlib.Path(os.environ.get("SHOTS", "/tmp/identical-shots"))
+SHOTS.mkdir(parents=True, exist_ok=True)
+
 
 def run():
     with contextlib.redirect_stdout(log):
@@ -38,9 +46,19 @@ threading.Thread(target=run, daemon=True).start()
 time.sleep(1.0)
 
 def link(email, kind="/signin/"):
-    for l in reversed(log.getvalue().splitlines()):
-        if email in l and kind in l:
-            return l.split(": ", 1)[1]
+    """Pull a link out of what the console mailer printed.
+
+    The console mailer prints the whole message, so find the block addressed
+    to this recipient and take the first matching URL inside it.
+    """
+    blocks = log.getvalue().split("--- mail to ")
+    for block in reversed(blocks):
+        if block.startswith(email):
+            found = re.search(rf"(\S*{re.escape(kind)}\S+)", block)
+            if found:
+                # Absolute in the email; the test navigates with a path.
+                return found.group(1).replace(B, "") or None
+    return None
 
 fails = []
 def check(label, ok):
