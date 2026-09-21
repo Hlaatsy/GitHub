@@ -1,0 +1,105 @@
+"""Quota and credit behaviour -- the rules customers notice when broken."""
+
+from __future__ import annotations
+
+import datetime as dt
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from app import billing, plans  # noqa: E402
+from app.db import connect, now  # noqa: E402
+
+
+class BillingTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.conn = connect(Path(self._tmp.name) / "t.db")
+        self.conn.execute(
+            "INSERT INTO accounts (id, email, name, plan, period_start, created_at)"
+            " VALUES (1, 'a@b.c', 'Test', 'starter', ?, ?)", (now(), now()),
+        )
+        self.conn.commit()
+
+    def account(self):
+        return self.conn.execute("SELECT * FROM accounts WHERE id = 1").fetchone()
+
+    def test_allowance_is_spent_before_credits(self):
+        """Burning paid credits while free allowance sits unused is indefensible."""
+        billing.add_credits(self.conn, 1, plans.CREDIT_PACKS[1])
+        for _ in range(plans.PLANS["starter"].videos):
+            self.assertEqual(billing.spend_one(self.conn, self.account()), "allowance")
+        self.assertEqual(billing.live_credits(self.conn, 1), 5)
+        self.assertEqual(billing.spend_one(self.conn, self.account()), "credit")
+        self.assertEqual(billing.live_credits(self.conn, 1), 4)
+
+    def test_running_out_raises_rather_than_rendering(self):
+        for _ in range(plans.PLANS["starter"].videos):
+            billing.spend_one(self.conn, self.account())
+        with self.assertRaises(billing.OutOfQuota):
+            billing.spend_one(self.conn, self.account())
+
+    def test_expired_credits_do_not_count(self):
+        past = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=1)).isoformat()
+        self.conn.execute(
+            "INSERT INTO credit_batches (account_id, bought, remaining, cents, expires_at,"
+            " created_at) VALUES (1, 5, 5, 14900, ?, ?)", (past, now()),
+        )
+        self.conn.commit()
+        self.assertEqual(billing.live_credits(self.conn, 1), 0)
+
+    def test_oldest_credits_are_spent_first(self):
+        soon = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=5)).isoformat()
+        later = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=300)).isoformat()
+        self.conn.execute(
+            "INSERT INTO credit_batches (id, account_id, bought, remaining, cents, expires_at,"
+            " created_at) VALUES (10, 1, 1, 1, 3500, ?, ?)", (later, now()))
+        self.conn.execute(
+            "INSERT INTO credit_batches (id, account_id, bought, remaining, cents, expires_at,"
+            " created_at) VALUES (11, 1, 1, 1, 3500, ?, ?)", (soon, now()))
+        self.conn.execute("UPDATE accounts SET used = 7 WHERE id = 1")
+        self.conn.commit()
+        billing.spend_one(self.conn, self.account())
+        expiring = self.conn.execute("SELECT remaining FROM credit_batches WHERE id = 11").fetchone()
+        self.assertEqual(expiring["remaining"], 0, "the batch expiring soonest should go first")
+
+    def test_allowance_resets_after_a_month_but_credits_do_not(self):
+        billing.add_credits(self.conn, 1, plans.CREDIT_PACKS[0])
+        self.conn.execute("UPDATE accounts SET used = 7, period_start = ? WHERE id = 1",
+                          ((dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=31)).isoformat(),))
+        self.conn.commit()
+        account = billing.roll_period(self.conn, self.account())
+        self.assertEqual(billing.allowance_left(account), 7)
+        self.assertEqual(billing.live_credits(self.conn, 1), 1, "credits were paid for separately")
+
+    def test_unused_allowance_does_not_roll_over(self):
+        self.conn.execute("UPDATE accounts SET used = 0, period_start = ? WHERE id = 1",
+                          ((dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=31)).isoformat(),))
+        self.conn.commit()
+        account = billing.roll_period(self.conn, self.account())
+        self.assertEqual(billing.allowance_left(account), plans.PLANS["starter"].videos)
+
+    def test_every_movement_is_recorded(self):
+        billing.add_credits(self.conn, 1, plans.CREDIT_PACKS[0])
+        billing.spend_one(self.conn, self.account())
+        kinds = [r["kind"] for r in
+                 self.conn.execute("SELECT kind FROM ledger WHERE account_id = 1").fetchall()]
+        self.assertIn("credits_bought", kinds)
+        self.assertIn("video_allowance", kinds)
+
+
+class LengthTests(unittest.TestCase):
+    def test_a_long_script_is_refused(self):
+        with self.assertRaises(billing.TooLong):
+            billing.check_length("word " * 600)
+
+    def test_a_normal_script_passes(self):
+        self.assertLessEqual(billing.check_length("word " * 100), plans.MAX_VIDEO_SECONDS)
+
+
+if __name__ == "__main__":
+    unittest.main()
