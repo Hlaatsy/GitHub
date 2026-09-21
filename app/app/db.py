@@ -58,7 +58,11 @@ CREATE TABLE IF NOT EXISTS avatars (
     id           INTEGER PRIMARY KEY,
     org_id       INTEGER NOT NULL REFERENCES organisations(id),
     name         TEXT NOT NULL,
-    source       TEXT NOT NULL,            -- photo | video | library
+    -- upload: a real person, so a consent record is required.
+    -- generated: synthetic, so there is no subject to consent, but the video
+    -- carries a disclosure instead. Conflating the two is how an organisation
+    -- ends up unable to say which of its presenters is a real employee.
+    source       TEXT NOT NULL,            -- upload | generated
     guided       INTEGER NOT NULL DEFAULT 0,
     voice_kind   TEXT NOT NULL DEFAULT 'stock',
     provider_ref TEXT NOT NULL DEFAULT '',
@@ -94,27 +98,15 @@ CREATE TABLE IF NOT EXISTS videos (
     created_at   TEXT NOT NULL
 );
 
--- Video credits, bought in batches so each carries its own expiry, oldest
--- usable batch spent first.
-CREATE TABLE IF NOT EXISTS credit_batches (
+-- Topped-up tokens, bought in batches so each carries its own expiry, and
+-- the oldest usable batch is always spent first.
+CREATE TABLE IF NOT EXISTS token_batches (
     id          INTEGER PRIMARY KEY,
     org_id      INTEGER NOT NULL REFERENCES organisations(id),
     bought      INTEGER NOT NULL,
     remaining   INTEGER NOT NULL,
     cents       INTEGER NOT NULL,
     expires_at  TEXT NOT NULL,
-    created_at  TEXT NOT NULL
-);
-
--- Purchased avatar slots. These raise the avatar cap and nothing else -- not
--- seats, not videos -- so buying slots can never substitute for a tier.
--- Permanent rather than monthly, because the guided build behind each one is
--- work done once.
-CREATE TABLE IF NOT EXISTS avatar_grants (
-    id          INTEGER PRIMARY KEY,
-    org_id      INTEGER NOT NULL REFERENCES organisations(id),
-    extra       INTEGER NOT NULL,
-    cents       INTEGER NOT NULL,
     created_at  TEXT NOT NULL
 );
 
@@ -148,7 +140,7 @@ CREATE TABLE IF NOT EXISTS ledger (
 );
 
 CREATE INDEX IF NOT EXISTS idx_videos_org ON videos(org_id, id DESC);
-CREATE INDEX IF NOT EXISTS idx_batches_org ON credit_batches(org_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_batches_org ON token_batches(org_id, expires_at);
 CREATE INDEX IF NOT EXISTS idx_ledger_org ON ledger(org_id, id DESC);
 CREATE INDEX IF NOT EXISTS idx_members_org ON memberships(org_id, status);
 CREATE INDEX IF NOT EXISTS idx_members_user ON memberships(user_id, status);
@@ -188,9 +180,14 @@ def rename_legacy(conn: sqlite3.Connection) -> None:
     # becomes an organisation; the person is lifted out into users, and a
     # membership joins them as owner. Done as a rename plus inserts so no
     # avatar, video or credit is orphaned.
+    # Video credits became tokens: one pool for videos and avatars alike.
+    if "credit_batches" in tables and "token_batches" not in tables:
+        conn.execute("ALTER TABLE credit_batches RENAME TO token_batches")
+        tables.add("token_batches")
+
     if "accounts" in tables and "organisations" not in tables:
         conn.execute("ALTER TABLE accounts RENAME TO organisations")
-        for table in ("avatars", "videos", "credit_batches", "ledger"):
+        for table in ("avatars", "videos", "token_batches", "ledger"):
             if table in tables:
                 columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
                 if "account_id" in columns and "org_id" not in columns:
@@ -242,6 +239,11 @@ def split_out_users(conn: sqlite3.Connection) -> None:
 def migrate(conn: sqlite3.Connection) -> None:
     """Data fixes that run AFTER the schema script. Safe every start."""
     split_out_users(conn)
+
+    # Every avatar made before the distinction existed came from a photo of a
+    # real person, so it is an upload. Guessing "generated" would wrongly
+    # suggest nobody needed to consent.
+    conn.execute("UPDATE avatars SET source = 'upload' WHERE source IN ('photo', 'video')")
 
     # Plan keys from the consumer model no longer exist; without this every
     # lookup against PLANS raises and the organisation cannot load at all.

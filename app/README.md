@@ -57,12 +57,11 @@ These are the ones that cost money or trust when they break:
 - **A credit always costs more per video than any plan.** If credits undercut
   a plan nobody upgrades — they top up forever, and the tiers stop meaning
   anything. Checked against every pack and every tier.
-- **Allowance is spent before credits.** Burning a credit somebody paid for
-  while their included videos sit unused is indefensible, and customers check.
+
 - **Oldest credits go first**, so a batch about to expire is used, not wasted.
 - **Unused allowance does not roll over; credits do.** That is what a cap
   means, and what "credits do not expire at month end" means.
-- **Running out raises** rather than rendering something unpaid — the cap is
+- **Running out raises** rather than making something unpaid — the cap is
   the upgrade conversation, not an inconvenience to route around.
 - **Trial withholds the costly features**, not just video count: no voice
   cloning (per-user compute) and no guided build, which is a paid service.
@@ -70,8 +69,14 @@ These are the ones that cost money or trust when they break:
   its higher per-seat price.
 - **Avatar limits are enforced on the endpoint**, not just hidden in the UI.
   A form that disappears at the limit is not a limit; the route refuses too.
-- **Bought avatar slots raise the avatar cap only** — never seats or videos,
-  so a pack can never substitute for a tier.
+- **One token pool pays for everything.** A video is 1 token, an avatar is 5.
+  No separate charge for an avatar and no per-plan avatar cap: when the tokens
+  run out you top up, and that one rule covers every kind of content.
+- **Subscribed tokens are spent before topped-up ones**, and a spend that
+  needs both uses both rather than refusing.
+- **An uploaded avatar gets a consent record; a generated one does not.**
+  Recording a consenting subject for a synthetic presenter would put a
+  fictional name in the register an organisation shows its regulator.
 - **A seat is an accepted invitation.** A pending invitation holds its seat, an
   invitation cannot be forwarded to a different address or accepted twice, and
   revoking frees the seat while leaving that person's videos attributed to them.

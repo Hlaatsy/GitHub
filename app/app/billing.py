@@ -1,11 +1,17 @@
-"""Quota, credits and the rules for spending them.
+"""Tokens, and the rules for spending them.
 
-Two rules decide almost everything here, and both are the kind that look like
-details until a customer notices them:
+One pool pays for everything an organisation makes. A video is one token, an
+avatar is five. There is no separate charge for creating an avatar and no
+per-plan avatar limit: when the tokens run out, you top up, and that single
+rule covers every kind of content.
 
-1. **Allowance before credits.** Burning a credit somebody paid for while
-   their included videos sit unused is indefensible, and they do check.
-2. **Oldest credits first**, so a batch about to expire is used rather than
+Two smaller rules decide almost everything else, and both look like details
+until a customer notices them:
+
+1. **Subscribed tokens before topped-up ones.** Charging a top-up somebody
+   paid for while their included tokens sit unused is indefensible, and they
+   do check.
+2. **Oldest batch first**, so tokens about to expire are used rather than
    wasted.
 """
 
@@ -18,8 +24,12 @@ from . import plans
 from .db import log, now
 
 
-class OutOfQuota(Exception):
-    """Raised instead of silently queueing a video nobody can pay for."""
+class OutOfTokens(Exception):
+    """Raised instead of making something nobody has paid for."""
+
+
+#: Old name, kept so existing callers keep working.
+OutOfQuota = OutOfTokens
 
 
 class TooLong(Exception):
@@ -27,7 +37,7 @@ class TooLong(Exception):
 
 
 class AvatarLimitReached(Exception):
-    """Account already has as many avatars as its plan allows."""
+    """Kept for callers that still catch it; avatars now run out of tokens."""
 
 
 def _today() -> dt.datetime:
@@ -57,10 +67,10 @@ def roll_period(conn: sqlite3.Connection, org: sqlite3.Row) -> sqlite3.Row:
     return conn.execute("SELECT * FROM organisations WHERE id = ?", (org["id"],)).fetchone()
 
 
-def live_credits(conn: sqlite3.Connection, org_id: int) -> int:
+def live_tokens(conn: sqlite3.Connection, org_id: int) -> int:
     """Credits that have not been spent and have not expired."""
     row = conn.execute(
-        "SELECT COALESCE(SUM(remaining), 0) AS n FROM credit_batches"
+        "SELECT COALESCE(SUM(remaining), 0) AS n FROM token_batches"
         " WHERE org_id = ? AND remaining > 0 AND expires_at > ?",
         (org_id, now()),
     ).fetchone()
@@ -72,48 +82,67 @@ def allowance_left(org: sqlite3.Row) -> int:
     return max(0, plan.videos - int(org["used"]))
 
 
+def tokens_left(conn: sqlite3.Connection, org: sqlite3.Row) -> int:
+    """Subscribed tokens not yet used, plus live topped-up ones."""
+    return allowance_left(org) + live_tokens(conn, org["id"])
+
+
 def videos_left(conn: sqlite3.Connection, org: sqlite3.Row) -> int:
-    return allowance_left(org) + live_credits(conn, org["id"])
+    """Tokens expressed as videos, which is how the meter reads."""
+    return tokens_left(conn, org) // plans.VIDEO_TOKENS
 
 
-def add_credits(conn: sqlite3.Connection, org_id: int, pack: plans.CreditPack) -> None:
-    expires = _today() + dt.timedelta(days=plans.CREDIT_EXPIRY_DAYS)
+def add_tokens(conn: sqlite3.Connection, org_id: int, pack: plans.TokenPack,
+               user_id: int | None = None) -> None:
+    expires = _today() + dt.timedelta(days=plans.TOKEN_EXPIRY_DAYS)
     conn.execute(
-        "INSERT INTO credit_batches (org_id, bought, remaining, cents, expires_at, created_at)"
+        "INSERT INTO token_batches (org_id, bought, remaining, cents, expires_at, created_at)"
         " VALUES (?, ?, ?, ?, ?, ?)",
-        (org_id, pack.credits, pack.credits, pack.cents,
+        (org_id, pack.tokens, pack.tokens, pack.cents,
          expires.isoformat(timespec="seconds"), now()),
     )
-    log(conn, org_id, "credits_bought", detail=f"{pack.credits} credits",
-        cents=pack.cents, videos=pack.credits)
+    log(conn, org_id, "tokens_bought", detail=f"{pack.tokens} tokens",
+        cents=pack.cents, videos=pack.tokens, user_id=user_id)
     conn.commit()
 
 
-def spend_one(conn: sqlite3.Connection, org: sqlite3.Row) -> str:
-    """Consume one video. Returns what paid for it: 'allowance' or 'credit'.
+def spend(conn: sqlite3.Connection, org: sqlite3.Row, tokens: int, what: str,
+          user_id: int | None = None) -> str:
+    """Spend tokens on one thing. Returns how it was paid: included/topup/both.
 
-    Raises OutOfQuota rather than rendering something unpaid -- the caller
-    turns that into the upgrade conversation, which is the whole point of
-    having a cap.
+    Subscribed tokens go first, then topped-up ones, oldest batch first.
+    Charging a top-up somebody paid for while their included tokens sit unused
+    is indefensible, and customers check.
+
+    Raises OutOfTokens rather than making something nobody paid for -- that
+    refusal is the top-up conversation, which is the point of having a limit.
     """
-    if allowance_left(org) > 0:
-        conn.execute("UPDATE organisations SET used = used + 1 WHERE id = ?", (org["id"],))
-        log(conn, org["id"], "video_allowance", videos=1)
-        conn.commit()
-        return "allowance"
+    if tokens_left(conn, org) < tokens:
+        raise OutOfTokens(f"{what} costs {tokens} tokens and "
+                          f"{tokens_left(conn, org)} are left")
 
-    batch = conn.execute(
-        "SELECT * FROM credit_batches WHERE org_id = ? AND remaining > 0 AND expires_at > ?"
-        " ORDER BY expires_at ASC LIMIT 1",
-        (org["id"], now()),
-    ).fetchone()
-    if batch is None:
-        raise OutOfQuota("no allowance and no live credits")
+    from_allowance = min(tokens, allowance_left(org))
+    if from_allowance:
+        conn.execute("UPDATE organisations SET used = used + ? WHERE id = ?",
+                     (from_allowance, org["id"]))
 
-    conn.execute("UPDATE credit_batches SET remaining = remaining - 1 WHERE id = ?", (batch["id"],))
-    log(conn, org["id"], "video_credit", detail=f"batch {batch['id']}", videos=1)
+    remaining = tokens - from_allowance
+    while remaining > 0:
+        batch = conn.execute(
+            "SELECT * FROM token_batches WHERE org_id = ? AND remaining > 0 AND expires_at > ?"
+            " ORDER BY expires_at ASC LIMIT 1", (org["id"], now()),
+        ).fetchone()
+        take = min(remaining, batch["remaining"])
+        conn.execute("UPDATE token_batches SET remaining = remaining - ? WHERE id = ?",
+                     (take, batch["id"]))
+        remaining -= take
+
+    paid = ("included" if not tokens - from_allowance
+            else "topup" if not from_allowance else "both")
+    log(conn, org["id"], f"{what}_created", detail=f"{tokens} tokens ({paid})",
+        videos=tokens, user_id=user_id)
     conn.commit()
-    return "credit"
+    return paid
 
 
 def avatars_used(conn: sqlite3.Connection, org_id: int) -> int:
@@ -122,54 +151,23 @@ def avatars_used(conn: sqlite3.Connection, org_id: int) -> int:
     ).fetchone()["n"])
 
 
-def avatars_granted(conn: sqlite3.Connection, org_id: int) -> int:
-    """Extra slots bought on top of the plan. Permanent -- the guided build
-    behind each one is work done once, not a monthly rental."""
-    row = conn.execute(
-        "SELECT COALESCE(SUM(extra), 0) AS n FROM avatar_grants WHERE org_id = ?",
-        (org_id,),
-    ).fetchone()
-    return int(row["n"])
-
-
-def avatars_allowed(conn: sqlite3.Connection, org: sqlite3.Row) -> int:
-    return plans.PLANS[org["plan"]].avatars + avatars_granted(conn, org["id"])
-
-
-def avatars_left(conn: sqlite3.Connection, org: sqlite3.Row) -> int:
-    return max(0, avatars_allowed(conn, org) - avatars_used(conn, org["id"]))
-
-
-def add_avatar_slots(conn: sqlite3.Connection, org_id: int, pack: plans.AvatarPack,
-                     user_id: int | None = None) -> None:
-    conn.execute(
-        "INSERT INTO avatar_grants (org_id, extra, cents, created_at) VALUES (?, ?, ?, ?)",
-        (org_id, pack.avatars, pack.cents, now()),
-    )
-    log(conn, org_id, "avatar_slots_bought", detail=f"{pack.avatars} slots",
-        cents=pack.cents, user_id=user_id)
-    conn.commit()
+def avatars_affordable(conn: sqlite3.Connection, org: sqlite3.Row) -> int:
+    """How many more avatars the remaining tokens will pay for."""
+    return tokens_left(conn, org) // plans.AVATAR_TOKENS
 
 
 def claim_avatar(conn: sqlite3.Connection, org: sqlite3.Row) -> None:
-    """Check the plan allows another avatar. Raises AvatarLimitReached if not.
+    """Check an avatar can be paid for. Raises OutOfTokens if not.
 
-    Avatars are capped for three reasons, and only the first is about money:
-
-    * each one is a guided build, which is human time we sell as a service;
-    * a cloned voice carries a per-avatar cost with the provider;
-    * every avatar is a real person's likeness, so an uncapped account is an
-      uncapped consent surface -- more faces on file than anyone is tracking
-      is precisely the failure the compliance pillar exists to prevent.
+    There is no separate charge for an avatar and no per-plan avatar limit.
+    One pool pays for everything the organisation makes, so the only question
+    is whether there are enough tokens left -- which is the same question a
+    video asks, with a bigger number.
     """
-    if avatars_left(conn, org) <= 0:
-        allowed = avatars_allowed(conn, org)
-        extra = avatars_granted(conn, org["id"])
-        detail = f" plus {extra} bought" if extra else ""
-        raise AvatarLimitReached(
-            f"{plans.PLANS[org['plan']].name} includes "
-            f"{plans.PLANS[org['plan']].avatars}{detail} — "
-            f"{allowed} avatar{'s' if allowed != 1 else ''} in total"
+    if tokens_left(conn, org) < plans.AVATAR_TOKENS:
+        raise OutOfTokens(
+            f"an avatar is {plans.AVATAR_TOKENS} tokens and "
+            f"{tokens_left(conn, org)} are left"
         )
 
 
