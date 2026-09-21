@@ -53,10 +53,10 @@ class VideoProvider:
     #: in docs/monetisation.md is unverified until it is.
     cents_per_video: int | None = None
 
-    def build_twin(self, source: str, reference: bytes) -> str:
+    def build_avatar(self, source: str, reference: bytes) -> str:
         raise NotImplementedError
 
-    def render(self, twin_ref: str, script: str, seconds: int, voice: str) -> Render:
+    def render(self, avatar_ref: str, script: str, seconds: int, voice: str) -> Render:
         raise NotImplementedError
 
 
@@ -71,12 +71,12 @@ class StubProvider(VideoProvider):
 
     cents_per_video = None  # unknown until a vendor is chosen, and that is the point
 
-    def build_twin(self, source: str, reference: bytes) -> str:
+    def build_avatar(self, source: str, reference: bytes) -> str:
         digest = hashlib.sha256(reference or source.encode()).hexdigest()[:12]
-        return f"stub-twin-{digest}"
+        return f"stub-avatar-{digest}"
 
-    def render(self, twin_ref: str, script: str, seconds: int, voice: str) -> Render:
-        digest = hashlib.sha256(f"{twin_ref}{script}{voice}".encode()).hexdigest()[:12]
+    def render(self, avatar_ref: str, script: str, seconds: int, voice: str) -> Render:
+        digest = hashlib.sha256(f"{avatar_ref}{script}{voice}".encode()).hexdigest()[:12]
         return Render(
             ref=f"stub-render-{digest}",
             seconds=seconds,

@@ -19,7 +19,7 @@ set already published.
 
 ### `identical-hero.png` — hero / store screenshot
 
-> Identical colourful 3D Pixar cartoon twin boys, perfectly identical faces,
+> Identical colourful 3D Pixar cartoon avatar boys, perfectly identical faces,
 > big joyful smiles, curly brown hair, blue eyes, wearing vibrant matching
 > rainbow hoodies with orange overalls and colorful sneakers, standing
 > together arm around shoulder, hyper realistic Pixar style, colorful paint
@@ -33,12 +33,12 @@ gets cropped hard in-feed.
 
 ### App icon
 
-> Two identical cartoon faces, Pixar style, colorful, cheerful twins icon,
+> Two identical cartoon faces, Pixar style, colorful, cheerful avatars icon,
 > modern iOS app icon, white background, clean minimal
 
 ### Positioning line
 
-> IDENTICAL app — your cartoon twin clone that talks, dances and creates
+> IDENTICAL app — your cartoon avatar clone that talks, dances and creates
 > videos for you — colorful, fun, premium
 
 ## Licensing note

@@ -102,6 +102,6 @@ In the order that unlocks revenue:
   let anyone become any account by editing one number.
 - The `ledger` table is append-only and records every movement of money or
   quota, so a billing dispute is answered from data rather than memory.
-- A consent record is written **with** the twin, never backfilled. Selling
+- A consent record is written **with** the avatar, never backfilled. Selling
   compliance expertise while our own product cannot show who agreed to what
   would be indefensible.

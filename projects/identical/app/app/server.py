@@ -116,8 +116,8 @@ def view_landing() -> str:
     )
     return (
         '<header class="hero"><div class="eyebrow">South Africa</div>'
-        "<h1>Your twin, built free. From R149 a month.</h1>"
-        "<p>Record once. Your twin makes the videos from then on — in your voice, "
+        "<h1>Your avatar, built free. From R149 a month.</h1>"
+        "<p>Record once. Your avatar makes the videos from then on — in your voice, "
         "in your language, on your phone.</p></header>"
         f'<section class="tiers">{tiers}</section>'
         '<form method="post" action="/signup" class="card">'
@@ -129,26 +129,26 @@ def view_landing() -> str:
 
 
 def view_home(conn: sqlite3.Connection, account: sqlite3.Row) -> str:
-    twin = conn.execute(
-        "SELECT * FROM twins WHERE account_id = ? ORDER BY id DESC LIMIT 1", (account["id"],)
+    avatar = conn.execute(
+        "SELECT * FROM avatars WHERE account_id = ? ORDER BY id DESC LIMIT 1", (account["id"],)
     ).fetchone()
     videos = conn.execute(
         "SELECT * FROM videos WHERE account_id = ? ORDER BY id DESC LIMIT 6", (account["id"],)
     ).fetchall()
 
-    if twin is None:
-        twin_block = (
-            '<form method="post" action="/twin" class="twin-new">'
-            "<h2>Build your twin</h2>"
-            f"<p class=sub>{'One photo is enough. Your plan includes the guided build.' if plans.PLANS[account['plan']].guided_build else 'Free accounts get the automatic photo twin. Upgrade for the guided build and your own voice.'}</p>"
-            '<label class=fld>What should we call it<input name=name value="My twin" required></label>'
+    if avatar is None:
+        avatar_block = (
+            '<form method="post" action="/avatar" class="avatar-new">'
+            "<h2>Build your avatar</h2>"
+            f"<p class=sub>{'One photo is enough. Your plan includes the guided build.' if plans.PLANS[account['plan']].guided_build else 'Free accounts get the automatic photo avatar. Upgrade for the guided build and your own voice.'}</p>"
+            '<label class=fld>What should we call it<input name=name value="My avatar" required></label>'
             '<button class="act cool">Build it</button></form>'
         )
     else:
-        twin_block = (
-            f'<div class="twin"><div class="face"></div><div>'
-            f'<div class="twin-name">{e(twin["name"])}</div>'
-            f'<div class="sub">{e(twin["source"])} · {e(twin["voice_kind"])} voice</div></div></div>'
+        avatar_block = (
+            f'<div class="avatar"><div class="face"></div><div>'
+            f'<div class="avatar-name">{e(avatar["name"])}</div>'
+            f'<div class="sub">{e(avatar["source"])} · {e(avatar["voice_kind"])} voice</div></div></div>'
         )
 
     left = billing.videos_left(conn, account)
@@ -162,9 +162,9 @@ def view_home(conn: sqlite3.Connection, account: sqlite3.Row) -> str:
 
     return (
         f'<h1 class="app-h">Hello, {e(account["name"] or "there")}</h1>'
-        f"{twin_block}{meter(conn, account)}"
-        + (f'<a class="act" href="/create">New video</a>' if left and twin
-           else f'<a class="act" href="/plan">Out of videos — see options</a>' if twin
+        f"{avatar_block}{meter(conn, account)}"
+        + (f'<a class="act" href="/create">New video</a>' if left and avatar
+           else f'<a class="act" href="/plan">Out of videos — see options</a>' if avatar
            else "")
         + f'<section><div class="sub" style="margin-bottom:4px">Recent</div>{rows}</section>'
     )
@@ -182,7 +182,7 @@ def view_create(conn: sqlite3.Connection, account: sqlite3.Row, error: str = "")
         '<label class=fld>Title<input name=title required placeholder="What is this one for?"></label>'
         "<label class=fld>Script"
         '<textarea name=script rows=8 required '
-        'placeholder="Type or paste what your twin should say…"></textarea></label>'
+        'placeholder="Type or paste what your avatar should say…"></textarea></label>'
         f'<div class="est">Up to {plans.MAX_VIDEO_SECONDS // 60} minutes — about '
         f'{plans.MAX_VIDEO_SECONDS * 145 // 60} words</div>'
         f"<label class=fld>Voice<select name=voice>{options}</select></label>"
@@ -347,25 +347,25 @@ class Handler(BaseHTTPRequestHandler):
             self.redirect("/")
             return
 
-        if path == "/twin":
+        if path == "/avatar":
             plan = plans.PLANS[account["plan"]]
-            ref = PROVIDER.build_twin("photo", b"")
+            ref = PROVIDER.build_avatar("photo", b"")
             cursor = db().execute(
-                "INSERT INTO twins (account_id, name, source, guided, voice_kind,"
+                "INSERT INTO avatars (account_id, name, source, guided, voice_kind,"
                 " provider_ref, created_at) VALUES (?, ?, 'photo', ?, ?, ?, ?)",
-                (account["id"], data.get("name", "My twin").strip() or "My twin",
+                (account["id"], data.get("name", "My avatar").strip() or "My avatar",
                  int(plan.guided_build), "cloned" if plan.custom_voice else "stock",
                  ref, now()),
             )
-            # A consent record is written with the twin, never afterwards.
+            # A consent record is written with the avatar, never afterwards.
             db().execute(
-                "INSERT INTO consents (twin_id, subject_name, scope, retention_until, agreed_at)"
+                "INSERT INTO consents (avatar_id, subject_name, scope, retention_until, agreed_at)"
                 " VALUES (?, ?, ?, ?, ?)",
                 (cursor.lastrowid, account["name"] or account["email"],
                  "Videos this account creates, until consent is withdrawn",
                  now(), now()),
             )
-            log(db(), account["id"], "twin_built", detail=ref)
+            log(db(), account["id"], "avatar_built", detail=ref)
             db().commit()
             self.redirect("/")
 
@@ -376,11 +376,11 @@ class Handler(BaseHTTPRequestHandler):
             except billing.TooLong as exc:
                 self.send(page(view_create(db(), account, str(exc)), account, "create"))
                 return
-            twin = db().execute(
-                "SELECT * FROM twins WHERE account_id = ? ORDER BY id DESC LIMIT 1",
+            avatar = db().execute(
+                "SELECT * FROM avatars WHERE account_id = ? ORDER BY id DESC LIMIT 1",
                 (account["id"],),
             ).fetchone()
-            if twin is None:
+            if avatar is None:
                 self.redirect("/")
                 return
             try:
@@ -390,13 +390,13 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             render = share_encode(
-                PROVIDER.render(twin["provider_ref"], script, seconds, data.get("voice", ""))
+                PROVIDER.render(avatar["provider_ref"], script, seconds, data.get("voice", ""))
             )
             cursor = db().execute(
-                "INSERT INTO videos (account_id, twin_id, title, script, seconds, status,"
+                "INSERT INTO videos (account_id, avatar_id, title, script, seconds, status,"
                 " paid_with, bytes, provider_ref, created_at)"
                 " VALUES (?, ?, ?, ?, ?, 'ready', ?, ?, ?, ?)",
-                (account["id"], twin["id"], data.get("title", "Untitled").strip() or "Untitled",
+                (account["id"], avatar["id"], data.get("title", "Untitled").strip() or "Untitled",
                  script, seconds, paid_with, render.bytes, render.ref, now()),
             )
             db().commit()

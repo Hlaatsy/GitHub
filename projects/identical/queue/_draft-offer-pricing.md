@@ -8,7 +8,7 @@
 # identical-07-pricing.md to schedule it.
 publish_at: 2026-10-08T07:00:00Z
 ---
-R149 a month. No setup fee. Your twin built free.
+R149 a month. No setup fee. Your avatar built free.
 
 We priced this for the market we are actually in.
 
@@ -23,14 +23,14 @@ FREE — R0
 2 videos a month, on us. Standard voices.
 
 STARTER — R149/mo
-Your digital twin, built for you at no charge. 7 videos a month, and your
+Your digital avatar, built for you at no charge. 7 videos a month, and your
 own custom AI voice.
 
 PRO — R299/mo
-16 videos a month, 3 twins, voice cloning and translation.
+16 videos a month, 3 avatars, voice cloning and translation.
 
 PREMIUM — R449/mo
-28 videos a month, 10 twins, team seats and priority.
+28 videos a month, 10 avatars, team seats and priority.
 
 Every video up to 2 minutes. R150 between each plan. Move up when you outgrow
 one, move back down when you do not need it.
@@ -48,11 +48,11 @@ Pay for ten months up front and get twelve.
 Month to month otherwise. Cancel any time. No contract, no lock-in, no
 "speak to sales" before you can see a price.
 
-The twin build being free is the part we would like you to notice. It is
+The avatar build being free is the part we would like you to notice. It is
 skilled work, and it is where most people give up trying this alone — so we
 do it for you, properly, from Starter up.
 
-Send us one clear photo and we will send back a 60-second video of your twin
+Send us one clear photo and we will send back a 60-second video of your avatar
 talking. Then decide.
 
 #Pricing #AIVideo #SmallBusiness #SouthAfrica #Affordable

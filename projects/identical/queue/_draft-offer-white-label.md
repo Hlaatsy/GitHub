@@ -16,7 +16,7 @@ There is a third option.
 
 WHITE-LABEL PARTNER PROGRAMME
 
-- AI twin video production, delivered under your brand
+- AI avatar video production, delivered under your brand
 - Your client relationship stays yours — we never appear in it
 - Your pricing, your margin
 - Turnaround in days, not production schedules

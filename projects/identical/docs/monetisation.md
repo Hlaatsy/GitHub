@@ -44,9 +44,9 @@ time.
 
 What those seats get that the tiers below do not:
 
-- **Shared brand twins.** One presenter used by all five, rather than five
+- **Shared brand avatars.** One presenter used by all five, rather than five
   people each building their own and the brand drifting.
-- **Shared asset library** — scripts, twins, voices, past videos in one place
+- **Shared asset library** — scripts, avatars, voices, past videos in one place
   instead of on five laptops.
 - **Approval workflow.** Nothing publishes under the company name without a
   named person approving it. This is often what decides the purchase, because
@@ -71,9 +71,9 @@ Sell it last. An enterprise pilot that goes badly because the pipeline was not
 ready costs more than the contract was worth, and these buyers talk to each
 other.
 
-## Twin Setup
+## Avatar Setup
 
-**R2 500 per twin, once-off.**
+**R2 500 per avatar, once-off.**
 
 The setup fee comes back, and here it belongs. A free build was right when the
 buyer was weighing R149 against airtime. An organisation reads a free
@@ -81,7 +81,7 @@ implementation as a product with nobody behind it — a stated onboarding fee is
 what a procurement process expects to see.
 
 It is also real work: recording direction, a clean voice sample, iterations
-until the twin genuinely resembles the presenter, and a consent record filed
+until the avatar genuinely resembles the presenter, and a consent record filed
 against the organisation. Included free on annual Team 5 and Enterprise
 contracts, where the commitment covers it.
 
@@ -187,7 +187,7 @@ A B2B funnel, which is slower, lumpier and worth far more per customer.
 2. **A compliance conversation.** The consent pack or AI content policy, or
    just the question nobody in the room has answered yet. This gets you in
    as the party who understands the risk.
-3. **A pilot.** One department, one twin, a handful of videos. Twin Setup at
+3. **A pilot.** One department, one avatar, a handful of videos. Avatar Setup at
    R2 500 is the first invoice and it prices the work honestly.
 4. **A team subscription** once the pilot has an internal champion —
    Team 5 is sized for the department that ran it.
@@ -228,7 +228,7 @@ Not monthly signups. In this model the numbers that matter are:
   seat limit is a one-seat plan the customer shares, and you find out at
   renewal.
 - **Contracts, not just checkout.** B2B buyers need an order form, payment
-  terms, a revision cap on services, and an answer to what happens to twins
+  terms, a revision cap on services, and an answer to what happens to avatars
   and source footage when the contract ends — that last one is a POPIA
   question before it is an admin one.
 - **VAT.** Business buyers reclaim it, so quote excluding VAT and say so —
