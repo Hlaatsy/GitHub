@@ -88,7 +88,31 @@ CREATE TABLE IF NOT EXISTS ledger (
     created_at  TEXT NOT NULL
 );
 
+-- Sign-in links are single use. Recording the jti is what makes that true:
+-- without it a link works until it expires, and links get forwarded.
+CREATE TABLE IF NOT EXISTS sign_in_tokens (
+    id          INTEGER PRIMARY KEY,
+    account_id  INTEGER NOT NULL REFERENCES accounts(id),
+    jti         TEXT NOT NULL UNIQUE,
+    used_at     TEXT NOT NULL DEFAULT '',
+    created_at  TEXT NOT NULL
+);
+
+-- Phone verification. Only the hash of the code is stored, and attempts are
+-- counted, so a six-digit code cannot be walked through.
+CREATE TABLE IF NOT EXISTS otps (
+    id          INTEGER PRIMARY KEY,
+    account_id  INTEGER NOT NULL REFERENCES accounts(id),
+    phone       TEXT NOT NULL,
+    code_hash   TEXT NOT NULL,
+    attempts    INTEGER NOT NULL DEFAULT 0,
+    expires_at  INTEGER NOT NULL,
+    created_at  TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_videos_account ON videos(account_id, id DESC);
+CREATE INDEX IF NOT EXISTS idx_tokens_jti ON sign_in_tokens(jti);
+CREATE INDEX IF NOT EXISTS idx_otps_account ON otps(account_id, id DESC);
 CREATE INDEX IF NOT EXISTS idx_batches_account ON credit_batches(account_id, expires_at);
 CREATE INDEX IF NOT EXISTS idx_ledger_account ON ledger(account_id, id DESC);
 """
@@ -96,6 +120,25 @@ CREATE INDEX IF NOT EXISTS idx_ledger_account ON ledger(account_id, id DESC);
 
 def now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+
+
+#: Columns added to ``accounts`` after the first release. CREATE TABLE IF NOT
+#: EXISTS leaves an existing table alone, so new columns need adding
+#: explicitly or an upgraded deployment reads a schema it does not have.
+ACCOUNT_COLUMNS = (
+    ("email_verified", "INTEGER NOT NULL DEFAULT 0"),
+    ("phone", "TEXT NOT NULL DEFAULT ''"),
+    ("phone_verified", "INTEGER NOT NULL DEFAULT 0"),
+)
+
+
+def migrate(conn: sqlite3.Connection) -> None:
+    """Add columns missing from an older database. Safe to run every start."""
+    have = {row["name"] for row in conn.execute("PRAGMA table_info(accounts)")}
+    for name, spec in ACCOUNT_COLUMNS:
+        if name not in have:
+            conn.execute(f"ALTER TABLE accounts ADD COLUMN {name} {spec}")
+    conn.commit()
 
 
 def connect(path: Path | str | None = None) -> sqlite3.Connection:
@@ -106,6 +149,7 @@ def connect(path: Path | str | None = None) -> sqlite3.Connection:
     # request is in flight.
     conn.execute("PRAGMA journal_mode = WAL")
     conn.executescript(SCHEMA)
+    migrate(conn)
     return conn
 
 

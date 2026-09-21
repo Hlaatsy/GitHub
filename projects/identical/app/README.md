@@ -41,6 +41,7 @@ allowance or the length cap, not the R149.
 
 ## Layout
 
+    app/auth.py       sign-in links and phone verification
     app/plans.py      plans, credit packs, and the pricing invariants
     app/billing.py    quota, credits, expiry, consumption order
     app/db.py         SQLite schema and a per-thread connection pool
@@ -77,8 +78,10 @@ In the order that unlocks revenue:
    mobile money work — card-only excludes most of this market. See
    `docs/monetisation.md`, "Payment rails".
 2. **A real provider** behind `VideoProvider`, which settles the cost question.
-3. **Real auth.** Signup takes an email and trusts it. Needs a verification
-   link, and phone verification to stop one person farming free twins.
+3. **Wire up `app/auth.py`.** Sign-in links and phone verification are
+   written and tested but not yet connected to the server, which still takes
+   an email on trust. Connecting it needs an email sender — anything that
+   delivers a link will do.
 4. **Async rendering.** Rendering is synchronous, which is fine against a stub
    and wrong against a vendor that takes 40 seconds. Queue and notify.
 5. **The WhatsApp pipeline** — voice note in, video back. `docs/product.md`
@@ -87,7 +90,7 @@ In the order that unlocks revenue:
 
 ## Notes for whoever picks this up
 
-- `IDENTICAL_SECRET` signs the session cookie. Unset, a random one is
+- `IDENTICAL_SECRET` signs session cookies and sign-in links. Unset, a random one is
   generated per run, so restarting signs everyone out — fine in development,
   set it in production.
 - Session cookies are HMAC-signed. An unsigned account id in a cookie would
