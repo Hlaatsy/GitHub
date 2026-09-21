@@ -29,9 +29,12 @@ class Plan:
     cents: int
     videos: int
     twins: int
+    seats: int
     custom_voice: bool
     guided_build: bool
     watermark: bool
+    shared_library: bool = False
+    approvals: bool = False
     features: tuple[str, ...] = ()
 
     @property
@@ -46,21 +49,31 @@ class Plan:
         return round(self.cents / self.videos)
 
     @property
+    def cents_per_seat(self) -> int | None:
+        if not self.cents or not self.seats:
+            return None
+        return round(self.cents / self.seats)
+
+    @property
+    def videos_per_seat(self) -> float:
+        return self.videos / self.seats if self.seats else 0
+
+    @property
     def max_minutes(self) -> int:
         return self.videos * MAX_VIDEO_SECONDS // 60
 
 
 PLANS: dict[str, Plan] = {
-    "free": Plan(
-        key="free",
-        name="Free",
+    "trial": Plan(
+        key="trial",
+        name="Trial",
         cents=0,
         videos=2,
         twins=1,
+        seats=1,
         custom_voice=False,
-        # The guided build is human time. Giving it away to accounts that may
-        # never pay is the one cost that does not scale -- free accounts get
-        # the automated photo-to-twin instead.
+        # The guided build is human time. It is a paid service (Twin Setup),
+        # not something a trial account consumes.
         guided_build=False,
         watermark=True,
         features=("Library avatar or photo twin", "Standard voices"),
@@ -68,39 +81,57 @@ PLANS: dict[str, Plan] = {
     "starter": Plan(
         key="starter",
         name="Starter",
-        cents=14900,
-        videos=7,
+        cents=49900,
+        videos=10,
         twins=1,
+        seats=1,
         custom_voice=True,
         guided_build=True,
         watermark=False,
-        features=("Guided twin build, free", "Your own custom AI voice", "Consent record on file"),
+        features=("1 seat", "Custom AI voice", "Consent record on file"),
     ),
     "pro": Plan(
         key="pro",
         name="Pro",
-        cents=29900,
-        videos=16,
+        cents=149900,
+        videos=40,
         twins=3,
+        seats=3,
         custom_voice=True,
         guided_build=True,
         watermark=False,
-        features=("Everything in Starter", "3 twins", "Voice cloning", "Video translation"),
+        shared_library=True,
+        features=("3 seats", "Voice cloning", "Video translation", "Shared library"),
     ),
-    "premium": Plan(
-        key="premium",
-        name="Premium",
-        cents=44900,
-        videos=28,
-        twins=10,
+    "team5": Plan(
+        key="team5",
+        name="Team 5",
+        cents=399900,
+        videos=120,
+        twins=5,
+        seats=5,
         custom_voice=True,
         guided_build=True,
         watermark=False,
-        features=("Everything in Pro", "10 twins", "Team seats", "Priority render queue"),
+        shared_library=True,
+        # What a communications lead is actually accountable for, and usually
+        # what decides the purchase.
+        approvals=True,
+        features=("5 seats for marketing and PR", "Shared brand twins",
+                  "Approval workflow", "Consent register across the team"),
     ),
 }
 
-ORDER = ("free", "starter", "pro", "premium")
+
+ORDER = ("trial", "starter", "pro", "team5")
+
+#: What a new account starts on.
+DEFAULT_PLAN = "trial"
+
+#: Plan keys from the consumer model, mapped to their B2B equivalent. An
+#: account created before the change still carries the old key, and every
+#: lookup against PLANS would raise without this.
+RENAMED = {"free": "trial", "premium": "team5", "business": "team5"}
 PAID = ORDER[1:]
 
 
@@ -114,10 +145,12 @@ class CreditPack:
         return round(self.cents / self.credits)
 
 
+#: Overage, bought past the monthly allowance. Priced above every subscription
+#: tier's per-video rate on purpose -- see ``credits_stay_dearer_than_plans``.
 CREDIT_PACKS: tuple[CreditPack, ...] = (
-    CreditPack(credits=1, cents=3500),
-    CreditPack(credits=5, cents=14900),
-    CreditPack(credits=15, cents=39900),
+    CreditPack(credits=1, cents=7900),
+    CreditPack(credits=10, cents=69000),
+    CreditPack(credits=25, cents=147500),
 )
 
 

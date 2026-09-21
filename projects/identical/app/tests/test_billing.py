@@ -29,13 +29,14 @@ class BillingTests(unittest.TestCase):
         return self.conn.execute("SELECT * FROM accounts WHERE id = 1").fetchone()
 
     def test_allowance_is_spent_before_credits(self):
-        """Burning paid credits while free allowance sits unused is indefensible."""
-        billing.add_credits(self.conn, 1, plans.CREDIT_PACKS[1])
+        """Burning paid credits while included videos sit unused is indefensible."""
+        pack = plans.CREDIT_PACKS[1]
+        billing.add_credits(self.conn, 1, pack)
         for _ in range(plans.PLANS["starter"].videos):
             self.assertEqual(billing.spend_one(self.conn, self.account()), "allowance")
-        self.assertEqual(billing.live_credits(self.conn, 1), 5)
+        self.assertEqual(billing.live_credits(self.conn, 1), pack.credits)
         self.assertEqual(billing.spend_one(self.conn, self.account()), "credit")
-        self.assertEqual(billing.live_credits(self.conn, 1), 4)
+        self.assertEqual(billing.live_credits(self.conn, 1), pack.credits - 1)
 
     def test_running_out_raises_rather_than_rendering(self):
         for _ in range(plans.PLANS["starter"].videos):
@@ -61,7 +62,8 @@ class BillingTests(unittest.TestCase):
         self.conn.execute(
             "INSERT INTO credit_batches (id, account_id, bought, remaining, cents, expires_at,"
             " created_at) VALUES (11, 1, 1, 1, 3500, ?, ?)", (soon, now()))
-        self.conn.execute("UPDATE accounts SET used = 7 WHERE id = 1")
+        self.conn.execute("UPDATE accounts SET used = ? WHERE id = 1",
+                          (plans.PLANS["starter"].videos,))
         self.conn.commit()
         billing.spend_one(self.conn, self.account())
         expiring = self.conn.execute("SELECT remaining FROM credit_batches WHERE id = 11").fetchone()
@@ -69,11 +71,12 @@ class BillingTests(unittest.TestCase):
 
     def test_allowance_resets_after_a_month_but_credits_do_not(self):
         billing.add_credits(self.conn, 1, plans.CREDIT_PACKS[0])
-        self.conn.execute("UPDATE accounts SET used = 7, period_start = ? WHERE id = 1",
-                          ((dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=31)).isoformat(),))
+        self.conn.execute("UPDATE accounts SET used = ?, period_start = ? WHERE id = 1",
+                          (plans.PLANS["starter"].videos,
+                           (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=31)).isoformat()))
         self.conn.commit()
         account = billing.roll_period(self.conn, self.account())
-        self.assertEqual(billing.allowance_left(account), 7)
+        self.assertEqual(billing.allowance_left(account), plans.PLANS["starter"].videos)
         self.assertEqual(billing.live_credits(self.conn, 1), 1, "credits were paid for separately")
 
     def test_unused_allowance_does_not_roll_over(self):
