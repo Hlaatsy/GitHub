@@ -34,100 +34,124 @@ def _today() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
 
-def period_start(account: sqlite3.Row) -> dt.datetime:
-    return dt.datetime.fromisoformat(account["period_start"])
+def period_start(org: sqlite3.Row) -> dt.datetime:
+    return dt.datetime.fromisoformat(org["period_start"])
 
 
-def roll_period(conn: sqlite3.Connection, account: sqlite3.Row) -> sqlite3.Row:
+def roll_period(conn: sqlite3.Connection, org: sqlite3.Row) -> sqlite3.Row:
     """Reset the monthly allowance once a month has passed.
 
     Included videos do not roll over -- that is what a cap means. Credits are
     untouched, because they were paid for separately.
     """
-    start = period_start(account)
+    start = period_start(org)
     if _today() < start + dt.timedelta(days=30):
-        return account
+        return org
     periods = (_today() - start).days // 30
     conn.execute(
-        "UPDATE accounts SET used = 0, period_start = ? WHERE id = ?",
-        ((start + dt.timedelta(days=30 * periods)).isoformat(timespec="seconds"), account["id"]),
+        "UPDATE organisations SET used = 0, period_start = ? WHERE id = ?",
+        ((start + dt.timedelta(days=30 * periods)).isoformat(timespec="seconds"), org["id"]),
     )
-    log(conn, account["id"], "period_reset", detail=f"{periods} period(s)")
+    log(conn, org["id"], "period_reset", detail=f"{periods} period(s)")
     conn.commit()
-    return conn.execute("SELECT * FROM accounts WHERE id = ?", (account["id"],)).fetchone()
+    return conn.execute("SELECT * FROM organisations WHERE id = ?", (org["id"],)).fetchone()
 
 
-def live_credits(conn: sqlite3.Connection, account_id: int) -> int:
+def live_credits(conn: sqlite3.Connection, org_id: int) -> int:
     """Credits that have not been spent and have not expired."""
     row = conn.execute(
         "SELECT COALESCE(SUM(remaining), 0) AS n FROM credit_batches"
-        " WHERE account_id = ? AND remaining > 0 AND expires_at > ?",
-        (account_id, now()),
+        " WHERE org_id = ? AND remaining > 0 AND expires_at > ?",
+        (org_id, now()),
     ).fetchone()
     return int(row["n"])
 
 
-def allowance_left(account: sqlite3.Row) -> int:
-    plan = plans.PLANS[account["plan"]]
-    return max(0, plan.videos - int(account["used"]))
+def allowance_left(org: sqlite3.Row) -> int:
+    plan = plans.PLANS[org["plan"]]
+    return max(0, plan.videos - int(org["used"]))
 
 
-def videos_left(conn: sqlite3.Connection, account: sqlite3.Row) -> int:
-    return allowance_left(account) + live_credits(conn, account["id"])
+def videos_left(conn: sqlite3.Connection, org: sqlite3.Row) -> int:
+    return allowance_left(org) + live_credits(conn, org["id"])
 
 
-def add_credits(conn: sqlite3.Connection, account_id: int, pack: plans.CreditPack) -> None:
+def add_credits(conn: sqlite3.Connection, org_id: int, pack: plans.CreditPack) -> None:
     expires = _today() + dt.timedelta(days=plans.CREDIT_EXPIRY_DAYS)
     conn.execute(
-        "INSERT INTO credit_batches (account_id, bought, remaining, cents, expires_at, created_at)"
+        "INSERT INTO credit_batches (org_id, bought, remaining, cents, expires_at, created_at)"
         " VALUES (?, ?, ?, ?, ?, ?)",
-        (account_id, pack.credits, pack.credits, pack.cents,
+        (org_id, pack.credits, pack.credits, pack.cents,
          expires.isoformat(timespec="seconds"), now()),
     )
-    log(conn, account_id, "credits_bought", detail=f"{pack.credits} credits",
+    log(conn, org_id, "credits_bought", detail=f"{pack.credits} credits",
         cents=pack.cents, videos=pack.credits)
     conn.commit()
 
 
-def spend_one(conn: sqlite3.Connection, account: sqlite3.Row) -> str:
+def spend_one(conn: sqlite3.Connection, org: sqlite3.Row) -> str:
     """Consume one video. Returns what paid for it: 'allowance' or 'credit'.
 
     Raises OutOfQuota rather than rendering something unpaid -- the caller
     turns that into the upgrade conversation, which is the whole point of
     having a cap.
     """
-    if allowance_left(account) > 0:
-        conn.execute("UPDATE accounts SET used = used + 1 WHERE id = ?", (account["id"],))
-        log(conn, account["id"], "video_allowance", videos=1)
+    if allowance_left(org) > 0:
+        conn.execute("UPDATE organisations SET used = used + 1 WHERE id = ?", (org["id"],))
+        log(conn, org["id"], "video_allowance", videos=1)
         conn.commit()
         return "allowance"
 
     batch = conn.execute(
-        "SELECT * FROM credit_batches WHERE account_id = ? AND remaining > 0 AND expires_at > ?"
+        "SELECT * FROM credit_batches WHERE org_id = ? AND remaining > 0 AND expires_at > ?"
         " ORDER BY expires_at ASC LIMIT 1",
-        (account["id"], now()),
+        (org["id"], now()),
     ).fetchone()
     if batch is None:
         raise OutOfQuota("no allowance and no live credits")
 
     conn.execute("UPDATE credit_batches SET remaining = remaining - 1 WHERE id = ?", (batch["id"],))
-    log(conn, account["id"], "video_credit", detail=f"batch {batch['id']}", videos=1)
+    log(conn, org["id"], "video_credit", detail=f"batch {batch['id']}", videos=1)
     conn.commit()
     return "credit"
 
 
-def avatars_used(conn: sqlite3.Connection, account_id: int) -> int:
+def avatars_used(conn: sqlite3.Connection, org_id: int) -> int:
     return int(conn.execute(
-        "SELECT COUNT(*) AS n FROM avatars WHERE account_id = ?", (account_id,)
+        "SELECT COUNT(*) AS n FROM avatars WHERE org_id = ?", (org_id,)
     ).fetchone()["n"])
 
 
-def avatars_left(conn: sqlite3.Connection, account: sqlite3.Row) -> int:
-    allowed = plans.PLANS[account["plan"]].avatars
-    return max(0, allowed - avatars_used(conn, account["id"]))
+def avatars_granted(conn: sqlite3.Connection, org_id: int) -> int:
+    """Extra slots bought on top of the plan. Permanent -- the guided build
+    behind each one is work done once, not a monthly rental."""
+    row = conn.execute(
+        "SELECT COALESCE(SUM(extra), 0) AS n FROM avatar_grants WHERE org_id = ?",
+        (org_id,),
+    ).fetchone()
+    return int(row["n"])
 
 
-def claim_avatar(conn: sqlite3.Connection, account: sqlite3.Row) -> None:
+def avatars_allowed(conn: sqlite3.Connection, org: sqlite3.Row) -> int:
+    return plans.PLANS[org["plan"]].avatars + avatars_granted(conn, org["id"])
+
+
+def avatars_left(conn: sqlite3.Connection, org: sqlite3.Row) -> int:
+    return max(0, avatars_allowed(conn, org) - avatars_used(conn, org["id"]))
+
+
+def add_avatar_slots(conn: sqlite3.Connection, org_id: int, pack: plans.AvatarPack,
+                     user_id: int | None = None) -> None:
+    conn.execute(
+        "INSERT INTO avatar_grants (org_id, extra, cents, created_at) VALUES (?, ?, ?, ?)",
+        (org_id, pack.avatars, pack.cents, now()),
+    )
+    log(conn, org_id, "avatar_slots_bought", detail=f"{pack.avatars} slots",
+        cents=pack.cents, user_id=user_id)
+    conn.commit()
+
+
+def claim_avatar(conn: sqlite3.Connection, org: sqlite3.Row) -> None:
     """Check the plan allows another avatar. Raises AvatarLimitReached if not.
 
     Avatars are capped for three reasons, and only the first is about money:
@@ -138,11 +162,14 @@ def claim_avatar(conn: sqlite3.Connection, account: sqlite3.Row) -> None:
       uncapped consent surface -- more faces on file than anyone is tracking
       is precisely the failure the compliance pillar exists to prevent.
     """
-    if avatars_left(conn, account) <= 0:
-        allowed = plans.PLANS[account["plan"]].avatars
+    if avatars_left(conn, org) <= 0:
+        allowed = avatars_allowed(conn, org)
+        extra = avatars_granted(conn, org["id"])
+        detail = f" plus {extra} bought" if extra else ""
         raise AvatarLimitReached(
-            f"{plans.PLANS[account['plan']].name} includes {allowed} "
-            f"avatar{'s' if allowed != 1 else ''}"
+            f"{plans.PLANS[org['plan']].name} includes "
+            f"{plans.PLANS[org['plan']].avatars}{detail} — "
+            f"{allowed} avatar{'s' if allowed != 1 else ''} in total"
         )
 
 

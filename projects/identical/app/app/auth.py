@@ -20,8 +20,7 @@ import secrets
 import sqlite3
 import time
 
-from . import plans
-from .db import log, now
+from .db import now
 
 SECRET = os.environ.get("IDENTICAL_SECRET", "").encode() or secrets.token_bytes(32)
 
@@ -74,38 +73,39 @@ def read_token(token: str) -> dict:
 # --------------------------------------------------------------------------
 # sign-in links
 
-def start_sign_in(conn: sqlite3.Connection, email: str) -> str:
-    """Issue a sign-in link for an email, creating the account if it is new.
+def start_sign_in(conn: sqlite3.Connection, email: str, name: str = "") -> str:
+    """Issue a sign-in link, creating the user if they are new.
+
+    Creating a *user* is not the same as creating an organisation. Someone
+    invited to a team signs in and joins the team that invited them; only a
+    user who belongs to nothing gets an organisation of their own.
 
     The same response goes back whether or not the address is known -- an
-    endpoint that says "no such account" is an endpoint that enumerates your
-    customers for anyone who asks.
+    endpoint that says "no such account" enumerates your customers for anyone
+    who asks.
     """
     email = email.strip().lower()
-    row = conn.execute("SELECT id FROM accounts WHERE email = ?", (email,)).fetchone()
+    row = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
     if row is None:
-        cursor = conn.execute(
-            "INSERT INTO accounts (email, name, plan, period_start, created_at)"
-            " VALUES (?, '', ?, ?, ?)", (email, plans.DEFAULT_PLAN, now(), now()),
-        )
+        user_id = conn.execute(
+            "INSERT INTO users (email, name, created_at) VALUES (?, ?, ?)",
+            (email, name.strip(), now()),
+        ).lastrowid
         conn.commit()
-        account_id = cursor.lastrowid
-        log(conn, account_id, "signup", detail=email)
     else:
-        account_id = row["id"]
+        user_id = row["id"]
 
-    token = make_token({"sub": account_id, "kind": "signin"}, LINK_TTL_SECONDS)
+    token = make_token({"sub": user_id, "kind": "signin"}, LINK_TTL_SECONDS)
     conn.execute(
-        "INSERT INTO sign_in_tokens (account_id, jti, created_at) VALUES (?, ?, ?)",
-        (account_id, read_token(token)["jti"], now()),
+        "INSERT INTO sign_in_tokens (user_id, jti, created_at) VALUES (?, ?, ?)",
+        (user_id, read_token(token)["jti"], now()),
     )
-    log(conn, account_id, "signin_requested")
     conn.commit()
     return token
 
 
 def complete_sign_in(conn: sqlite3.Connection, token: str) -> int:
-    """Redeem a sign-in link once. Returns the account id."""
+    """Redeem a sign-in link once. Returns the user id."""
     payload = read_token(token)
     if payload.get("kind") != "signin":
         raise AuthError("wrong token kind")
@@ -121,8 +121,7 @@ def complete_sign_in(conn: sqlite3.Connection, token: str) -> int:
         raise AuthError("already used")
 
     conn.execute("UPDATE sign_in_tokens SET used_at = ? WHERE id = ?", (now(), row["id"]))
-    conn.execute("UPDATE accounts SET email_verified = 1 WHERE id = ?", (payload["sub"],))
-    log(conn, payload["sub"], "signin")
+    conn.execute("UPDATE users SET email_verified = 1 WHERE id = ?", (payload["sub"],))
     conn.commit()
     return int(payload["sub"])
 
@@ -130,24 +129,23 @@ def complete_sign_in(conn: sqlite3.Connection, token: str) -> int:
 # --------------------------------------------------------------------------
 # phone verification
 
-def send_otp(conn: sqlite3.Connection, account_id: int, phone: str) -> str:
+def send_otp(conn: sqlite3.Connection, user_id: int, phone: str) -> str:
     """Issue a one-time code. Returns it so a stub sender can print it."""
     code = f"{secrets.randbelow(1000000):06d}"
     conn.execute(
-        "INSERT INTO otps (account_id, phone, code_hash, attempts, expires_at, created_at)"
+        "INSERT INTO otps (user_id, phone, code_hash, attempts, expires_at, created_at)"
         " VALUES (?, ?, ?, 0, ?, ?)",
-        (account_id, phone, hashlib.sha256(code.encode()).hexdigest(),
+        (user_id, phone, hashlib.sha256(code.encode()).hexdigest(),
          int(time.time()) + OTP_TTL_SECONDS, now()),
     )
-    log(conn, account_id, "otp_sent", detail=phone[-4:])
     conn.commit()
     return code
 
 
-def check_otp(conn: sqlite3.Connection, account_id: int, code: str) -> bool:
+def check_otp(conn: sqlite3.Connection, user_id: int, code: str) -> bool:
     """Verify a code, counting attempts so it cannot be brute-forced."""
     row = conn.execute(
-        "SELECT * FROM otps WHERE account_id = ? ORDER BY id DESC LIMIT 1", (account_id,)
+        "SELECT * FROM otps WHERE user_id = ? ORDER BY id DESC LIMIT 1", (user_id,)
     ).fetchone()
     if row is None or row["expires_at"] < time.time() or row["attempts"] >= OTP_MAX_ATTEMPTS:
         return False
@@ -159,9 +157,8 @@ def check_otp(conn: sqlite3.Connection, account_id: int, code: str) -> bool:
         return False
 
     conn.execute(
-        "UPDATE accounts SET phone = ?, phone_verified = 1 WHERE id = ?",
-        (row["phone"], account_id),
+        "UPDATE users SET phone = ?, phone_verified = 1 WHERE id = ?",
+        (row["phone"], user_id),
     )
-    log(conn, account_id, "phone_verified")
     conn.commit()
     return True

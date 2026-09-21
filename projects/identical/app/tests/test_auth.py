@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app import auth, plans  # noqa: E402
+from app import auth  # noqa: E402
 from app.db import connect  # noqa: E402
 
 
@@ -49,10 +49,16 @@ class SignInTests(unittest.TestCase):
     def test_first_sign_in_creates_the_account(self):
         token = auth.start_sign_in(self.conn, "New@Example.com ")
         account_id = auth.complete_sign_in(self.conn, token)
-        row = self.conn.execute("SELECT * FROM accounts WHERE id = ?", (account_id,)).fetchone()
+        row = self.conn.execute("SELECT * FROM users WHERE id = ?", (account_id,)).fetchone()
         self.assertEqual(row["email"], "new@example.com", "email should be normalised")
-        self.assertEqual(row["plan"], plans.DEFAULT_PLAN)
         self.assertEqual(row["email_verified"], 1)
+
+    def test_signing_in_does_not_create_an_organisation(self):
+        """An invited colleague joins a team; they do not get one of their own."""
+        auth.complete_sign_in(self.conn, auth.start_sign_in(self.conn, "invitee@co.za"))
+        self.assertEqual(
+            self.conn.execute("SELECT COUNT(*) AS n FROM organisations").fetchone()["n"], 0
+        )
 
     def test_returning_user_keeps_the_same_account(self):
         first = auth.complete_sign_in(self.conn, auth.start_sign_in(self.conn, "a@b.c"))
@@ -88,7 +94,7 @@ class OtpTests(unittest.TestCase):
         code = auth.send_otp(self.conn, self.account_id, "+27821234567")
         self.assertTrue(auth.check_otp(self.conn, self.account_id, code))
         row = self.conn.execute(
-            "SELECT * FROM accounts WHERE id = ?", (self.account_id,)
+            "SELECT * FROM users WHERE id = ?", (self.account_id,)
         ).fetchone()
         self.assertEqual(row["phone_verified"], 1)
         self.assertEqual(row["phone"], "+27821234567")

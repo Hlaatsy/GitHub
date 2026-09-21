@@ -1,8 +1,13 @@
-"""The IDENTICAL web app. Standard library only.
+"""The IDENTICAL portal. Standard library only.
 
-Mobile web first, not native iOS: no review queue, no install, no storage cost
-to the user, one codebase. The audience this is built for lives on a phone
-with a metered data bundle, and a web app reaches them today.
+Nothing here is reachable without signing in. The only anonymous pages are
+the sign-in form and the link that completes it -- every other route resolves
+a user from the session cookie and an organisation from that user's
+membership, and refuses if either is missing.
+
+That is not belt-and-braces. An organisation's avatars are real people's
+likenesses and its consent register is the thing we sell; a portal that can be
+read without an account is a portal that cannot honestly claim either.
 """
 
 from __future__ import annotations
@@ -11,7 +16,6 @@ import hashlib
 import hmac
 import html
 import http.cookies
-import json
 import os
 import secrets
 import sqlite3
@@ -19,30 +23,27 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import billing, plans
+from . import auth, billing, plans, teams
 from .db import Pool, log, now
 from .provider import StubProvider, share_encode
 
-#: Signs the session cookie. A real deployment sets this; a dev run gets a
-#: random one, so restarting signs everybody out rather than shipping a
-#: guessable default that would let anyone forge an account id.
 SECRET = os.environ.get("IDENTICAL_SECRET", secrets.token_hex(32)).encode()
 
 PROVIDER = StubProvider()
 POOL: Pool | None = None
 
+#: Where a sign-in link is delivered. Unset, links are printed to the console,
+#: which is what development wants and production must not have.
+SEND_LINKS_TO_CONSOLE = not os.environ.get("IDENTICAL_EMAIL_SENDER")
+
 
 def db() -> sqlite3.Connection:
-    """This thread's connection."""
     return POOL.conn
 
 
-# --------------------------------------------------------------------------
-# sessions
-
-def sign(account_id: int) -> str:
-    mac = hmac.new(SECRET, str(account_id).encode(), hashlib.sha256).hexdigest()[:32]
-    return f"{account_id}.{mac}"
+def sign(user_id: int) -> str:
+    mac = hmac.new(SECRET, str(user_id).encode(), hashlib.sha256).hexdigest()[:32]
+    return f"{user_id}.{mac}"
 
 
 def unsign(token: str) -> int | None:
@@ -55,17 +56,22 @@ def unsign(token: str) -> int | None:
     return None
 
 
-# --------------------------------------------------------------------------
-# rendering
+def e(text: object) -> str:
+    return html.escape(str(text))
+
+
+def rand(cents: int) -> str:
+    return f"R{cents // 100:,}".replace(",", " ")
+
 
 STYLE = (Path(__file__).resolve().parent / "app.css").read_text(encoding="utf-8")
 
 
-def page(body: str, account: sqlite3.Row | None = None, tab: str = "") -> bytes:
+def page(body: str, member: sqlite3.Row | None = None, tab: str = "") -> bytes:
     nav = ""
-    if account is not None:
+    if member is not None:
         items = [("/", "⌂", "Home", "home"), ("/create", "＋", "Create", "create"),
-                 ("/plan", "◷", "Plan", "plan")]
+                 ("/team", "◉", "Team", "team"), ("/plan", "◷", "Plan", "plan")]
         nav = '<nav class="nav">' + "".join(
             f'<a href="{href}"{" aria-current=page" if key == tab else ""}>'
             f'<span class="glyph" aria-hidden="true">{glyph}</span>{label}</a>'
@@ -83,60 +89,88 @@ def page(body: str, account: sqlite3.Row | None = None, tab: str = "") -> bytes:
     ).encode("utf-8")
 
 
-def e(text: object) -> str:
-    return html.escape(str(text))
+# --------------------------------------------------------------------------
+# views
+
+def view_signin(sent_to: str = "", link: str = "") -> str:
+    if sent_to:
+        shown = (
+            f'<div class="warn">Development build: no email is sent. '
+            f'<a href="{e(link)}">Open the sign-in link</a>.</div>' if link else ""
+        )
+        return (
+            '<header class="hero"><div class="eyebrow">Check your email</div>'
+            f"<h1>Link sent to {e(sent_to)}</h1>"
+            "<p>It signs you in once and expires in twenty minutes. No password to "
+            "remember, and nothing for us to lose.</p></header>" + shown
+        )
+    tiers = "".join(
+        f'<div class="tier{" pick" if key == "team5" else ""}">'
+        f'<div class="tier-name">{e(plans.PLANS[key].name)}</div>'
+        f'<div class="price">{plans.PLANS[key].rand}<span>/mo</span></div>'
+        f'<div class="quota"><b>{plans.PLANS[key].seats} seat'
+        f'{"s" if plans.PLANS[key].seats != 1 else ""}</b>'
+        f'<small>{plans.PLANS[key].avatars} avatars · {plans.PLANS[key].videos} videos</small>'
+        "</div></div>"
+        for key in plans.ORDER
+    )
+    return (
+        '<header class="hero"><div class="eyebrow">For marketing and PR teams</div>'
+        "<h1>Avatar video your compliance team can live with.</h1>"
+        "<p>One presenter, recorded once. Your team makes the videos from then on — "
+        "with consent recorded, retention defined, and a register you can hand to "
+        "legal.</p></header>"
+        f'<section class="tiers">{tiers}</section>'
+        '<form method="post" action="/signin" class="card">'
+        "<h2>Sign in</h2><p class=sub>We email you a link. No password.</p>"
+        '<label class=fld>Work email<input name=email type=email required '
+        'autocomplete="email"></label>'
+        '<button class="act">Email me a link</button></form>'
+    )
 
 
-def meter(conn: sqlite3.Connection, account: sqlite3.Row) -> str:
-    plan = plans.PLANS[account["plan"]]
-    left = billing.allowance_left(account)
-    credits = billing.live_credits(conn, account["id"])
+def view_new_org(user: sqlite3.Row) -> str:
+    return (
+        f'<h1 class="app-h">Welcome, {e(user["name"] or user["email"])}</h1>'
+        '<form method="post" action="/org" class="card">'
+        "<h2>Name your organisation</h2>"
+        "<p class=sub>Avatars, videos and the consent register belong to the "
+        "organisation, not to you personally — so colleagues you invite keep working "
+        "if you move on.</p>"
+        '<label class=fld>Organisation name<input name=name required '
+        'placeholder="e.g. Sandton Mutual"></label>'
+        '<button class="act">Create it</button></form>'
+    )
+
+
+def meter(conn: sqlite3.Connection, org: sqlite3.Row) -> str:
+    plan = plans.PLANS[org["plan"]]
+    left = billing.allowance_left(org)
+    credits = billing.live_credits(conn, org["id"])
     pct = (left / plan.videos * 100) if plan.videos else 0
     extra = f" · plus {credits} credit{'s' if credits != 1 else ''}" if credits else ""
     return (
         '<div class="meter"><div class="meter-top">'
         f'<span class="meter-n">{left} of {plan.videos}</span>'
         f'<span class="meter-plan">{e(plan.name)} · {plan.rand}</span></div>'
-        f'<div class="track"><div class="fill{"" if left else " out"}" style="width:{pct:.0f}%"></div></div>'
+        f'<div class="track"><div class="fill{"" if left else " out"}" '
+        f'style="width:{pct:.0f}%"></div></div>'
         f"<small>videos left this month{extra}</small></div>"
     )
 
 
-# --------------------------------------------------------------------------
-# views
-
-def view_landing() -> str:
-    tiers = "".join(
-        f'<div class="tier{" pick" if key == "starter" else ""}">'
-        f'<div class="tier-name">{e(plans.PLANS[key].name)}</div>'
-        f'<div class="price">{plans.PLANS[key].rand}<span>/mo</span></div>'
-        f'<div class="quota"><b>{plans.PLANS[key].videos} videos</b>'
-        f"<small>up to {plans.PLANS[key].max_minutes} min</small></div></div>"
-        for key in plans.ORDER
-    )
-    return (
-        '<header class="hero"><div class="eyebrow">South Africa</div>'
-        "<h1>Your avatar, built free. From R149 a month.</h1>"
-        "<p>Record once. Your avatar makes the videos from then on — in your voice, "
-        "in your language, on your phone.</p></header>"
-        f'<section class="tiers">{tiers}</section>'
-        '<form method="post" action="/signup" class="card">'
-        "<h2>Start free</h2><p class=sub>2 videos a month, no card.</p>"
-        '<label class=fld>Your name<input name=name required autocomplete="name"></label>'
-        '<label class=fld>Email<input name=email type=email required autocomplete="email"></label>'
-        '<button class="act">Create my account</button></form>'
-    )
-
-
-def view_home(conn: sqlite3.Connection, account: sqlite3.Row) -> str:
-    plan = plans.PLANS[account["plan"]]
+def view_home(conn: sqlite3.Connection, org: sqlite3.Row, member: sqlite3.Row,
+              user: sqlite3.Row) -> str:
+    plan = plans.PLANS[org["plan"]]
     avatars = conn.execute(
-        "SELECT * FROM avatars WHERE account_id = ? ORDER BY id", (account["id"],)
+        "SELECT * FROM avatars WHERE org_id = ? ORDER BY id", (org["id"],)
     ).fetchall()
     videos = conn.execute(
-        "SELECT * FROM videos WHERE account_id = ? ORDER BY id DESC LIMIT 6", (account["id"],)
+        "SELECT v.*, u.name AS author FROM videos v LEFT JOIN users u ON u.id = v.created_by"
+        " WHERE v.org_id = ? ORDER BY v.id DESC LIMIT 6", (org["id"],)
     ).fetchall()
-    spare = billing.avatars_left(conn, account)
+    allowed = billing.avatars_allowed(conn, org)
+    spare = billing.avatars_left(conn, org)
 
     cards = "".join(
         f'<div class="avatar"><div class="face"></div><div>'
@@ -149,38 +183,36 @@ def view_home(conn: sqlite3.Connection, account: sqlite3.Row) -> str:
     if spare > 0:
         build = (
             '<form method="post" action="/avatar" class="avatar-new">'
-            f'<h2>{"Build your avatar" if not avatars else "Add another avatar"}</h2>'
+            f'<h2>{"Build your first avatar" if not avatars else "Add an avatar"}</h2>'
             f"<p class=sub>{'One photo is enough, and the guided build is included.' if plan.guided_build else 'A photo avatar is included. Upgrade for the guided build and a cloned voice.'}</p>"
             '<label class=fld>Whose avatar is this'
-            '<input name=name value="" placeholder="Name of the presenter" required></label>'
+            '<input name=name placeholder="Name of the presenter" required></label>'
             '<button class="act cool">Build it</button></form>'
         )
     else:
-        # At the limit. Say what the limit is and what clears it, rather than
-        # removing the button and leaving people to guess.
         build = (
-            f'<div class="warn">{plan.name} includes {plan.avatars} '
-            f'avatar{"s" if plan.avatars != 1 else ""}, and all of them are in use. '
-            f'<a href="/plan">See plans</a> to add more.</div>'
+            f'<div class="warn">All {allowed} avatars are in use. '
+            f'<a href="/plan">Buy more slots or move up a plan</a>.</div>'
         )
 
-    avatar_count = (
-        f'<div class="sub">{len(avatars)} of {plan.avatars} avatars'
+    count = (
+        f'<div class="sub">{len(avatars)} of {allowed} avatars'
         f'{" · " + str(spare) + " left" if spare else " · at your limit"}</div>'
     ) if avatars else ""
 
-    left = billing.videos_left(conn, account)
+    left = billing.videos_left(conn, org)
     rows = "".join(
         f'<div class="vid"><div class="thumb">{"▶" if v["status"] == "ready" else "◷"}</div>'
         f'<div><div class="vid-t">{e(v["title"])}</div>'
         f'<div class="vid-m">{v["seconds"]}s · {round(v["bytes"]/1048576, 1)} MB · '
-        f'{e(v["paid_with"] or v["status"])}</div></div></div>'
+        f'{e(v["author"] or "—")}</div></div></div>'
         for v in videos
-    ) or '<p class="sub">Nothing yet. Make your first one.</p>'
+    ) or '<p class="sub">Nothing yet.</p>'
 
     return (
-        f'<h1 class="app-h">Hello, {e(account["name"] or "there")}</h1>'
-        f"{avatar_count}{cards}{build}{meter(conn, account)}"
+        f'<h1 class="app-h">{e(org["name"] or "Your organisation")}</h1>'
+        f'<div class="sub">Signed in as {e(user["email"])} · {e(member["role"])}</div>'
+        f"{count}{cards}{build}{meter(conn, org)}"
         + ('<a class="act" href="/create">New video</a>' if left and avatars
            else '<a class="act" href="/plan">Out of videos — see options</a>' if avatars
            else "")
@@ -188,24 +220,25 @@ def view_home(conn: sqlite3.Connection, account: sqlite3.Row) -> str:
     )
 
 
-def view_create(conn: sqlite3.Connection, account: sqlite3.Row, error: str = "") -> str:
-    plan = plans.PLANS[account["plan"]]
+def view_create(conn: sqlite3.Connection, org: sqlite3.Row, error: str = "") -> str:
+    plan = plans.PLANS[org["plan"]]
     avatars = conn.execute(
-        "SELECT * FROM avatars WHERE account_id = ? ORDER BY id", (account["id"],)
+        "SELECT * FROM avatars WHERE org_id = ? ORDER BY id", (org["id"],)
     ).fetchall()
     picker = ""
     if len(avatars) > 1:
         picker = ("<label class=fld>Presented by<select name=avatar>" + "".join(
             f'<option value="{a["id"]}">{e(a["name"])}</option>' for a in avatars
         ) + "</select></label>")
-    voices = ["Your cloned voice"] if plan.custom_voice else []
+    voices = ["Cloned voice"] if plan.custom_voice else []
     voices += ["Thandi — SA English", "Sipho — isiZulu"]
     options = "".join(f"<option>{e(v)}</option>" for v in voices)
     warn = f'<div class="warn">{e(error)}</div>' if error else ""
     return (
         '<h1 class="app-h">New video</h1>' + warn +
         '<form method="post" action="/create" class="card">' + picker +
-        '<label class=fld>Title<input name=title required placeholder="What is this one for?"></label>'
+        '<label class=fld>Title<input name=title required '
+        'placeholder="What is this one for?"></label>'
         "<label class=fld>Script"
         '<textarea name=script rows=8 required '
         'placeholder="Type or paste what your avatar should say…"></textarea></label>'
@@ -226,41 +259,110 @@ def view_ready(video: sqlite3.Row) -> str:
         f"{' — fits WhatsApp' if fits else ' — too big for WhatsApp'}</div>"
         f'<div class="sub">Paid with your {e(video["paid_with"])}.</div>'
         '<div class="share"><button type=button>WhatsApp</button>'
-        "<button type=button>TikTok</button><button type=button>Save</button></div>"
+        "<button type=button>Download</button></div>"
         '<a class="act ghost" href="/">Done</a></div>'
     )
 
 
-def view_plan(conn: sqlite3.Connection, account: sqlite3.Row) -> str:
-    advice = plans.advise_at_cap(account["plan"])
-    plan = plans.PLANS[account["plan"]]
-    left = billing.videos_left(conn, account)
+def view_team(conn: sqlite3.Connection, org: sqlite3.Row, member: sqlite3.Row,
+              error: str = "", link: str = "") -> str:
+    plan = plans.PLANS[org["plan"]]
+    people = teams.members(conn, org["id"])
+    spare = teams.seats_left(conn, org)
+    is_owner = member["role"] == teams.OWNER
+
+    rows = "".join(
+        '<div class="m-row"><span>'
+        f'{e(row["user_name"] or row["invited_email"])}'
+        f'{" <small>(invited)</small>" if row["status"] == teams.INVITED else ""}'
+        f'</span><b>{e(row["role"])}</b>'
+        + (f'<form method="post" action="/team/revoke" style="margin:0">'
+           f'<input type=hidden name=id value="{row["id"]}">'
+           f'<button class="mini">Remove</button></form>'
+           if is_owner and row["role"] != teams.OWNER else "")
+        + "</div>"
+        for row in people
+    )
+
+    invite = ""
+    if is_owner:
+        if spare > 0:
+            invite = (
+                '<form method="post" action="/team/invite" class="card">'
+                "<h2>Invite someone</h2>"
+                f'<p class=sub>{spare} of {plan.seats} seats free. An invitation holds a '
+                "seat until it is accepted or withdrawn.</p>"
+                '<label class=fld>Their work email<input name=email type=email required>'
+                "</label><button class=\"act cool\">Send invitation</button></form>"
+            )
+        else:
+            invite = (
+                f'<div class="warn">All {plan.seats} seats are taken or invited. '
+                f'<a href="/plan">Move up a plan</a> to add more.</div>'
+            )
+    else:
+        invite = '<p class="sub">Only an owner can invite or remove people.</p>'
+
+    shown = (f'<div class="warn">Development build: no email is sent. '
+             f'<a href="{e(link)}">Open the invitation link</a>.</div>' if link else "")
+    warn = f'<div class="warn">{e(error)}</div>' if error else ""
+
+    return (
+        '<h1 class="app-h">Team</h1>'
+        f'<div class="sub">{teams.seats_taken(conn, org["id"])} of {plan.seats} seats used</div>'
+        + warn + shown +
+        f'<div class="maths">{rows}</div>{invite}'
+    )
+
+
+def view_plan(conn: sqlite3.Connection, org: sqlite3.Row, member: sqlite3.Row) -> str:
+    advice = plans.advise_at_cap(org["plan"])
+    plan = plans.PLANS[org["plan"]]
+    is_owner = member["role"] == teams.OWNER
 
     packs = "".join(
-        f'<form method="post" action="/credits" class="m-row">'
+        '<form method="post" action="/credits" class="m-row">'
         f'<input type=hidden name=credits value="{pack.credits}">'
-        f"<span>{pack.credits} credit{'s' if pack.credits > 1 else ''}</span>"
-        f"<b>R{pack.cents // 100}</b>"
-        f'<button class="mini">Buy</button></form>'
-        for pack in advice.packs
+        f"<span>{pack.credits} video{'s' if pack.credits > 1 else ''}</span>"
+        f"<b>{rand(pack.cents)}</b>"
+        + ('<button class="mini">Buy</button>' if is_owner else "")
+        + "</form>"
+        for pack in plans.CREDIT_PACKS
+    )
+    slots = "".join(
+        '<form method="post" action="/avatar-slots" class="m-row">'
+        f'<input type=hidden name=avatars value="{pack.avatars}">'
+        f"<span>{pack.avatars} avatar{'s' if pack.avatars > 1 else ''}"
+        f"<small> · {rand(pack.cents_each)} each</small></span>"
+        f"<b>{rand(pack.cents)}</b>"
+        + ('<button class="mini">Buy</button>' if is_owner else "")
+        + "</form>"
+        for pack in plans.AVATAR_PACKS
     )
     upgrade = ""
-    if advice.upgrade is not None:
+    if advice.upgrade is not None and is_owner:
         upgrade = (
-            f'<form method="post" action="/upgrade">'
+            '<form method="post" action="/upgrade">'
             f'<input type=hidden name=plan value="{advice.upgrade.key}">'
             f'<button class="act cool">Move to {e(advice.upgrade.name)} — '
             f"{advice.upgrade.rand}/mo</button></form>"
         )
-    headline = "You have used everything" if not left else "Your plan"
+
+    allowed = billing.avatars_allowed(conn, org)
+    granted = billing.avatars_granted(conn, org["id"])
     return (
-        f'<h1 class="app-h">{headline}</h1>{meter(conn, account)}'
-        f'<div class="cap"><h2>Buying more</h2><div class="maths">{packs}</div>'
-        f'<p class="verdict">{e(advice.verdict)}</p></div>{upgrade}'
-        f'<p class="sub">Credits do not expire at month end. They last '
-        f"{plans.CREDIT_EXPIRY_DAYS // 365} year from purchase. "
-        f"Every video up to {plans.MAX_VIDEO_SECONDS // 60} minutes on {e(plan.name)}.</p>"
-        '<a class="act ghost" href="/">Back</a>'
+        f'<h1 class="app-h">{e(plan.name)}</h1>{meter(conn, org)}'
+        f'<div class="sub">{plan.seats} seats · {allowed} avatars'
+        f'{f" ({plan.avatars} included, {granted} bought)" if granted else ""}</div>'
+        f'<div class="cap"><h2>More videos</h2><div class="maths">{packs}</div>'
+        f'<p class="verdict">{e(advice.verdict)}</p></div>'
+        f'<div class="cap"><h2>More avatars</h2><div class="maths">{slots}</div>'
+        '<p class="verdict">Each slot is permanent and includes the guided build. '
+        "Slots raise the avatar limit only — seats and monthly videos come with the "
+        "plan.</p></div>"
+        f"{upgrade}"
+        + ("" if is_owner else '<p class="sub">Only an owner can change the plan.</p>')
+        + '<a class="act ghost" href="/">Back</a>'
     )
 
 
@@ -270,18 +372,34 @@ def view_plan(conn: sqlite3.Connection, account: sqlite3.Row) -> str:
 class Handler(BaseHTTPRequestHandler):
     server_version = "identical"
 
-    def account(self) -> sqlite3.Row | None:
+    # -- context ----------------------------------------------------------
+
+    def user(self) -> sqlite3.Row | None:
         raw = self.headers.get("Cookie")
         if not raw:
             return None
         cookie = http.cookies.SimpleCookie(raw)
         if "sid" not in cookie:
             return None
-        account_id = unsign(cookie["sid"].value)
-        if account_id is None:
+        user_id = unsign(cookie["sid"].value)
+        if user_id is None:
             return None
-        row = db().execute("SELECT * FROM accounts WHERE id = ?", (account_id,)).fetchone()
-        return billing.roll_period(db(), row) if row else None
+        return db().execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+
+    def context(self):
+        """(user, membership, organisation). Any may be None; callers check."""
+        user = self.user()
+        if user is None:
+            return None, None, None
+        member = teams.membership(db(), user["id"])
+        if member is None:
+            return user, None, None
+        org = db().execute(
+            "SELECT * FROM organisations WHERE id = ?", (member["org_id"],)
+        ).fetchone()
+        return user, member, billing.roll_period(db(), org)
+
+    # -- plumbing ---------------------------------------------------------
 
     def send(self, body: bytes, status: int = 200, cookie: str = "") -> None:
         self.send_response(status)
@@ -306,99 +424,136 @@ class Handler(BaseHTTPRequestHandler):
         return {k: v[0] for k, v in urllib.parse.parse_qs(raw).items()}
 
     def log_message(self, *args: object) -> None:
-        """Quiet by default; the ledger is the record that matters."""
+        """Quiet. The ledger is the record that matters."""
 
-    # -- GET ---------------------------------------------------------------
+    # -- GET --------------------------------------------------------------
 
     def do_GET(self) -> None:  # noqa: N802
         path = urllib.parse.urlparse(self.path).path
-        account = self.account()
-
         if path == "/healthz":
             self.send(b"ok")
             return
-        if account is None:
-            self.send(page(view_landing()))
+
+        # The two anonymous routes, and nothing else.
+        if path.startswith("/signin/"):
+            try:
+                user_id = auth.complete_sign_in(db(), path.split("/", 2)[2])
+            except auth.AuthError as exc:
+                self.send(page(f'<div class="warn">{e(exc)}</div>' + view_signin()))
+                return
+            self.redirect("/", f"sid={sign(user_id)}; Path=/; HttpOnly; SameSite=Lax")
             return
-        if path == "/":
-            self.send(page(view_home(db(), account), account, "home"))
+        if path == "/signout":
+            self.redirect("/", "sid=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax")
+            return
+
+        user, member, org = self.context()
+        if user is None:
+            self.send(page(view_signin()))
+            return
+        if member is None:
+            # Signed in, belongs to nothing yet.
+            if path.startswith("/invite/"):
+                self.accept_invite(path.split("/", 2)[2], user)
+                return
+            self.send(page(view_new_org(user)))
+            return
+
+        if path.startswith("/invite/"):
+            self.accept_invite(path.split("/", 2)[2], user)
+        elif path == "/":
+            self.send(page(view_home(db(), org, member, user), member, "home"))
         elif path == "/create":
-            if billing.videos_left(db(), account) <= 0:
+            if billing.videos_left(db(), org) <= 0:
                 self.redirect("/plan")
                 return
-            self.send(page(view_create(db(), account), account, "create"))
+            self.send(page(view_create(db(), org), member, "create"))
+        elif path == "/team":
+            self.send(page(view_team(db(), org, member), member, "team"))
         elif path == "/plan":
-            self.send(page(view_plan(db(), account), account, "plan"))
+            self.send(page(view_plan(db(), org, member), member, "plan"))
         elif path.startswith("/video/"):
             video = db().execute(
-                "SELECT * FROM videos WHERE id = ? AND account_id = ?",
-                (path.rsplit("/", 1)[-1], account["id"]),
+                "SELECT * FROM videos WHERE id = ? AND org_id = ?",
+                (path.rsplit("/", 1)[-1], org["id"]),
             ).fetchone()
             if video is None:
-                self.send(page("<h1 class=app-h>Not found</h1>", account), 404)
+                self.send(page('<h1 class="app-h">Not found</h1>', member), 404)
                 return
-            self.send(page(view_ready(video), account, "home"))
+            self.send(page(view_ready(video), member, "home"))
         else:
-            self.send(page("<h1 class=app-h>Not found</h1>", account), 404)
+            self.send(page('<h1 class="app-h">Not found</h1>', member), 404)
 
-    # -- POST --------------------------------------------------------------
+    def accept_invite(self, token: str, user: sqlite3.Row) -> None:
+        try:
+            teams.accept(db(), token, user["id"])
+        except (teams.InviteError, teams.NotPermitted) as exc:
+            self.send(page(f'<div class="warn">{e(exc)}</div>'
+                           '<a class="act ghost" href="/">Continue</a>'))
+            return
+        self.redirect("/")
+
+    # -- POST -------------------------------------------------------------
 
     def do_POST(self) -> None:  # noqa: N802
         path = urllib.parse.urlparse(self.path).path
         data = self.form()
-        account = self.account()
 
-        if path == "/signup":
+        if path == "/signin":
             email = data.get("email", "").strip().lower()
             if not email:
                 self.redirect("/")
                 return
-            row = db().execute("SELECT * FROM accounts WHERE email = ?", (email,)).fetchone()
-            if row is None:
-                cursor = db().execute(
-                    "INSERT INTO accounts (email, name, plan, period_start, created_at)"
-                    " VALUES (?, ?, ?, ?, ?)",
-                    (email, data.get("name", "").strip(), plans.DEFAULT_PLAN, now(), now()),
-                )
-                db().commit()
-                account_id = cursor.lastrowid
-                log(db(), account_id, "signup", detail=email)
-                db().commit()
-            else:
-                account_id = row["id"]
-            self.redirect("/", f"sid={sign(account_id)}; Path=/; HttpOnly; SameSite=Lax")
+            token = auth.start_sign_in(db(), email)
+            link = f"/signin/{token}"
+            if SEND_LINKS_TO_CONSOLE:
+                print(f"sign-in link for {email}: {link}")
+            self.send(page(view_signin(sent_to=email, link=link)))
             return
 
-        if account is None:
+        user, member, org = self.context()
+        if user is None:
+            self.redirect("/")
+            return
+
+        if path == "/org":
+            if member is not None:
+                self.redirect("/")
+                return
+            teams.create_organisation(db(), user["id"], data.get("name", "").strip())
+            self.redirect("/")
+            return
+
+        if member is None:
             self.redirect("/")
             return
 
         if path == "/avatar":
-            plan = plans.PLANS[account["plan"]]
             try:
-                billing.claim_avatar(db(), account)
+                billing.claim_avatar(db(), org)
             except billing.AvatarLimitReached:
                 # The form is hidden at the limit, but a hidden form is not a
-                # limit -- the endpoint has to refuse too.
+                # limit -- the route has to refuse as well.
                 self.redirect("/plan")
                 return
+            plan = plans.PLANS[org["plan"]]
             ref = PROVIDER.build_avatar("photo", b"")
-            cursor = db().execute(
-                "INSERT INTO avatars (account_id, name, source, guided, voice_kind,"
-                " provider_ref, created_at) VALUES (?, ?, 'photo', ?, ?, ?, ?)",
-                (account["id"], data.get("name", "My avatar").strip() or "My avatar",
-                 int(plan.guided_build), "cloned" if plan.custom_voice else "stock",
-                 ref, now()),
-            )
-            # A consent record is written with the avatar, never afterwards.
+            name = data.get("name", "").strip() or "Presenter"
+            avatar_id = db().execute(
+                "INSERT INTO avatars (org_id, name, source, guided, voice_kind,"
+                " provider_ref, created_by, created_at)"
+                " VALUES (?, ?, 'photo', ?, ?, ?, ?, ?)",
+                (org["id"], name, int(plan.guided_build),
+                 "cloned" if plan.custom_voice else "stock", ref, user["id"], now()),
+            ).lastrowid
+            # Written with the avatar, never backfilled.
             db().execute(
-                "INSERT INTO consents (avatar_id, subject_name, scope, retention_until, agreed_at)"
-                " VALUES (?, ?, ?, ?, ?)",
-                (cursor.lastrowid, account["name"] or account["email"],
-                 "Videos this account creates, until consent is withdrawn",
+                "INSERT INTO consents (avatar_id, subject_name, scope, retention_until,"
+                " agreed_at) VALUES (?, ?, ?, ?, ?)",
+                (avatar_id, name, "Videos this organisation creates, until withdrawn",
                  now(), now()),
             )
-            log(db(), account["id"], "avatar_built", detail=ref)
+            log(db(), org["id"], "avatar_built", detail=name, user_id=user["id"])
             db().commit()
             self.redirect("/")
 
@@ -407,55 +562,100 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 seconds = billing.check_length(script)
             except billing.TooLong as exc:
-                self.send(page(view_create(db(), account, str(exc)), account, "create"))
+                self.send(page(view_create(db(), org, str(exc)), member, "create"))
                 return
-            # Which avatar presents this video. Defaults to the first, so a
-            # single-avatar account never has to choose.
             chosen = data.get("avatar", "")
             avatar = db().execute(
-                "SELECT * FROM avatars WHERE account_id = ? AND (? = '' OR id = ?)"
-                " ORDER BY id LIMIT 1",
-                (account["id"], chosen, chosen),
+                "SELECT * FROM avatars WHERE org_id = ? AND (? = '' OR id = ?)"
+                " ORDER BY id LIMIT 1", (org["id"], chosen, chosen),
             ).fetchone()
             if avatar is None:
                 self.redirect("/")
                 return
             try:
-                paid_with = billing.spend_one(db(), account)
+                paid_with = billing.spend_one(db(), org)
             except billing.OutOfQuota:
                 self.redirect("/plan")
                 return
-
             render = share_encode(
                 PROVIDER.render(avatar["provider_ref"], script, seconds, data.get("voice", ""))
             )
-            cursor = db().execute(
-                "INSERT INTO videos (account_id, avatar_id, title, script, seconds, status,"
-                " paid_with, bytes, provider_ref, created_at)"
-                " VALUES (?, ?, ?, ?, ?, 'ready', ?, ?, ?, ?)",
-                (account["id"], avatar["id"], data.get("title", "Untitled").strip() or "Untitled",
+            video_id = db().execute(
+                "INSERT INTO videos (org_id, avatar_id, created_by, title, script, seconds,"
+                " status, paid_with, bytes, provider_ref, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, 'ready', ?, ?, ?, ?)",
+                (org["id"], avatar["id"], user["id"],
+                 data.get("title", "Untitled").strip() or "Untitled",
                  script, seconds, paid_with, render.bytes, render.ref, now()),
-            )
+            ).lastrowid
             db().commit()
-            self.redirect(f"/video/{cursor.lastrowid}")
+            self.redirect(f"/video/{video_id}")
+
+        elif path == "/team/invite":
+            try:
+                token = teams.invite(db(), org, member, data.get("email", ""))
+            except (teams.SeatLimitReached, teams.InviteError, teams.NotPermitted) as exc:
+                self.send(page(view_team(db(), org, member, error=str(exc)), member, "team"))
+                return
+            link = f"/invite/{token}"
+            if SEND_LINKS_TO_CONSOLE:
+                print(f"invitation for {data.get('email')}: {link}")
+            self.send(page(view_team(db(), org, member, link=link), member, "team"))
+
+        elif path == "/team/revoke":
+            try:
+                teams.revoke(db(), org, member, int(data.get("id", 0)))
+            except (teams.InviteError, teams.NotPermitted) as exc:
+                self.send(page(view_team(db(), org, member, error=str(exc)), member, "team"))
+                return
+            self.redirect("/team")
 
         elif path == "/credits":
+            try:
+                teams.require_owner(member)
+            except teams.NotPermitted:
+                self.redirect("/plan")
+                return
             wanted = int(data.get("credits", 0))
             pack = next((p for p in plans.CREDIT_PACKS if p.credits == wanted), None)
             if pack is not None:
-                # A real deployment takes payment here -- Paystack or
-                # Flutterwave, so EFT and mobile money work, not cards alone.
-                billing.add_credits(db(), account["id"], pack)
+                # A real deployment takes payment here.
+                billing.add_credits(db(), org["id"], pack)
+            self.redirect("/plan")
+
+        elif path == "/avatar-slots":
+            try:
+                teams.require_owner(member)
+            except teams.NotPermitted:
+                self.redirect("/plan")
+                return
+            wanted = int(data.get("avatars", 0))
+            pack = next((p for p in plans.AVATAR_PACKS if p.avatars == wanted), None)
+            if pack is not None:
+                billing.add_avatar_slots(db(), org["id"], pack, user_id=user["id"])
             self.redirect("/plan")
 
         elif path == "/upgrade":
+            try:
+                teams.require_owner(member)
+            except teams.NotPermitted:
+                self.redirect("/plan")
+                return
             key = data.get("plan", "")
             if key in plans.PLANS:
+                try:
+                    teams.check_downgrade(db(), org, key)
+                except teams.SeatLimitReached as exc:
+                    self.send(page(view_plan(db(), org, member).replace(
+                        '<h1 class="app-h">', f'<div class="warn">{e(exc)}</div>'
+                        '<h1 class="app-h">', 1), member, "plan"))
+                    return
                 db().execute(
-                    "UPDATE accounts SET plan = ?, used = 0, period_start = ? WHERE id = ?",
-                    (key, now(), account["id"]),
+                    "UPDATE organisations SET plan = ?, used = 0, period_start = ?"
+                    " WHERE id = ?", (key, now(), org["id"]),
                 )
-                log(db(), account["id"], "plan_change", detail=key, cents=plans.PLANS[key].cents)
+                log(db(), org["id"], "plan_change", detail=key,
+                    cents=plans.PLANS[key].cents, user_id=user["id"])
                 db().commit()
             self.redirect("/")
 
@@ -466,6 +666,6 @@ class Handler(BaseHTTPRequestHandler):
 def serve(port: int = 8000, db_path: str | None = None) -> None:
     global POOL
     POOL = Pool(db_path)
-    POOL.conn  # fail fast here rather than on the first request
+    POOL.conn  # fail fast rather than on the first request
     print(f"IDENTICAL running on http://localhost:{port}")
     ThreadingHTTPServer(("", port), Handler).serve_forever()

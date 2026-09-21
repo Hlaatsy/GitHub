@@ -45,10 +45,30 @@ about money:
   is exactly the failure the compliance pillar exists to prevent. A cap is
   what makes the consent register finite enough to actually maintain.
 
-Extra avatars beyond the plan are sold as Avatar Setup, or the account moves
-up a tier. Enterprise negotiates the number, because a bank presenting in
-four languages with a different face per division genuinely needs more than
-five — and at that size the consent register is part of the contract.
+### Buying more avatars
+
+The cap is raised by buying slots, not only by moving up a tier.
+
+| Pack | Price | Each |
+| --- | --- | --- |
+| 1 avatar | R2 500 | R2 500 |
+| 3 avatars | R6 750 | R2 250 |
+| 5 avatars | R10 000 | R2 000 |
+
+Priced from Avatar Setup at R2 500, because that is what an extra avatar
+actually is — a guided build plus a permanent slot. One number, with a volume
+discount above it, rather than two prices for the same work. Slots are
+permanent, not monthly: the build behind each one is work done once.
+
+**A slot raises the avatar cap and nothing else.** Not seats, not monthly
+videos. So a Starter account with four extra slots has five avatars, one seat
+and ten videos a month — nowhere near Team 5, which is the point. Buying
+slots can never stand in for moving up a tier, and the enforcement in the app
+matches: `test_slots_do_not_add_seats_or_videos`.
+
+Enterprise negotiates the number, because a bank presenting in four languages
+with a different face per division genuinely needs more than five — and at
+that size the consent register is part of the contract.
 
 Every video up to 2 minutes. Cost per video falls at each step — R49.90,
 R37.48, R33.33 — which is the rate that matters when a buyer is costing a
@@ -243,11 +263,15 @@ Not monthly signups. In this model the numbers that matter are:
 - **Check the overage ordering** in every market, every time a price moves.
   Overage must stay dearer per video than every subscription tier. It broke
   the moment pricing changed, and it broke silently.
-- **Seats need enforcing, not just advertising.** A five-seat plan with no
-  seat limit is a one-seat plan the customer shares, and you find out at
-  renewal. Avatar limits are now enforced in the app; seats are not, because
-  team accounts do not exist yet — that is the next real piece of work if
-  Team 5 is going to be the tier we lead with.
+- **Seats are enforced by invitation.** A seat is an accepted invitation, not
+  a number on this page. Invitations are addressed to one person and cannot
+  be forwarded, a pending invitation holds its seat, and removing someone
+  frees it without touching the videos they made. Nothing in the portal is
+  reachable without signing in.
+- **Downgrades are refused while an organisation is over the target plan's
+  limits.** The owner removes members or keeps bought avatar slots first.
+  Auto-removing people to fit a smaller plan would mean someone loses access
+  to their work because a billing page was clicked.
 - **Contracts, not just checkout.** B2B buyers need an order form, payment
   terms, a revision cap on services, and an answer to what happens to avatars
   and source footage when the contract ends — that last one is a POPIA
