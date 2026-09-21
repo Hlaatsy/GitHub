@@ -20,6 +20,7 @@ import secrets
 import sqlite3
 import time
 
+from . import plans
 from .db import log, now
 
 SECRET = os.environ.get("IDENTICAL_SECRET", "").encode() or secrets.token_bytes(32)
@@ -85,7 +86,7 @@ def start_sign_in(conn: sqlite3.Connection, email: str) -> str:
     if row is None:
         cursor = conn.execute(
             "INSERT INTO accounts (email, name, plan, period_start, created_at)"
-            " VALUES (?, '', 'free', ?, ?)", (email, now(), now()),
+            " VALUES (?, '', ?, ?, ?)", (email, plans.DEFAULT_PLAN, now(), now()),
         )
         conn.commit()
         account_id = cursor.lastrowid

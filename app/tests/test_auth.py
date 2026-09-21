@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app import auth  # noqa: E402
+from app import auth, plans  # noqa: E402
 from app.db import connect  # noqa: E402
 
 
@@ -51,7 +51,7 @@ class SignInTests(unittest.TestCase):
         account_id = auth.complete_sign_in(self.conn, token)
         row = self.conn.execute("SELECT * FROM accounts WHERE id = ?", (account_id,)).fetchone()
         self.assertEqual(row["email"], "new@example.com", "email should be normalised")
-        self.assertEqual(row["plan"], "free")
+        self.assertEqual(row["plan"], plans.DEFAULT_PLAN)
         self.assertEqual(row["email_verified"], 1)
 
     def test_returning_user_keeps_the_same_account(self):

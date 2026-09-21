@@ -35,9 +35,9 @@ vendor is one class.
 what a video costs us, because that comes from a vendor contract — and the
 entire pricing model rests on it. A test asserts the stub does not invent one.
 
-When it is known, check it against `docs/monetisation.md`: Starter is 7 videos
-inside R149, which is R21.29 a video. If that does not leave margin, cut the
-allowance or the length cap, not the R149.
+When it is known, check it against `docs/monetisation.md`: Starter is 10
+videos inside R499, which is R49.90 a video. There is more room than the
+consumer pricing left, but it still has to be a number rather than a hope.
 
 ## Layout
 
@@ -63,8 +63,13 @@ These are the ones that cost money or trust when they break:
   means, and what "credits do not expire at month end" means.
 - **Running out raises** rather than rendering something unpaid — the cap is
   the upgrade conversation, not an inconvenience to route around.
-- **Free withholds the costly features**, not just video count: no voice
-  cloning (per-user compute) and no guided build (human time).
+- **Trial withholds the costly features**, not just video count: no voice
+  cloning (per-user compute) and no guided build, which is a paid service.
+- **Team 5 carries more videos per seat than Pro**, which is what justifies
+  its higher per-seat price.
+- **Old plan keys migrate.** Accounts created under the consumer model carry
+  keys that no longer exist; without the mapping every lookup raises and the
+  account cannot load.
 - **A two-minute video exceeds WhatsApp's 16MB limit** at the sharing bitrate,
   so it gets a second smaller encode. Tested, because the first version of
   this would have handed users a file that silently fails to send.

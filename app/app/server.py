@@ -331,8 +331,8 @@ class Handler(BaseHTTPRequestHandler):
             if row is None:
                 cursor = db().execute(
                     "INSERT INTO accounts (email, name, plan, period_start, created_at)"
-                    " VALUES (?, ?, 'free', ?, ?)",
-                    (email, data.get("name", "").strip(), now(), now()),
+                    " VALUES (?, ?, ?, ?, ?)",
+                    (email, data.get("name", "").strip(), plans.DEFAULT_PLAN, now(), now()),
                 )
                 db().commit()
                 account_id = cursor.lastrowid

@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     id            INTEGER PRIMARY KEY,
     email         TEXT NOT NULL UNIQUE,
     name          TEXT NOT NULL DEFAULT '',
-    plan          TEXT NOT NULL DEFAULT 'free',
+    plan          TEXT NOT NULL DEFAULT 'trial',
     period_start  TEXT NOT NULL,
     used          INTEGER NOT NULL DEFAULT 0,
     created_at    TEXT NOT NULL
@@ -133,11 +133,19 @@ ACCOUNT_COLUMNS = (
 
 
 def migrate(conn: sqlite3.Connection) -> None:
-    """Add columns missing from an older database. Safe to run every start."""
+    """Bring an older database up to the current schema. Safe to run every start."""
     have = {row["name"] for row in conn.execute("PRAGMA table_info(accounts)")}
     for name, spec in ACCOUNT_COLUMNS:
         if name not in have:
             conn.execute(f"ALTER TABLE accounts ADD COLUMN {name} {spec}")
+
+    # Accounts created under the consumer model carry plan keys that no longer
+    # exist. Left alone, every lookup against PLANS raises KeyError and the
+    # account cannot load at all.
+    from .plans import RENAMED
+
+    for old, new in RENAMED.items():
+        conn.execute("UPDATE accounts SET plan = ? WHERE plan = ?", (new, old))
     conn.commit()
 
 
