@@ -133,6 +133,16 @@ class TokenTests(unittest.TestCase):
         org = billing.roll_period(self.conn, self.org())
         self.assertEqual(billing.allowance_left(org), plans.PLANS["starter"].tokens)
 
+    def test_allowance_counts_tokens_not_videos(self):
+        """They are equal only while a video costs one token."""
+        original = plans.VIDEO_TOKENS
+        try:
+            plans.VIDEO_TOKENS = 2
+            self.assertEqual(billing.allowance_left(self.org()),
+                             plans.PLANS["starter"].tokens)
+        finally:
+            plans.VIDEO_TOKENS = original
+
     def test_every_movement_is_recorded(self):
         billing.add_tokens(self.conn, 1, plans.TOKEN_PACKS[0])
         billing.spend(self.conn, self.org(), plans.AVATAR_TOKENS, "avatar")

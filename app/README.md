@@ -5,7 +5,9 @@ no pip install, no build step, no services to pay for before there is revenue.
 
     cd projects/identical/app
     python -m app                 # http://localhost:8000
-    python -m unittest discover -s tests
+    python -m unittest discover -s tests          # 72 unit tests, milliseconds
+    pip install playwright
+    python tests/browser_preview.py               # the real app in a browser
 
 ## What is bought and what is built
 
@@ -49,6 +51,17 @@ consumer pricing left, but it still has to be a number rather than a hope.
     app/provider.py   the vendor boundary, and the WhatsApp size ceiling
     app/server.py     routes and views
     app/app.css       one stylesheet, shared with the pricing page design
+
+## Why there is a browser test as well
+
+The unit suite tests modules, so a view can reference an attribute that no
+longer exists and every test still passes. That is not hypothetical: when
+plans moved to tokens, the signed-out landing page still read `plan.avatars`
+and nothing failed until a browser asked for the page.
+
+`tests/browser_preview.py` drives the real app at phone width through every
+flow and screenshots each step. Run it before shipping anything that touches
+a view.
 
 ## Rules the tests enforce
 
