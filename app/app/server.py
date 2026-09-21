@@ -16,6 +16,7 @@ import hashlib
 import hmac
 import html
 import http.cookies
+import json
 import os
 import secrets
 import sqlite3
@@ -23,7 +24,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import auth, billing, mail, plans, teams
+from . import auth, billing, mail, payments, plans, teams
 from .db import Pool, log, now
 from .provider import StubProvider, share_encode
 
@@ -35,6 +36,11 @@ POOL: Pool | None = None
 #: How links reach people. With no SMTP host configured this prints to the
 #: console, which is what development wants and production must not have.
 MAILER = mail.from_env()
+
+#: Paystack when a secret key is set, otherwise a stub that treats every
+#: checkout as paid -- which is what development wants and production must
+#: never have.
+GATEWAY = payments.from_env()
 
 
 def db() -> sqlite3.Connection:
@@ -430,9 +436,12 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
+    def read_body(self) -> bytes:
+        """The request body, as bytes. Readable once per request."""
+        return self.rfile.read(int(self.headers.get("Content-Length") or 0))
+
     def form(self) -> dict[str, str]:
-        length = int(self.headers.get("Content-Length") or 0)
-        raw = self.rfile.read(length).decode("utf-8")
+        raw = self.read_body().decode("utf-8")
         return {k: v[0] for k, v in urllib.parse.parse_qs(raw).items()}
 
     def log_message(self, *args: object) -> None:
@@ -444,6 +453,17 @@ class Handler(BaseHTTPRequestHandler):
         path = urllib.parse.urlparse(self.path).path
         if path == "/healthz":
             self.send(b"ok")
+            return
+
+        if path == "/payments/callback":
+            query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            reference = (query.get("reference") or [""])[0]
+            problem = self.settle(reference) if reference else "No payment reference."
+            if problem:
+                self.send(page(f'<div class="warn">{e(problem)}</div>'
+                               '<a class="act ghost" href="/plan">Back</a>'))
+                return
+            self.redirect("/plan")
             return
 
         # The two anonymous routes, and nothing else.
@@ -496,6 +516,46 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.send(page('<h1 class="app-h">Not found</h1>', member), 404)
 
+    def start_payment(self, org, user, member, purpose: str, detail: str,
+                      cents: int) -> None:
+        """Record what is owed, then send the customer to the gateway."""
+        reference = payments.new_reference()
+        billing.record_payment(db(), org["id"], user["id"], reference,
+                               purpose, detail, cents)
+        try:
+            checkout = GATEWAY.initialise(
+                reference=reference,
+                email=user["email"],
+                cents=cents,
+                callback_url=mail.base_url() + "/payments/callback",
+                metadata={"org": org["id"], "purpose": purpose, "detail": detail},
+            )
+        except payments.PaymentError as exc:
+            self.send(page(view_plan(db(), org, member).replace(
+                '<h1 class="app-h">',
+                f'<div class="warn">Could not start the payment: {e(exc)}</div>'
+                '<h1 class="app-h">', 1), member, "plan"))
+            return
+        self.redirect(checkout.url)
+
+    def settle(self, reference: str) -> str:
+        """Verify with the gateway, then apply. Safe to call more than once."""
+        try:
+            result = GATEWAY.verify(reference)
+        except payments.PaymentError as exc:
+            return f"could not verify: {exc}"
+        if not result.paid:
+            return "That payment did not go through. Nothing has been charged."
+        try:
+            outcome = billing.apply_payment(db(), reference, result.cents,
+                                            result.gateway_ref)
+        except billing.PaymentMismatch as exc:
+            # Either a tampered callback or a genuine mismatch. Neither is
+            # something to credit; both are worth a human looking.
+            print(f"PAYMENT MISMATCH {exc}")
+            return "That payment does not match what was ordered. We have not applied it."
+        return "" if outcome in ("applied", "already") else "Unknown payment reference."
+
     def accept_invite(self, token: str, user: sqlite3.Row) -> None:
         try:
             teams.accept(db(), token, user["id"])
@@ -509,6 +569,34 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         path = urllib.parse.urlparse(self.path).path
+
+        # The webhook needs the body as bytes, and the request body can only
+        # be read once -- so this branch comes before the form parsing, not
+        # after it.
+        if path == "/payments/webhook":
+            # Public endpoint: nothing here is trusted until the signature
+            # verifies against the raw body exactly as received.
+            raw = self.read_body()
+            signature = self.headers.get("x-paystack-signature", "")
+            if not GATEWAY.signature_ok(raw, signature):
+                self.send(b"", 401)
+                return
+            try:
+                event = json.loads(raw.decode())
+            except ValueError:
+                self.send(b"", 400)
+                return
+            if event.get("event") == "charge.success":
+                reference = (event.get("data") or {}).get("reference", "")
+                if reference:
+                    # Verify with the API rather than believing the payload,
+                    # then apply -- which is idempotent, so a repeat delivery
+                    # changes nothing.
+                    self.settle(reference)
+            # Acknowledge anything signed, or Paystack retries for days.
+            self.send(b"", 200)
+            return
+
         data = self.form()
 
         if path == "/signin":
@@ -658,10 +746,10 @@ class Handler(BaseHTTPRequestHandler):
                 return
             wanted = int(data.get("tokens", 0))
             pack = next((p for p in plans.TOKEN_PACKS if p.tokens == wanted), None)
-            if pack is not None:
-                # A real deployment takes payment here.
-                billing.add_tokens(db(), org["id"], pack, user_id=user["id"])
-            self.redirect("/plan")
+            if pack is None:
+                self.redirect("/plan")
+                return
+            self.start_payment(org, user, member, "tokens", str(pack.tokens), pack.cents)
 
         elif path == "/upgrade":
             try:
@@ -670,22 +758,29 @@ class Handler(BaseHTTPRequestHandler):
                 self.redirect("/plan")
                 return
             key = data.get("plan", "")
-            if key in plans.PLANS:
-                try:
-                    teams.check_downgrade(db(), org, key)
-                except teams.SeatLimitReached as exc:
-                    self.send(page(view_plan(db(), org, member).replace(
-                        '<h1 class="app-h">', f'<div class="warn">{e(exc)}</div>'
-                        '<h1 class="app-h">', 1), member, "plan"))
-                    return
+            if key not in plans.PLANS:
+                self.redirect("/plan")
+                return
+            try:
+                teams.check_downgrade(db(), org, key)
+            except teams.SeatLimitReached as exc:
+                self.send(page(view_plan(db(), org, member).replace(
+                    '<h1 class="app-h">', f'<div class="warn">{e(exc)}</div>'
+                    '<h1 class="app-h">', 1), member, "plan"))
+                return
+            target = plans.PLANS[key]
+            if target.cents == 0 or target.cents < plans.PLANS[org["plan"]].cents:
+                # Moving down, or to the free trial, costs nothing to take.
                 db().execute(
                     "UPDATE organisations SET plan = ?, used = 0, period_start = ?"
                     " WHERE id = ?", (key, now(), org["id"]),
                 )
-                log(db(), org["id"], "plan_change", detail=key,
-                    cents=plans.PLANS[key].cents, user_id=user["id"])
+                log(db(), org["id"], "plan_change", detail=key, cents=target.cents,
+                    user_id=user["id"])
                 db().commit()
-            self.redirect("/")
+                self.redirect("/")
+                return
+            self.start_payment(org, user, member, "plan", key, target.cents)
 
         else:
             self.redirect("/")

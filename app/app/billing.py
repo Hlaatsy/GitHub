@@ -188,3 +188,85 @@ def check_length(script: str) -> int:
     if seconds > plans.MAX_VIDEO_SECONDS:
         raise TooLong(f"{seconds}s is over the {plans.MAX_VIDEO_SECONDS}s limit")
     return seconds
+
+
+# --------------------------------------------------------------------------
+# payments
+
+def record_payment(conn: sqlite3.Connection, org_id: int, user_id: int,
+                   reference: str, purpose: str, detail: str, cents: int) -> None:
+    """Write down what this payment is for, before the customer leaves.
+
+    The expected amount comes from here on the way back, never from the
+    request -- otherwise anyone could pay a rand for a plan.
+    """
+    conn.execute(
+        "INSERT INTO payments (org_id, user_id, reference, purpose, detail, cents,"
+        " created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (org_id, user_id, reference, purpose, detail, cents, now()),
+    )
+    log(conn, org_id, "payment_started", detail=f"{purpose}:{detail}", cents=cents,
+        user_id=user_id)
+    conn.commit()
+
+
+def pending_payment(conn: sqlite3.Connection, reference: str) -> sqlite3.Row | None:
+    return conn.execute(
+        "SELECT * FROM payments WHERE reference = ?", (reference,)
+    ).fetchone()
+
+
+class PaymentMismatch(Exception):
+    """The gateway's amount is not the amount we asked for."""
+
+
+def apply_payment(conn: sqlite3.Connection, reference: str, paid_cents: int,
+                  gateway_ref: str = "") -> str:
+    """Give the customer what they paid for, exactly once.
+
+    Returns "applied", "already" if this payment was settled by an earlier
+    delivery of the same event, or "unknown" for a reference we never issued.
+
+    Raises PaymentMismatch when the amount paid is not the amount recorded --
+    which is the check that makes a tampered callback worthless.
+    """
+    row = pending_payment(conn, reference)
+    if row is None:
+        return "unknown"
+    if row["applied_at"]:
+        return "already"
+    if paid_cents != row["cents"]:
+        raise PaymentMismatch(
+            f"{reference}: expected {row['cents']} cents, gateway says {paid_cents}"
+        )
+
+    org = conn.execute(
+        "SELECT * FROM organisations WHERE id = ?", (row["org_id"],)
+    ).fetchone()
+
+    if row["purpose"] == "tokens":
+        pack = next((p for p in plans.TOKEN_PACKS if str(p.tokens) == row["detail"]), None)
+        if pack is None:
+            return "unknown"
+        add_tokens(conn, org["id"], pack, user_id=row["user_id"])
+    elif row["purpose"] == "plan":
+        key = row["detail"]
+        if key not in plans.PLANS:
+            return "unknown"
+        conn.execute(
+            "UPDATE organisations SET plan = ?, used = 0, period_start = ? WHERE id = ?",
+            (key, now(), org["id"]),
+        )
+        log(conn, org["id"], "plan_change", detail=key, cents=plans.PLANS[key].cents,
+            user_id=row["user_id"])
+    else:
+        return "unknown"
+
+    conn.execute(
+        "UPDATE payments SET status = 'paid', gateway_ref = ?, applied_at = ?"
+        " WHERE id = ?", (gateway_ref, now(), row["id"]),
+    )
+    log(conn, org["id"], "payment_settled", detail=f"{row['purpose']}:{row['detail']}",
+        cents=row["cents"], user_id=row["user_id"])
+    conn.commit()
+    return "applied"

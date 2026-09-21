@@ -5,7 +5,9 @@ no pip install, no build step, no services to pay for before there is revenue.
 
     cd projects/identical/app
     python -m app                 # http://localhost:8000
-    python -m unittest discover -s tests          # 72 unit tests, milliseconds
+    python -m unittest discover -s tests          # 109 unit tests, milliseconds
+    python tests/mail_e2e.py                      # against a real SMTP server
+    python tests/payments_e2e.py                  # checkout, callback, webhook
     pip install playwright
     python tests/browser_preview.py               # the real app in a browser
 
@@ -52,6 +54,43 @@ consumer pricing left, but it still has to be a number rather than a hope.
     app/provider.py   the vendor boundary, and the WhatsApp size ceiling
     app/server.py     routes and views
     app/app.css       one stylesheet, shared with the pricing page design
+
+## Payments
+
+Paystack, because it carries the rails this market uses — EFT, instant EFT,
+mobile money and cards — and the same integration reaches Nigeria, Ghana and
+Kenya later.
+
+    PAYSTACK_SECRET_KEY=sk_live_...
+    IDENTICAL_BASE_URL=https://app.identical.africa   # callbacks land here too
+    IDENTICAL_CURRENCY=ZAR
+
+No secret key means a stub gateway that treats every checkout as paid, which
+is what development wants and production must never have.
+
+Point Paystack's webhook at `POST /payments/webhook`.
+
+Three rules the code enforces, each a quiet way to lose money:
+
+- **The amount is never taken from the browser.** What a payment is for is
+  written to the `payments` table before the customer is sent anywhere, and
+  the gateway's amount is checked against it on the way back. A mismatch is
+  refused and logged rather than credited.
+- **Applying a payment is idempotent.** The callback and the webhook both
+  arrive for the same transaction, and Paystack replays webhooks by design.
+  `applied_at` is what makes the second one a no-op.
+- **A webhook is not trusted until its signature verifies** — HMAC-SHA512 of
+  the raw body, compared in constant time. Parse the JSON first and a
+  re-serialised body will not match, so the raw bytes are read before
+  anything else touches the request.
+
+Moving down a plan, or to the trial, takes no payment.
+
+### Not done yet
+
+Recurring billing. A plan change charges once; nothing renews it next month.
+Paystack Plans and subscriptions are the next piece, and until then a renewal
+is a manual charge.
 
 ## Email
 
