@@ -68,3 +68,14 @@ with its own site, app releases or CI, move this directory into its own
 repository and take `linkedin/` with it as a dependency — nothing here
 reaches into the other projects, so the split is a `git mv` rather than an
 untangling. Worth doing before that is true, not after.
+
+## The app
+
+`app/` is a running web app — accounts, plans, quotas, credits, consent
+records and the cap logic, with the video generation vendor behind a stub so
+it runs end to end before a contract exists.
+
+    cd app && python -m app
+
+See `app/README.md` for what is bought versus built, and what is still to
+build. The short version: everything except the talking-face model itself.
