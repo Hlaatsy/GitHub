@@ -154,6 +154,33 @@ CREDIT_PACKS: tuple[CreditPack, ...] = (
 )
 
 
+@dataclass(frozen=True)
+class AvatarPack:
+    """Extra avatar slots, bought once and kept.
+
+    Priced from Avatar Setup at R2 500, because that is what an extra avatar
+    actually is: a guided build plus a permanent slot. One number, with a
+    volume discount above it, rather than two prices for the same work.
+
+    A pack raises the avatar cap and nothing else -- not seats, not videos --
+    so buying slots can never stand in for moving up a tier.
+    """
+
+    avatars: int
+    cents: int
+
+    @property
+    def cents_each(self) -> int:
+        return round(self.cents / self.avatars)
+
+
+AVATAR_PACKS: tuple[AvatarPack, ...] = (
+    AvatarPack(avatars=1, cents=250000),
+    AvatarPack(avatars=3, cents=675000),
+    AvatarPack(avatars=5, cents=1000000),
+)
+
+
 def next_plan(key: str) -> Plan | None:
     """The plan above this one, or None at the top."""
     index = ORDER.index(key)

@@ -42,6 +42,7 @@ consumer pricing left, but it still has to be a number rather than a hope.
 ## Layout
 
     app/auth.py       sign-in links and phone verification
+    app/teams.py      organisations, memberships, invitations, seats
     app/plans.py      plans, credit packs, and the pricing invariants
     app/billing.py    quota, credits, expiry, consumption order
     app/db.py         SQLite schema and a per-thread connection pool
@@ -69,6 +70,14 @@ These are the ones that cost money or trust when they break:
   its higher per-seat price.
 - **Avatar limits are enforced on the endpoint**, not just hidden in the UI.
   A form that disappears at the limit is not a limit; the route refuses too.
+- **Bought avatar slots raise the avatar cap only** — never seats or videos,
+  so a pack can never substitute for a tier.
+- **A seat is an accepted invitation.** A pending invitation holds its seat, an
+  invitation cannot be forwarded to a different address or accepted twice, and
+  revoking frees the seat while leaving that person's videos attributed to them.
+- **The owner cannot be removed**, or an organisation ends up with nobody able
+  to manage it.
+- **Nothing is reachable without signing in** except the sign-in form itself.
 - **Old plan keys migrate.** Accounts created under the consumer model carry
   keys that no longer exist; without the mapping every lookup raises and the
   account cannot load.
@@ -85,7 +94,10 @@ In the order that unlocks revenue:
    mobile money work — card-only excludes most of this market. See
    `docs/monetisation.md`, "Payment rails".
 2. **A real provider** behind `VideoProvider`, which settles the cost question.
-3. **Wire up `app/auth.py`.** Sign-in links and phone verification are
+4. **Wire up email delivery.** Sign-in and invitation links are printed to
+   the console rather than emailed. Anything that delivers a link will do;
+   until then the portal cannot be used by anyone not watching the log.
+5. **Old note on `app/auth.py`.** Sign-in links and phone verification are
    written and tested but not yet connected to the server, which still takes
    an email on trust. Connecting it needs an email sender — anything that
    delivers a link will do.
