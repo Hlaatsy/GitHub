@@ -26,6 +26,10 @@ class TooLong(Exception):
     """Script exceeds the per-video length cap."""
 
 
+class AvatarLimitReached(Exception):
+    """Account already has as many avatars as its plan allows."""
+
+
 def _today() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
@@ -110,6 +114,36 @@ def spend_one(conn: sqlite3.Connection, account: sqlite3.Row) -> str:
     log(conn, account["id"], "video_credit", detail=f"batch {batch['id']}", videos=1)
     conn.commit()
     return "credit"
+
+
+def avatars_used(conn: sqlite3.Connection, account_id: int) -> int:
+    return int(conn.execute(
+        "SELECT COUNT(*) AS n FROM avatars WHERE account_id = ?", (account_id,)
+    ).fetchone()["n"])
+
+
+def avatars_left(conn: sqlite3.Connection, account: sqlite3.Row) -> int:
+    allowed = plans.PLANS[account["plan"]].avatars
+    return max(0, allowed - avatars_used(conn, account["id"]))
+
+
+def claim_avatar(conn: sqlite3.Connection, account: sqlite3.Row) -> None:
+    """Check the plan allows another avatar. Raises AvatarLimitReached if not.
+
+    Avatars are capped for three reasons, and only the first is about money:
+
+    * each one is a guided build, which is human time we sell as a service;
+    * a cloned voice carries a per-avatar cost with the provider;
+    * every avatar is a real person's likeness, so an uncapped account is an
+      uncapped consent surface -- more faces on file than anyone is tracking
+      is precisely the failure the compliance pillar exists to prevent.
+    """
+    if avatars_left(conn, account) <= 0:
+        allowed = plans.PLANS[account["plan"]].avatars
+        raise AvatarLimitReached(
+            f"{plans.PLANS[account['plan']].name} includes {allowed} "
+            f"avatar{'s' if allowed != 1 else ''}"
+        )
 
 
 def estimate_seconds(script: str, words_per_minute: int = 145) -> int:

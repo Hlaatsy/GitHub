@@ -129,27 +129,45 @@ def view_landing() -> str:
 
 
 def view_home(conn: sqlite3.Connection, account: sqlite3.Row) -> str:
-    avatar = conn.execute(
-        "SELECT * FROM avatars WHERE account_id = ? ORDER BY id DESC LIMIT 1", (account["id"],)
-    ).fetchone()
+    plan = plans.PLANS[account["plan"]]
+    avatars = conn.execute(
+        "SELECT * FROM avatars WHERE account_id = ? ORDER BY id", (account["id"],)
+    ).fetchall()
     videos = conn.execute(
         "SELECT * FROM videos WHERE account_id = ? ORDER BY id DESC LIMIT 6", (account["id"],)
     ).fetchall()
+    spare = billing.avatars_left(conn, account)
 
-    if avatar is None:
-        avatar_block = (
+    cards = "".join(
+        f'<div class="avatar"><div class="face"></div><div>'
+        f'<div class="avatar-name">{e(a["name"])}</div>'
+        f'<div class="sub">{e(a["source"])} · {e(a["voice_kind"])} voice'
+        f'{" · guided build" if a["guided"] else ""}</div></div></div>'
+        for a in avatars
+    )
+
+    if spare > 0:
+        build = (
             '<form method="post" action="/avatar" class="avatar-new">'
-            "<h2>Build your avatar</h2>"
-            f"<p class=sub>{'One photo is enough. Your plan includes the guided build.' if plans.PLANS[account['plan']].guided_build else 'Free accounts get the automatic photo avatar. Upgrade for the guided build and your own voice.'}</p>"
-            '<label class=fld>What should we call it<input name=name value="My avatar" required></label>'
+            f'<h2>{"Build your avatar" if not avatars else "Add another avatar"}</h2>'
+            f"<p class=sub>{'One photo is enough, and the guided build is included.' if plan.guided_build else 'A photo avatar is included. Upgrade for the guided build and a cloned voice.'}</p>"
+            '<label class=fld>Whose avatar is this'
+            '<input name=name value="" placeholder="Name of the presenter" required></label>'
             '<button class="act cool">Build it</button></form>'
         )
     else:
-        avatar_block = (
-            f'<div class="avatar"><div class="face"></div><div>'
-            f'<div class="avatar-name">{e(avatar["name"])}</div>'
-            f'<div class="sub">{e(avatar["source"])} · {e(avatar["voice_kind"])} voice</div></div></div>'
+        # At the limit. Say what the limit is and what clears it, rather than
+        # removing the button and leaving people to guess.
+        build = (
+            f'<div class="warn">{plan.name} includes {plan.avatars} '
+            f'avatar{"s" if plan.avatars != 1 else ""}, and all of them are in use. '
+            f'<a href="/plan">See plans</a> to add more.</div>'
         )
+
+    avatar_count = (
+        f'<div class="sub">{len(avatars)} of {plan.avatars} avatars'
+        f'{" · " + str(spare) + " left" if spare else " · at your limit"}</div>'
+    ) if avatars else ""
 
     left = billing.videos_left(conn, account)
     rows = "".join(
@@ -162,9 +180,9 @@ def view_home(conn: sqlite3.Connection, account: sqlite3.Row) -> str:
 
     return (
         f'<h1 class="app-h">Hello, {e(account["name"] or "there")}</h1>'
-        f"{avatar_block}{meter(conn, account)}"
-        + (f'<a class="act" href="/create">New video</a>' if left and avatar
-           else f'<a class="act" href="/plan">Out of videos — see options</a>' if avatar
+        f"{avatar_count}{cards}{build}{meter(conn, account)}"
+        + ('<a class="act" href="/create">New video</a>' if left and avatars
+           else '<a class="act" href="/plan">Out of videos — see options</a>' if avatars
            else "")
         + f'<section><div class="sub" style="margin-bottom:4px">Recent</div>{rows}</section>'
     )
@@ -172,13 +190,21 @@ def view_home(conn: sqlite3.Connection, account: sqlite3.Row) -> str:
 
 def view_create(conn: sqlite3.Connection, account: sqlite3.Row, error: str = "") -> str:
     plan = plans.PLANS[account["plan"]]
+    avatars = conn.execute(
+        "SELECT * FROM avatars WHERE account_id = ? ORDER BY id", (account["id"],)
+    ).fetchall()
+    picker = ""
+    if len(avatars) > 1:
+        picker = ("<label class=fld>Presented by<select name=avatar>" + "".join(
+            f'<option value="{a["id"]}">{e(a["name"])}</option>' for a in avatars
+        ) + "</select></label>")
     voices = ["Your cloned voice"] if plan.custom_voice else []
     voices += ["Thandi — SA English", "Sipho — isiZulu"]
     options = "".join(f"<option>{e(v)}</option>" for v in voices)
     warn = f'<div class="warn">{e(error)}</div>' if error else ""
     return (
         '<h1 class="app-h">New video</h1>' + warn +
-        '<form method="post" action="/create" class="card">'
+        '<form method="post" action="/create" class="card">' + picker +
         '<label class=fld>Title<input name=title required placeholder="What is this one for?"></label>'
         "<label class=fld>Script"
         '<textarea name=script rows=8 required '
@@ -349,6 +375,13 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/avatar":
             plan = plans.PLANS[account["plan"]]
+            try:
+                billing.claim_avatar(db(), account)
+            except billing.AvatarLimitReached:
+                # The form is hidden at the limit, but a hidden form is not a
+                # limit -- the endpoint has to refuse too.
+                self.redirect("/plan")
+                return
             ref = PROVIDER.build_avatar("photo", b"")
             cursor = db().execute(
                 "INSERT INTO avatars (account_id, name, source, guided, voice_kind,"
@@ -376,9 +409,13 @@ class Handler(BaseHTTPRequestHandler):
             except billing.TooLong as exc:
                 self.send(page(view_create(db(), account, str(exc)), account, "create"))
                 return
+            # Which avatar presents this video. Defaults to the first, so a
+            # single-avatar account never has to choose.
+            chosen = data.get("avatar", "")
             avatar = db().execute(
-                "SELECT * FROM avatars WHERE account_id = ? ORDER BY id DESC LIMIT 1",
-                (account["id"],),
+                "SELECT * FROM avatars WHERE account_id = ? AND (? = '' OR id = ?)"
+                " ORDER BY id LIMIT 1",
+                (account["id"], chosen, chosen),
             ).fetchone()
             if avatar is None:
                 self.redirect("/")

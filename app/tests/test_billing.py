@@ -104,6 +104,69 @@ class LengthTests(unittest.TestCase):
         self.assertLessEqual(billing.check_length("word " * 100), plans.MAX_VIDEO_SECONDS)
 
 
+class AvatarLimitTests(unittest.TestCase):
+    """Avatars are capped per plan. A hidden form is not a limit."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.conn = connect(Path(self._tmp.name) / "t.db")
+        self.conn.execute(
+            "INSERT INTO accounts (id, email, name, plan, period_start, created_at)"
+            " VALUES (1, 'a@b.c', 'Test', 'starter', ?, ?)", (now(), now()),
+        )
+        self.conn.commit()
+
+    def account(self):
+        return self.conn.execute("SELECT * FROM accounts WHERE id = 1").fetchone()
+
+    def add_avatar(self, name="Presenter"):
+        self.conn.execute(
+            "INSERT INTO avatars (account_id, name, source, created_at)"
+            " VALUES (1, ?, 'photo', ?)", (name, now()),
+        )
+        self.conn.commit()
+
+    def test_a_fresh_account_may_build_its_first(self):
+        billing.claim_avatar(self.conn, self.account())
+
+    def test_starter_stops_at_one(self):
+        self.add_avatar()
+        with self.assertRaises(billing.AvatarLimitReached):
+            billing.claim_avatar(self.conn, self.account())
+
+    def test_team5_allows_five_and_refuses_a_sixth(self):
+        self.conn.execute("UPDATE accounts SET plan = 'team5' WHERE id = 1")
+        self.conn.commit()
+        for index in range(plans.PLANS["team5"].avatars):
+            billing.claim_avatar(self.conn, self.account())
+            self.add_avatar(f"Presenter {index}")
+        with self.assertRaises(billing.AvatarLimitReached):
+            billing.claim_avatar(self.conn, self.account())
+
+    def test_upgrading_raises_the_limit(self):
+        self.add_avatar()
+        with self.assertRaises(billing.AvatarLimitReached):
+            billing.claim_avatar(self.conn, self.account())
+        self.conn.execute("UPDATE accounts SET plan = 'pro' WHERE id = 1")
+        self.conn.commit()
+        billing.claim_avatar(self.conn, self.account())
+
+    def test_remaining_count_is_reported(self):
+        self.conn.execute("UPDATE accounts SET plan = 'pro' WHERE id = 1")
+        self.conn.commit()
+        self.assertEqual(billing.avatars_left(self.conn, self.account()), 3)
+        self.add_avatar()
+        self.assertEqual(billing.avatars_left(self.conn, self.account()), 2)
+
+    def test_the_error_names_the_plan_and_its_allowance(self):
+        self.add_avatar()
+        with self.assertRaises(billing.AvatarLimitReached) as caught:
+            billing.claim_avatar(self.conn, self.account())
+        self.assertIn("Starter", str(caught.exception))
+        self.assertIn("1 avatar", str(caught.exception))
+
+
 class LegacyDatabaseTests(unittest.TestCase):
     """An installation created before the rename must survive the upgrade."""
 
