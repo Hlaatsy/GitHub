@@ -48,7 +48,8 @@ CREATE TABLE IF NOT EXISTS memberships (
     invited_email TEXT NOT NULL,
     role          TEXT NOT NULL DEFAULT 'member',   -- owner | member
     status        TEXT NOT NULL DEFAULT 'invited',  -- invited | active | revoked
-    invite_jti    TEXT NOT NULL DEFAULT '',
+    invite_jti    TEXT NOT NULL DEFAULT '',   -- the selector in the link
+    invite_expires_at INTEGER NOT NULL DEFAULT 0,
     invited_at    TEXT NOT NULL,
     accepted_at   TEXT NOT NULL DEFAULT '',
     revoked_at    TEXT NOT NULL DEFAULT ''
@@ -110,10 +111,13 @@ CREATE TABLE IF NOT EXISTS token_batches (
     created_at  TEXT NOT NULL
 );
 
+-- jti holds the random selector that appears in the link. Expiry lives here
+-- rather than inside a self-contained token, so a link can be revoked.
 CREATE TABLE IF NOT EXISTS sign_in_tokens (
     id          INTEGER PRIMARY KEY,
     user_id     INTEGER NOT NULL REFERENCES users(id),
     jti         TEXT NOT NULL UNIQUE,
+    expires_at  INTEGER NOT NULL DEFAULT 0,
     used_at     TEXT NOT NULL DEFAULT '',
     created_at  TEXT NOT NULL
 );

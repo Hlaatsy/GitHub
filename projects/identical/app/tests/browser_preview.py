@@ -65,6 +65,8 @@ with sync_playwright() as pw:
     page.fill('input[name=email]', "thandi@sandtonmutual.co.za")
     page.click('button:has-text("Email me a link")')
     check("link sent, nothing leaked", page.locator("text=Link sent").is_visible())
+    check("expiry is stated on the page",
+          page.locator("text=20 minutes").is_visible())
     shot("02-link-sent")
     page.goto(B + link("thandi@sandtonmutual.co.za"))
 

@@ -90,10 +90,27 @@ class TeamTests(unittest.TestCase):
         with self.assertRaises(teams.InviteError):
             teams.invite(self.conn, self.org(), self.owner(), "new@co.za")
 
-    def test_a_forged_token_is_refused(self):
-        forged = auth.make_token({"org": self.org_id, "email": "x@y.z", "kind": "invite"}, 600)
+    def test_a_guessed_selector_is_refused(self):
         with self.assertRaises(teams.InviteError):
-            teams.accept(self.conn, forged, self.sign_in("x@y.z"))
+            teams.accept(self.conn, auth.new_selector(), self.sign_in("x@y.z"))
+
+    def test_an_empty_selector_matches_nothing(self):
+        """Most memberships have no pending invitation; '' must not match them."""
+        with self.assertRaises(teams.InviteError):
+            teams.accept(self.conn, "", self.owner_id)
+
+    def test_an_expired_invitation_is_refused(self):
+        token = teams.invite(self.conn, self.org(), self.owner(), "late@co.za")
+        self.conn.execute("UPDATE memberships SET invite_expires_at = 1 WHERE invite_jti = ?",
+                          (token,))
+        self.conn.commit()
+        with self.assertRaises(teams.InviteError):
+            teams.accept(self.conn, token, self.sign_in("late@co.za"))
+
+    def test_the_link_is_short_enough_for_an_email(self):
+        """A long link wraps across lines and stops being clickable."""
+        token = teams.invite(self.conn, self.org(), self.owner(), "short@co.za")
+        self.assertLess(len(f"https://app.identical.africa/invite/{token}"), 78)
 
     # -- the seat limit ---------------------------------------------------
 

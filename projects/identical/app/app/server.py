@@ -23,7 +23,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import auth, billing, plans, teams
+from . import auth, billing, mail, plans, teams
 from .db import Pool, log, now
 from .provider import StubProvider, share_encode
 
@@ -32,9 +32,9 @@ SECRET = os.environ.get("IDENTICAL_SECRET", secrets.token_hex(32)).encode()
 PROVIDER = StubProvider()
 POOL: Pool | None = None
 
-#: Where a sign-in link is delivered. Unset, links are printed to the console,
-#: which is what development wants and production must not have.
-SEND_LINKS_TO_CONSOLE = not os.environ.get("IDENTICAL_EMAIL_SENDER")
+#: How links reach people. With no SMTP host configured this prints to the
+#: console, which is what development wants and production must not have.
+MAILER = mail.from_env()
 
 
 def db() -> sqlite3.Connection:
@@ -92,17 +92,29 @@ def page(body: str, member: sqlite3.Row | None = None, tab: str = "") -> bytes:
 # --------------------------------------------------------------------------
 # views
 
-def view_signin(sent_to: str = "", link: str = "") -> str:
+def view_signin(sent_to: str = "", link: str = "", error: str = "") -> str:
+    if error:
+        # Delivery failed, so say so. "Check your email" when nothing was sent
+        # leaves someone waiting on a message that will never arrive.
+        return (
+            '<header class="hero"><div class="eyebrow">Not sent</div>'
+            "<h1>We could not send that email</h1>"
+            "<p>Something is wrong at our end, not yours. Try again in a minute — "
+            "if it keeps failing, tell us.</p></header>"
+            f'<div class="warn">{e(error)}</div>'
+            '<a class="act ghost" href="/">Back</a>'
+        )
     if sent_to:
         shown = (
-            f'<div class="warn">Development build: no email is sent. '
+            f'<div class="warn">Development build: mail goes to the console. '
             f'<a href="{e(link)}">Open the sign-in link</a>.</div>' if link else ""
         )
         return (
             '<header class="hero"><div class="eyebrow">Check your email</div>'
             f"<h1>Link sent to {e(sent_to)}</h1>"
-            "<p>It signs you in once and expires in twenty minutes. No password to "
-            "remember, and nothing for us to lose.</p></header>" + shown
+            f"<p>It signs you in once and expires in "
+            f"{auth.LINK_TTL_SECONDS // 60} minutes. No password to remember, "
+            "and nothing for us to lose.</p></header>" + shown
         )
     tiers = "".join(
         f'<div class="tier{" pick" if key == "team5" else ""}">'
@@ -315,7 +327,7 @@ def view_team(conn: sqlite3.Connection, org: sqlite3.Row, member: sqlite3.Row,
     else:
         invite = '<p class="sub">Only an owner can invite or remove people.</p>'
 
-    shown = (f'<div class="warn">Development build: no email is sent. '
+    shown = (f'<div class="warn">Development build: mail goes to the console. '
              f'<a href="{e(link)}">Open the invitation link</a>.</div>' if link else "")
     warn = f'<div class="warn">{e(error)}</div>' if error else ""
 
@@ -505,10 +517,18 @@ class Handler(BaseHTTPRequestHandler):
                 self.redirect("/")
                 return
             token = auth.start_sign_in(db(), email)
-            link = f"/signin/{token}"
-            if SEND_LINKS_TO_CONSOLE:
-                print(f"sign-in link for {email}: {link}")
-            self.send(page(view_signin(sent_to=email, link=link)))
+            path_only = f"/signin/{token}"
+            try:
+                MAILER.send(mail.sign_in_message(
+                    email, mail.base_url() + path_only, auth.LINK_TTL_SECONDS // 60))
+            except mail.MailError as exc:
+                self.send(page(view_signin(error=str(exc))))
+                return
+            # In development the console mailer has already printed it; the
+            # in-page link saves a trip to the terminal. It is never rendered
+            # once a real mail server is configured.
+            shortcut = path_only if isinstance(MAILER, mail.ConsoleMailer) else ""
+            self.send(page(view_signin(sent_to=email, link=shortcut)))
             return
 
         user, member, org = self.context()
@@ -598,15 +618,29 @@ class Handler(BaseHTTPRequestHandler):
             self.redirect(f"/video/{video_id}")
 
         elif path == "/team/invite":
+            invited = data.get("email", "").strip().lower()
             try:
-                token = teams.invite(db(), org, member, data.get("email", ""))
+                token = teams.invite(db(), org, member, invited)
             except (teams.SeatLimitReached, teams.InviteError, teams.NotPermitted) as exc:
                 self.send(page(view_team(db(), org, member, error=str(exc)), member, "team"))
                 return
-            link = f"/invite/{token}"
-            if SEND_LINKS_TO_CONSOLE:
-                print(f"invitation for {data.get('email')}: {link}")
-            self.send(page(view_team(db(), org, member, link=link), member, "team"))
+            path_only = f"/invite/{token}"
+            try:
+                MAILER.send(mail.invitation_message(
+                    invited, mail.base_url() + path_only,
+                    org["name"] or "their team",
+                    user["name"] or user["email"],
+                    teams.INVITE_TTL_SECONDS // 86400))
+            except mail.MailError as exc:
+                # The seat is already reserved. Free it again rather than
+                # holding a seat for an invitation nobody received.
+                teams.withdraw_unsent(db(), token)
+                self.send(page(view_team(db(), org, member,
+                                         error=f"Invitation not sent: {exc}"),
+                               member, "team"))
+                return
+            shortcut = path_only if isinstance(MAILER, mail.ConsoleMailer) else ""
+            self.send(page(view_team(db(), org, member, link=shortcut), member, "team"))
 
         elif path == "/team/revoke":
             try:
