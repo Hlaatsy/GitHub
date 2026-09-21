@@ -132,6 +132,24 @@ CREATE TABLE IF NOT EXISTS otps (
     created_at  TEXT NOT NULL
 );
 
+-- What a payment was for is written here BEFORE the customer is sent to the
+-- gateway, so the amount to expect is ours rather than the browser's.
+-- applied_at is what makes crediting idempotent: a webhook is delivered more
+-- than once by design, and the callback arrives for the same transaction.
+CREATE TABLE IF NOT EXISTS payments (
+    id          INTEGER PRIMARY KEY,
+    org_id      INTEGER NOT NULL REFERENCES organisations(id),
+    user_id     INTEGER REFERENCES users(id),
+    reference   TEXT NOT NULL UNIQUE,
+    purpose     TEXT NOT NULL,              -- tokens | plan
+    detail      TEXT NOT NULL DEFAULT '',   -- pack size, or plan key
+    cents       INTEGER NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'pending',  -- pending|paid|failed
+    gateway_ref TEXT NOT NULL DEFAULT '',
+    created_at  TEXT NOT NULL,
+    applied_at  TEXT NOT NULL DEFAULT ''
+);
+
 CREATE TABLE IF NOT EXISTS ledger (
     id          INTEGER PRIMARY KEY,
     org_id      INTEGER NOT NULL REFERENCES organisations(id),
@@ -149,6 +167,7 @@ CREATE INDEX IF NOT EXISTS idx_ledger_org ON ledger(org_id, id DESC);
 CREATE INDEX IF NOT EXISTS idx_members_org ON memberships(org_id, status);
 CREATE INDEX IF NOT EXISTS idx_members_user ON memberships(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_tokens_jti ON sign_in_tokens(jti);
+CREATE INDEX IF NOT EXISTS idx_payments_ref ON payments(reference);
 """
 
 
