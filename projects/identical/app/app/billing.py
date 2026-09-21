@@ -78,8 +78,14 @@ def live_tokens(conn: sqlite3.Connection, org_id: int) -> int:
 
 
 def allowance_left(org: sqlite3.Row) -> int:
+    """Subscribed tokens not yet spent this period.
+
+    Counts tokens, not videos. They are equal only while a video costs one
+    token, and reading the wrong one would go unnoticed until the day that
+    changes.
+    """
     plan = plans.PLANS[org["plan"]]
-    return max(0, plan.videos - int(org["used"]))
+    return max(0, plan.tokens - int(org["used"]))
 
 
 def tokens_left(conn: sqlite3.Connection, org: sqlite3.Row) -> int:

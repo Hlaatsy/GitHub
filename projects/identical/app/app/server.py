@@ -108,9 +108,10 @@ def view_signin(sent_to: str = "", link: str = "") -> str:
         f'<div class="tier{" pick" if key == "team5" else ""}">'
         f'<div class="tier-name">{e(plans.PLANS[key].name)}</div>'
         f'<div class="price">{plans.PLANS[key].rand}<span>/mo</span></div>'
-        f'<div class="quota"><b>{plans.PLANS[key].seats} seat'
-        f'{"s" if plans.PLANS[key].seats != 1 else ""}</b>'
-        f'<small>{plans.PLANS[key].avatars} avatars · {plans.PLANS[key].videos} videos</small>'
+        f'<div class="quota"><b>{plans.PLANS[key].tokens} tokens</b>'
+        f'<small>{plans.PLANS[key].seats} seat'
+        f'{"s" if plans.PLANS[key].seats != 1 else ""} · a video is '
+        f'{plans.VIDEO_TOKENS}, an avatar is {plans.AVATAR_TOKENS}</small>'
         "</div></div>"
         for key in plans.ORDER
     )
