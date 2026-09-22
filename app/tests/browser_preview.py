@@ -75,8 +75,8 @@ with sync_playwright() as pw:
     print("\n--- 1. signed out ---", file=out)
     page.goto(B)
     check("shows tiers and a sign-in form, no data",
-          page.get_by_role("heading", name=re.compile("compliance", re.I)).is_visible()
-          and page.locator("text=Team 5").first.is_visible())
+          page.get_by_role("heading", name=re.compile("without filming", re.I)).is_visible()
+          and page.locator("text=R149").first.is_visible())
     shot("01-signed-out")
 
     print("\n--- 2. sign in by emailed link ---", file=out)
@@ -89,14 +89,14 @@ with sync_playwright() as pw:
     page.goto(B + link("thandi@sandtonmutual.co.za"))
 
     print("\n--- 3. name the organisation ---", file=out)
-    check("prompted to create an organisation",
-          page.locator("text=Name your organisation").is_visible())
+    check("prompted to name the account",
+          page.locator("text=What should we call your account?").is_visible())
     shot("03-new-org")
     page.fill('input[name=name]', "Sandton Mutual")
     page.click('button:has-text("Create it")')
 
     print("\n--- 4. the portal ---", file=out)
-    check("trial starts with 8 tokens", page.locator("text=8 tokens").is_visible())
+    check("free plan starts with 8 tokens", page.locator("text=8 tokens").is_visible())
     check("meter states both prices", page.locator("text=a video is 1, an avatar is 5").is_visible())
     shot("04-empty-portal")
 
@@ -162,7 +162,8 @@ with sync_playwright() as pw:
     page.goto(B + "/plan")
     page.click('button:has-text("Move to Starter")')
     page.goto(B + "/team")
-    check("Starter is one seat, so no invites", page.locator("text=1 of 1 seats used").is_visible())
+    check("Starter is one seat, so no invites",
+          page.locator("text=1 of 1 seats used").is_visible())
     shot("12-team-starter")
 
     browser.close()

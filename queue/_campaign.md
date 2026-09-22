@@ -44,14 +44,9 @@ underscore, and they schedule into the slots below.
 | Suggested date | File | Offer |
 | --- | --- | --- |
 | Thu 08 Oct | `_draft-offer-pricing.md` | R149/mo, avatar built free |
-| Tue 13 Oct | `_draft-offer-content-engine.md` | Done-for-you from R1 499/mo |
-| Tue 20 Oct | `_draft-offer-white-label.md` | Agency partner programme |
-| Tue 27 Oct | `_draft-offer-workshop.md` | R450 seat / R9 500 in-house |
 
-Sequence matters. The offers land after six posts of demonstrating the thing,
-not before. And the white-label post should not go out until the retainer has
-run for a real client — a partner reselling an unproven process damages two
-reputations at once.
+Sequence matters: the pricing post lands after six posts of demonstrating the
+thing, not before.
 
 ## Blocker: the IDENTICAL app
 
@@ -142,6 +137,26 @@ payment rails, code-mixing tests — is what makes the other markets real, and
 none of it is done. Posting to a market you cannot serve converts nobody and
 spends credibility you have not built yet.
 
+## Back to the consumer buyer
+
+The business market was tried and was not there, so the product, the pricing
+and the positioning are back to the buyer they were designed for:
+solopreneurs, creators and small business owners.
+
+What that changed: pricing to Free / R149 / R299 / R449, the pillars
+reordered so WhatsApp and price lead, the service ladder and partner
+programme removed from the revenue model, and the app's own copy rewritten
+away from compliance teams.
+
+**One correction worth keeping.** The research found no price advantage
+against HeyGen — but that was measured against the business Starter at R499,
+where the gap was about R23. At R149 against HeyGen's ~R520 it is roughly a
+third of their price. The finding argued against business pricing, not
+against this product.
+
+The six scheduled posts were written for this buyer in the first place and
+need no rewriting.
+
 ## Claims corrected after market research
 
 Three things in this campaign and the docs behind it were wrong, and were
@@ -185,10 +200,11 @@ if it is actually the case on the day the post goes out:
   before it ships. If not, cut that line — it is the one claim in the set
   that a single bad video disproves publicly. `../docs/product.md` section 1
   has the test set this depends on, and it is not built yet.
-- **The training pitch needs SCORM first.** Pillar 4 in `../docs/positioning.md`
-  is the strongest use case we have, and a training buyer will ask for LMS
-  delivery in the first meeting. Until `../docs/product.md` section 6 is
-  built, pitch training as a conversation rather than a product.
+- **WhatsApp now leads the positioning and is the least built.** Pillar 1 in
+  `../docs/positioning.md` is the strongest thing this product has for this
+  buyer, and `../docs/product.md` section 3 is not done. Keep it out of the
+  copy until it works, and build it before the next campaign rather than
+  after.
 - **Nothing from the roadmap.** The WhatsApp pipeline, regional avatar
   presets, bandwidth-optimised exports and subtitles are all planned and none
   are live. They are the most tempting things in the whole product to post

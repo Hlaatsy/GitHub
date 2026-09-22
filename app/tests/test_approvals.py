@@ -25,7 +25,7 @@ class ApprovalTests(unittest.TestCase):
         self.owner_id = self.user("owner@co.za")
         self.org_id = teams.create_organisation(self.conn, self.owner_id, "Sandton Mutual")
         self.conn.execute(
-            "UPDATE organisations SET plan = 'team5', require_approval = 1 WHERE id = ?",
+            "UPDATE organisations SET plan = 'premium', require_approval = 1 WHERE id = ?",
             (self.org_id,))
         self.avatar_id = self.conn.execute(
             "INSERT INTO avatars (org_id, name, source, created_at)"

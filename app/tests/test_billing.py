@@ -187,7 +187,7 @@ class LegacyDatabaseTests(unittest.TestCase):
         self.assertEqual(avatars[0]["org_id"], 1)
 
         org = conn.execute("SELECT * FROM organisations WHERE id = 1").fetchone()
-        self.assertEqual(org["plan"], "team5", "old plan keys migrate")
+        self.assertEqual(org["plan"], "premium", "old plan keys migrate")
 
         user = conn.execute("SELECT * FROM users WHERE email = 'owner@co.za'").fetchone()
         self.assertIsNotNone(user, "the account holder becomes a user")
