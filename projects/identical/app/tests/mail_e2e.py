@@ -2,6 +2,8 @@
 import sys, threading, time, email, io, contextlib, tempfile, pathlib, re, os, asyncore, smtpd
 import urllib.request, urllib.parse, http.cookiejar
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+PORT = 8455
+B = f"http://localhost:{PORT}"
 out, fails, inbox = sys.stderr, [], []
 def check(label, ok):
     if not ok: fails.append(label)
@@ -15,10 +17,16 @@ class Catcher(smtpd.SMTPServer):
     def process_message(self, peer, mailfrom, rcpttos, data, **kw):
         inbox.append(email.message_from_bytes(data))
 
-Catcher(("127.0.0.1", 8029), None)
+Catcher(("127.0.0.1", 8030), None)
 threading.Thread(target=asyncore.loop, kwargs={"timeout": 0.5}, daemon=True).start()
 
-os.environ["IDENTICAL_BASE_URL"] = "https://app.identical.africa"
+# The base URL has to be the address this test actually reaches, not a
+# pretend production one: an https base marks session cookies Secure, and a
+# client will then refuse to keep them over the plain http this server
+# speaks -- which is the protection working, and makes the run impossible.
+# That https links come out https is asserted in tests/test_mail.py instead.
+os.environ["IDENTICAL_BASE_URL"] = B
+os.environ["IDENTICAL_SECRET"] = "test-secret-not-for-anything-real"
 from app import mail, server as appserver
 
 class Plain(mail.SmtpMailer):
@@ -37,17 +45,16 @@ class Plain(mail.SmtpMailer):
         except OSError as exc:
             raise mail.MailError(str(exc)) from exc
 
-appserver.MAILER = Plain(host="127.0.0.1", port=8029,
+appserver.MAILER = Plain(host="127.0.0.1", port=8030,
                          sender="IDENTICAL <no-reply@identical.africa>")
 DB = pathlib.Path(tempfile.mkdtemp())/"mail.db"
 log = io.StringIO()
 def run():
     with contextlib.redirect_stdout(log):
-        appserver.serve(8454, str(DB))
+        appserver.serve(PORT, str(DB))
 threading.Thread(target=run, daemon=True).start()
 time.sleep(0.8)
 
-B = "http://localhost:8454"
 o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
 g = lambda p: o.open(B+p).read().decode()
 pp = lambda p, **d: o.open(B+p, urllib.parse.urlencode(d).encode()).read().decode()
@@ -61,14 +68,15 @@ msg = inbox[-1]
 check("subject is clear", "sign-in link" in msg["Subject"].lower())
 check("from the configured sender", "no-reply@identical.africa" in msg["From"])
 text = body_of(msg)
-url = re.search(r"https://app\.identical\.africa/signin/\S+", text)
-check("link is absolute", url is not None)
+url = re.search(rf"{re.escape(B)}/signin/\S+", text)
+check("link is absolute, not a bare path", url is not None
+      and url.group(0).startswith("http"))
 check("link fits on one line", url and len(url.group(0)) < 78)
 check("expiry stated", "20 minutes" in text)
 check("reassurance for someone who did not ask", "did not ask" in text)
 
 print("\n--- the emailed link signs you in ---", file=out)
-o.open(url.group(0).replace("https://app.identical.africa", B))
+o.open(url.group(0))
 pp("/org", name="Sandton Mutual")
 check("signed in and organisation created", "Sandton Mutual" in g("/"))
 
@@ -85,7 +93,7 @@ check("subject names the inviter and the organisation",
 itext = body_of(inv)
 check("body explains who invited them and to what",
       "Sandton Mutual" in itext and "seat" in itext)
-ilink = re.search(r"https://app\.identical\.africa/invite/\S+", itext)
+ilink = re.search(rf"{re.escape(B)}/invite/\S+", itext)
 check("invite link absolute and short", ilink and len(ilink.group(0)) < 78)
 check("seat is held while it is outstanding", "2 of 5 seats used" in g("/team"))
 
@@ -93,9 +101,9 @@ print("\n--- the invitation actually works ---", file=out)
 guest = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
 guest.open(B + "/signin", urllib.parse.urlencode({"email": "pr@sandtonmutual.co.za"}).encode())
 time.sleep(0.4)
-guest.open(re.search(r"https://app\.identical\.africa/signin/\S+",
-                     body_of(inbox[-1])).group(0).replace("https://app.identical.africa", B))
-guest.open(ilink.group(0).replace("https://app.identical.africa", B))
+guest.open(re.search(rf"{re.escape(B)}/signin/\S+",
+                     body_of(inbox[-1])).group(0))
+guest.open(ilink.group(0))
 check("colleague joined the organisation",
       "Sandton Mutual" in guest.open(B + "/").read().decode())
 
