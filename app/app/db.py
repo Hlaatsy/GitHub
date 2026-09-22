@@ -97,6 +97,10 @@ CREATE TABLE IF NOT EXISTS videos (
     script       TEXT NOT NULL,
     seconds      INTEGER NOT NULL DEFAULT 0,
     status       TEXT NOT NULL DEFAULT 'queued',   -- queued|rendering|ready|failed
+    -- Approval is a separate axis from rendering: a video can be finished and
+    -- not yet cleared to leave the building. Conflating the two would mean a
+    -- rejected video reading as a failed render.
+    approval     TEXT NOT NULL DEFAULT 'not_required',
     paid_with    TEXT NOT NULL DEFAULT '',         -- allowance|credit
     bytes        INTEGER NOT NULL DEFAULT 0,
     provider_ref TEXT NOT NULL DEFAULT '',
@@ -141,6 +145,19 @@ CREATE TABLE IF NOT EXISTS otps (
 -- gateway, so the amount to expect is ours rather than the browser's.
 -- applied_at is what makes crediting idempotent: a webhook is delivered more
 -- than once by design, and the callback arrives for the same transaction.
+-- Who cleared what, and when. Append-only and never deleted: the record is
+-- the point. A comms lead is accountable for what goes out under the company
+-- name, and "somebody approved it" is only an answer if it names them.
+CREATE TABLE IF NOT EXISTS approvals (
+    id          INTEGER PRIMARY KEY,
+    video_id    INTEGER NOT NULL REFERENCES videos(id),
+    org_id      INTEGER NOT NULL REFERENCES organisations(id),
+    decided_by  INTEGER NOT NULL REFERENCES users(id),
+    decision    TEXT NOT NULL,              -- approved | rejected
+    note        TEXT NOT NULL DEFAULT '',
+    created_at  TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS payments (
     id          INTEGER PRIMARY KEY,
     org_id      INTEGER NOT NULL REFERENCES organisations(id),
@@ -173,6 +190,7 @@ CREATE INDEX IF NOT EXISTS idx_members_org ON memberships(org_id, status);
 CREATE INDEX IF NOT EXISTS idx_members_user ON memberships(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_tokens_jti ON sign_in_tokens(jti);
 CREATE INDEX IF NOT EXISTS idx_payments_ref ON payments(reference);
+CREATE INDEX IF NOT EXISTS idx_approvals_video ON approvals(video_id, id DESC);
 """
 
 
@@ -264,9 +282,22 @@ def split_out_users(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+#: Columns added to existing tables after their first release.
+LATER_COLUMNS = (
+    ("organisations", "require_approval", "INTEGER NOT NULL DEFAULT 0"),
+    ("organisations", "four_eyes", "INTEGER NOT NULL DEFAULT 0"),
+    ("videos", "approval", "TEXT NOT NULL DEFAULT 'not_required'"),
+)
+
+
 def migrate(conn: sqlite3.Connection) -> None:
     """Data fixes that run AFTER the schema script. Safe every start."""
     split_out_users(conn)
+
+    for table, column, spec in LATER_COLUMNS:
+        have = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in have:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {spec}")
 
     # Every avatar made before the distinction existed came from a photo of a
     # real person, so it is an upload. Guessing "generated" would wrongly

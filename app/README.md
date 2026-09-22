@@ -45,6 +45,7 @@ consumer pricing left, but it still has to be a number rather than a hope.
 
 ## Layout
 
+    app/approvals.py  sign-off before a video can be shared
     app/auth.py       sign-in links and phone verification
     app/mail.py       delivering those links -- SMTP, console or memory
     app/teams.py      organisations, memberships, invitations, seats
@@ -55,6 +56,34 @@ consumer pricing left, but it still has to be a number rather than a hope.
     app/provider.py   the vendor boundary, and the WhatsApp size ceiling
     app/server.py     routes and views
     app/app.css       one stylesheet, shared with the pricing page design
+
+## Approvals
+
+Team 5 sells an approval workflow, and now has one. Turned on, a finished
+video waits for an owner before it can be shared or downloaded — which is the
+thing a communications lead is personally accountable for.
+
+Three decisions worth knowing:
+
+- **Approval gates use, not rendering.** You cannot approve a video you have
+  not watched, and a script reads differently from the same words in
+  someone's mouth. The cost is tokens spent on videos that are then rejected;
+  the provider charged us either way.
+- **The maker may be the approver, unless four-eyes is on.** In a small team
+  the writer is often the accountable person, and blocking that by default
+  makes the feature something people switch off. Organisations needing
+  separation of duties turn four-eyes on, and then nobody clears their own
+  work.
+- **A rejection needs a reason.** Rejecting without one sends somebody back
+  to a blank page.
+
+The `approvals` table is append-only and never pruned. A rejection is not
+erased by a later approval, because "somebody approved it" is only an answer
+if the record names them and says when — the same reasoning as the consent
+register, applied to publishing.
+
+Moving up to a plan that includes approvals turns it on. A feature nobody
+switches on is a feature nobody bought.
 
 ## Account health
 

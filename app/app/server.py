@@ -24,7 +24,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import auth, billing, mail, payments, plans, teams
+from . import approvals, auth, billing, mail, payments, plans, teams
 from .db import Pool, log, now
 from .provider import StubProvider, share_encode
 
@@ -104,6 +104,7 @@ def page(body: str, member: sqlite3.Row | None = None, tab: str = "") -> bytes:
     nav = ""
     if member is not None:
         items = [("/", "⌂", "Home", "home"), ("/create", "＋", "Create", "create"),
+                 ("/reviews", "✓", "Approvals", "reviews"),
                  ("/team", "◉", "Team", "team"), ("/plan", "◷", "Plan", "plan")]
         nav = '<nav class="nav">' + "".join(
             f'<a href="{href}"{" aria-current=page" if key == tab else ""}>'
@@ -306,18 +307,91 @@ def view_create(conn: sqlite3.Connection, org: sqlite3.Row, error: str = "") -> 
     )
 
 
-def view_ready(video: sqlite3.Row) -> str:
+def view_ready(conn: sqlite3.Connection, video: sqlite3.Row,
+               member: sqlite3.Row | None = None, org: sqlite3.Row | None = None) -> str:
     megabytes = round(video["bytes"] / 1048576, 1)
     fits = video["bytes"] <= 16 * 1024 * 1024
+    state = video["approval"]
+
+    if approvals.publishable(video):
+        gate = ('<div class="share"><button type=button>WhatsApp</button>'
+                "<button type=button>Download</button></div>")
+        if state == approvals.APPROVED:
+            last = approvals.history(conn, video["id"])
+            who = last[0]["decided_name"] or last[0]["decided_email"] if last else "an owner"
+            gate = (f'<div class="ok">Approved by {e(who)}.</div>' + gate)
+    elif state == approvals.PENDING:
+        gate = ('<div class="warn">Waiting for approval. It cannot be shared or '
+                "downloaded until an owner clears it.</div>")
+    else:
+        note = approvals.history(conn, video["id"])
+        reason = note[0]["note"] if note else ""
+        gate = (f'<div class="warn">Not approved.{" " + e(reason) if reason else ""}'
+                "</div>"
+                '<form method="post" action="/approve">'
+                f'<input type=hidden name=video value="{video["id"]}">'
+                '<input type=hidden name=decision value="resubmit">'
+                '<button class="act ghost">Send back for review</button></form>')
+
+    decide = ""
+    if member is not None and org is not None and state == approvals.PENDING:
+        allowed, why = approvals.can_decide(conn, org, member, video)
+        if allowed:
+            decide = (
+                '<form method="post" action="/approve" class="card">'
+                f'<input type=hidden name=video value="{video["id"]}">'
+                '<label class=fld>Note (required to reject)'
+                '<input name=note placeholder="What needs changing?"></label>'
+                '<button class="act cool" name=decision value="approved">Approve</button>'
+                '<button class="act ghost" name=decision value="rejected">Reject</button>'
+                "</form>"
+            )
+        else:
+            decide = f'<p class="sub">{e(why)}</p>'
+
     return (
         '<div class="done"><div class="player">▶</div>'
         f'<h1 class="app-h">{e(video["title"])}</h1>'
         f'<div class="filemeta">H.264 · 720p · {megabytes} MB'
         f"{' — fits WhatsApp' if fits else ' — too big for WhatsApp'}</div>"
         f'<div class="sub">Paid with your {e(video["paid_with"])}.</div>'
-        '<div class="share"><button type=button>WhatsApp</button>'
-        "<button type=button>Download</button></div>"
+        f"{gate}{decide}"
         '<a class="act ghost" href="/">Done</a></div>'
+    )
+
+
+def view_reviews(conn: sqlite3.Connection, org: sqlite3.Row,
+                 member: sqlite3.Row) -> str:
+    """The queue an owner works through."""
+    pending = approvals.waiting(conn, org["id"])
+    if not approvals.required(org):
+        return ('<h1 class="app-h">Approvals</h1>'
+                '<p class="sub">Approval is off for this organisation. Turn it on '
+                "and every new video waits for an owner before it can be shared.</p>"
+                '<form method="post" action="/approvals/settings">'
+                '<input type=hidden name=require value="1">'
+                '<button class="act cool">Require approval</button></form>')
+
+    rows = "".join(
+        f'<a class="vid" href="/video/{v["id"]}" style="text-decoration:none">'
+        f'<div class="thumb">◷</div><div><div class="vid-t">{e(v["title"])}</div>'
+        f'<div class="vid-m">{e(v["author_name"] or v["author_email"] or "—")} · '
+        f'{v["seconds"]}s</div></div></a>'
+        for v in pending
+    ) or '<p class="sub">Nothing waiting. Everything made has been cleared.</p>'
+
+    four = (
+        '<form method="post" action="/approvals/settings">'
+        f'<input type=hidden name=four_eyes value="{0 if org["four_eyes"] else 1}">'
+        f'<button class="mini">{"Turn off" if org["four_eyes"] else "Turn on"} '
+        "four-eyes</button></form>"
+    )
+    return (
+        '<h1 class="app-h">Waiting for approval</h1>'
+        f'<div class="sub">{len(pending)} waiting · four-eyes '
+        f'{"on — nobody clears their own work" if org["four_eyes"] else "off"}</div>'
+        f'<div class="maths">{rows}</div>'
+        + (four if member["role"] == teams.OWNER else "")
     )
 
 
@@ -527,6 +601,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.redirect("/plan")
                 return
             self.send(page(view_create(db(), org), member, "create"))
+        elif path == "/reviews":
+            self.send(page(view_reviews(db(), org, member), member, "reviews"))
         elif path == "/team":
             self.send(page(view_team(db(), org, member), member, "team"))
         elif path == "/plan":
@@ -539,7 +615,7 @@ class Handler(BaseHTTPRequestHandler):
             if video is None:
                 self.send(page('<h1 class="app-h">Not found</h1>', member), 404)
                 return
-            self.send(page(view_ready(video), member, "home"))
+            self.send(page(view_ready(db(), video, member, org), member, "home"))
         else:
             self.send(page('<h1 class="app-h">Not found</h1>', member), 404)
 
@@ -723,14 +799,57 @@ class Handler(BaseHTTPRequestHandler):
             )
             video_id = db().execute(
                 "INSERT INTO videos (org_id, avatar_id, created_by, title, script, seconds,"
-                " status, paid_with, bytes, provider_ref, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, 'ready', ?, ?, ?, ?)",
+                " status, approval, paid_with, bytes, provider_ref, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, 'ready', ?, ?, ?, ?, ?)",
                 (org["id"], avatar["id"], user["id"],
                  data.get("title", "Untitled").strip() or "Untitled",
-                 script, seconds, paid_with, render.bytes, render.ref, now()),
+                 script, seconds, approvals.initial_state(org), paid_with,
+                 render.bytes, render.ref, now()),
             ).lastrowid
             db().commit()
             self.redirect(f"/video/{video_id}")
+
+        elif path == "/approve":
+            video = db().execute(
+                "SELECT * FROM videos WHERE id = ? AND org_id = ?",
+                (data.get("video", 0), org["id"]),
+            ).fetchone()
+            if video is None:
+                self.redirect("/reviews")
+                return
+            decision = data.get("decision", "")
+            try:
+                if decision == "resubmit":
+                    approvals.resubmit(db(), org, video)
+                else:
+                    approvals.decide(db(), org, member, video, decision,
+                                     data.get("note", ""))
+            except (approvals.NotPermitted, approvals.NotPending) as exc:
+                fresh = db().execute("SELECT * FROM videos WHERE id = ?",
+                                     (video["id"],)).fetchone()
+                self.send(page(f'<div class="warn">{e(exc)}</div>'
+                               + view_ready(db(), fresh, member, org), member, "home"))
+                return
+            self.redirect(f"/video/{video['id']}")
+
+        elif path == "/approvals/settings":
+            try:
+                teams.require_owner(member)
+            except teams.NotPermitted:
+                self.redirect("/reviews")
+                return
+            if "require" in data:
+                db().execute("UPDATE organisations SET require_approval = ? WHERE id = ?",
+                             (int(data["require"]), org["id"]))
+                log(db(), org["id"], "approval_setting",
+                    detail=f"require={data['require']}", user_id=user["id"])
+            if "four_eyes" in data:
+                db().execute("UPDATE organisations SET four_eyes = ? WHERE id = ?",
+                             (int(data["four_eyes"]), org["id"]))
+                log(db(), org["id"], "approval_setting",
+                    detail=f"four_eyes={data['four_eyes']}", user_id=user["id"])
+            db().commit()
+            self.redirect("/reviews")
 
         elif path == "/team/invite":
             invited = data.get("email", "").strip().lower()

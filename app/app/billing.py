@@ -257,6 +257,11 @@ def apply_payment(conn: sqlite3.Connection, reference: str, paid_cents: int,
             "UPDATE organisations SET plan = ?, used = 0, period_start = ? WHERE id = ?",
             (key, now(), org["id"]),
         )
+        # A plan that sells an approval workflow should arrive with it on --
+        # a feature nobody switches on is a feature nobody bought.
+        if plans.PLANS[key].approvals and not org["require_approval"]:
+            conn.execute("UPDATE organisations SET require_approval = 1 WHERE id = ?",
+                         (org["id"],))
         log(conn, org["id"], "plan_change", detail=key, cents=plans.PLANS[key].cents,
             user_id=row["user_id"])
     else:
