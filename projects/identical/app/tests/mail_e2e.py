@@ -2,7 +2,7 @@
 import sys, threading, time, email, io, contextlib, tempfile, pathlib, re, os, asyncore, smtpd
 import urllib.request, urllib.parse, http.cookiejar
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-PORT = 8455
+PORT = 8456
 B = f"http://localhost:{PORT}"
 out, fails, inbox = sys.stderr, [], []
 def check(label, ok):
@@ -17,7 +17,7 @@ class Catcher(smtpd.SMTPServer):
     def process_message(self, peer, mailfrom, rcpttos, data, **kw):
         inbox.append(email.message_from_bytes(data))
 
-Catcher(("127.0.0.1", 8030), None)
+Catcher(("127.0.0.1", 8031), None)
 threading.Thread(target=asyncore.loop, kwargs={"timeout": 0.5}, daemon=True).start()
 
 # The base URL has to be the address this test actually reaches, not a
@@ -45,7 +45,7 @@ class Plain(mail.SmtpMailer):
         except OSError as exc:
             raise mail.MailError(str(exc)) from exc
 
-appserver.MAILER = Plain(host="127.0.0.1", port=8030,
+appserver.MAILER = Plain(host="127.0.0.1", port=8031,
                          sender="IDENTICAL <no-reply@identical.africa>")
 DB = pathlib.Path(tempfile.mkdtemp())/"mail.db"
 log = io.StringIO()
@@ -84,7 +84,7 @@ print("\n--- invitation email ---", file=out)
 # Seats, not payments, are what this test is about -- move the plan directly
 # rather than through checkout.
 import sqlite3 as _s
-_c = _s.connect(str(DB)); _c.execute("UPDATE organisations SET plan='team5'"); _c.commit(); _c.close()
+_c = _s.connect(str(DB)); _c.execute("UPDATE organisations SET plan='premium'"); _c.commit(); _c.close()
 pp("/team/invite", email="pr@sandtonmutual.co.za"); time.sleep(0.4)
 check("second message delivered", len(inbox) == 2)
 inv = inbox[-1]
@@ -95,7 +95,7 @@ check("body explains who invited them and to what",
       "Sandton Mutual" in itext and "seat" in itext)
 ilink = re.search(rf"{re.escape(B)}/invite/\S+", itext)
 check("invite link absolute and short", ilink and len(ilink.group(0)) < 78)
-check("seat is held while it is outstanding", "2 of 5 seats used" in g("/team"))
+check("seat is held while it is outstanding", "2 of 3 seats used" in g("/team"))
 
 print("\n--- the invitation actually works ---", file=out)
 guest = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
@@ -111,7 +111,7 @@ print("\n--- a failed send must not hold a seat ---", file=out)
 appserver.MAILER = mail.MemoryMailer(fail=True)
 page = pp("/team/invite", email="another@sandtonmutual.co.za")
 check("failure reported to the owner", "Invitation not sent" in page)
-check("seat released again", "2 of 5 seats used" in g("/team"))
+check("seat released again", "2 of 3 seats used" in g("/team"))
 check("that address can be invited again",
       "already has a seat" not in pp("/team/invite", email="another@sandtonmutual.co.za"))
 

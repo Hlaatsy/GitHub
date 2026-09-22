@@ -30,33 +30,33 @@ class InvariantTests(unittest.TestCase):
         rates = [pack.cents_per_token for pack in plans.TOKEN_PACKS]
         self.assertEqual(rates, sorted(rates, reverse=True))
 
-    def test_trial_withholds_the_costly_features(self):
-        trial = plans.PLANS["trial"]
-        self.assertFalse(trial.custom_voice, "voice cloning is per-user compute")
-        self.assertFalse(trial.guided_build, "the guided build is a paid service")
-        self.assertTrue(trial.watermark)
+    def test_free_withholds_the_costly_features(self):
+        free_plan = plans.PLANS["free"]
+        self.assertFalse(free_plan.custom_voice, "voice cloning is per-user compute")
+        self.assertFalse(free_plan.guided_build, "the guided build is a paid service")
+        self.assertTrue(free_plan.watermark)
 
-    def test_team_bundle_is_five_seats_with_team_features(self):
-        """The marketing and PR bundle is the tier this model is built around."""
-        team = plans.PLANS["team5"]
-        self.assertEqual(team.seats, 5)
-        self.assertTrue(team.shared_library)
-        self.assertTrue(team.approvals, "approval workflow is what the comms lead buys")
+    def test_only_the_top_plan_carries_the_shared_features(self):
+        """A solopreneur has nobody to share with and nobody to approve."""
+        top = plans.PLANS[plans.ORDER[-1]]
+        self.assertGreater(top.seats, 1)
+        self.assertTrue(top.shared_library)
+        self.assertTrue(top.approvals)
+        self.assertFalse(plans.PLANS["starter"].approvals,
+                         "approval on a one-seat plan is noise")
 
-    def test_team_seats_carry_more_capacity_than_pro_seats(self):
-        """Per-seat price rises at Team 5; this is what justifies it."""
-        self.assertGreater(
-            plans.PLANS["team5"].tokens_per_seat, plans.PLANS["pro"].tokens_per_seat
-        )
+    def test_the_entry_tier_undercuts_the_global_platforms(self):
+        """The whole consumer argument: HeyGen Creator is about R520 a month."""
+        self.assertLess(plans.PLANS["starter"].cents, 30000)
 
     def test_an_avatar_costs_more_than_a_video(self):
         """Same pool, different price: a build is more work than a render."""
         self.assertGreater(plans.AVATAR_TOKENS, plans.VIDEO_TOKENS)
 
-    def test_the_trial_can_afford_an_avatar_and_some_videos(self):
+    def test_the_free_plan_can_afford_an_avatar_and_some_videos(self):
         """A trial that cannot make an avatar cannot show anyone anything."""
-        trial = plans.PLANS["trial"]
-        self.assertGreaterEqual(trial.tokens, plans.AVATAR_TOKENS + 2)
+        free_plan = plans.PLANS["free"]
+        self.assertGreaterEqual(free_plan.tokens, plans.AVATAR_TOKENS + 2)
 
     def test_every_plan_affords_at_least_one_avatar(self):
         for key in plans.ORDER:
@@ -87,9 +87,9 @@ class AdviceTests(unittest.TestCase):
         self.assertIsNone(advice.upgrade)
 
     def test_minutes_match_the_published_table(self):
-        self.assertEqual(plans.PLANS["starter"].max_minutes, 20)
-        self.assertEqual(plans.PLANS["pro"].max_minutes, 80)
-        self.assertEqual(plans.PLANS["team5"].max_minutes, 240)
+        self.assertEqual(plans.PLANS["starter"].max_minutes, 24)
+        self.assertEqual(plans.PLANS["pro"].max_minutes, 56)
+        self.assertEqual(plans.PLANS["premium"].max_minutes, 96)
 
     def test_seats_grow_with_the_tiers(self):
         seats = [plans.PLANS[key].seats for key in plans.ORDER]

@@ -103,7 +103,7 @@ class HealthTests(unittest.TestCase):
     # -- empty seats ------------------------------------------------------
 
     def test_a_team_plan_one_person_uses_is_flagged(self):
-        self.plan("team5")                     # 5 seats
+        self.plan("premium")                     # 5 seats
         for _ in range(30):
             self.video(days_ago=1)
         self.conn.execute("UPDATE organisations SET used = 60 WHERE id = ?", (self.org_id,))
@@ -111,7 +111,7 @@ class HealthTests(unittest.TestCase):
         self.assertTrue(any("seats used in the last" in r for r in self.signals().risks))
 
     def test_a_team_plan_the_team_uses_is_not_flagged(self):
-        self.plan("team5")
+        self.plan("premium")
         colleague = self.user("second@co.za")
         third = self.user("third@co.za")
         for who in (self.owner_id, colleague, third):
@@ -157,7 +157,7 @@ class HealthTests(unittest.TestCase):
         """A trial is meant to be spent; that is not a buying signal."""
         self.video(days_ago=1)
         self.conn.execute("UPDATE organisations SET used = ? WHERE id = ?",
-                          (plans.PLANS["trial"].tokens, self.org_id))
+                          (plans.PLANS["free"].tokens, self.org_id))
         self.conn.commit()
         self.assertEqual(self.signals().opportunities, [])
 
@@ -170,7 +170,7 @@ class HealthTests(unittest.TestCase):
         self.assertTrue(self.signals().opportunities)
 
     def test_the_top_plan_gets_no_upgrade_pitch(self):
-        self.plan("team5")
+        self.plan("premium")
         self.video(days_ago=1)
         self.conn.execute("UPDATE organisations SET used = 200 WHERE id = ?", (self.org_id,))
         self.conn.commit()
@@ -179,7 +179,7 @@ class HealthTests(unittest.TestCase):
     # -- every risk explains itself ---------------------------------------
 
     def test_every_flag_carries_a_sentence_somebody_can_act_on(self):
-        self.plan("team5")
+        self.plan("premium")
         self.video(days_ago=60)
         found = self.signals()
         self.assertTrue(found.risks)
@@ -227,7 +227,7 @@ class CohortTests(unittest.TestCase):
         self.conn = connect(Path(self._tmp.name) / "t.db")
 
     def test_cohorts_count_sign_ups_and_who_still_pays(self):
-        for index, plan_key in enumerate(("starter", "trial", "pro")):
+        for index, plan_key in enumerate(("starter", "free", "pro")):
             self.conn.execute(
                 "INSERT INTO organisations (name, plan, period_start, created_at)"
                 " VALUES (?, ?, ?, '2026-03-14T00:00:00+00:00')",

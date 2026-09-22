@@ -59,7 +59,9 @@ consumer pricing left, but it still has to be a number rather than a hope.
 
 ## Approvals
 
-Team 5 sells an approval workflow, and now has one. Turned on, a finished
+Premium carries an approval workflow, off by default — a solopreneur has
+nobody to approve anything, so it only earns its place on a multi-seat
+account. Turned on, a finished
 video waits for an owner before it can be shared or downloaded — which is the
 thing a communications lead is personally accountable for.
 

@@ -151,26 +151,26 @@ def view_signin(sent_to: str = "", link: str = "", error: str = "") -> str:
             "and nothing for us to lose.</p></header>" + shown
         )
     tiers = "".join(
-        f'<div class="tier{" pick" if key == "team5" else ""}">'
+        f'<div class="tier{" pick" if key == "starter" else ""}">'
         f'<div class="tier-name">{e(plans.PLANS[key].name)}</div>'
         f'<div class="price">{plans.PLANS[key].rand}<span>/mo</span></div>'
-        f'<div class="quota"><b>{plans.PLANS[key].tokens} tokens</b>'
-        f'<small>{plans.PLANS[key].seats} seat'
-        f'{"s" if plans.PLANS[key].seats != 1 else ""} · a video is '
-        f'{plans.VIDEO_TOKENS}, an avatar is {plans.AVATAR_TOKENS}</small>'
+        f'<div class="quota"><b>{plans.PLANS[key].tokens - plans.AVATAR_TOKENS} videos</b>'
+        f'<small>after your avatar · {plans.PLANS[key].tokens} tokens</small>'
         "</div></div>"
         for key in plans.ORDER
     )
     return (
-        '<header class="hero"><div class="eyebrow">For marketing and PR teams</div>'
-        "<h1>Avatar video your compliance team can live with.</h1>"
-        "<p>One presenter, recorded once. Your team makes the videos from then on — "
-        "with consent recorded, retention defined, and a register you can hand to "
-        "legal.</p></header>"
+        '<header class="hero"><div class="eyebrow">Made in South Africa</div>'
+        "<h1>Post every day without filming every day.</h1>"
+        "<p>Send one photo. Get an avatar that speaks your script, in your voice, "
+        "for R149 a month — a third of what the overseas tools charge, and billed "
+        "in rands.</p></header>"
         f'<section class="tiers">{tiers}</section>'
         '<form method="post" action="/signin" class="card">'
-        "<h2>Sign in</h2><p class=sub>We email you a link. No password.</p>"
-        '<label class=fld>Work email<input name=email type=email required '
+        "<h2>Start free</h2>"
+        "<p class=sub>An avatar and three videos, no card. We email you a link — "
+        "no password to remember.</p>"
+        '<label class=fld>Your email<input name=email type=email required '
         'autocomplete="email"></label>'
         '<button class="act">Email me a link</button></form>'
     )
@@ -180,12 +180,11 @@ def view_new_org(user: sqlite3.Row) -> str:
     return (
         f'<h1 class="app-h">Welcome, {e(user["name"] or user["email"])}</h1>'
         '<form method="post" action="/org" class="card">'
-        "<h2>Name your organisation</h2>"
-        "<p class=sub>Avatars, videos and the consent register belong to the "
-        "organisation, not to you personally — so colleagues you invite keep working "
-        "if you move on.</p>"
-        '<label class=fld>Organisation name<input name=name required '
-        'placeholder="e.g. Sandton Mutual"></label>'
+        "<h2>What should we call your account?</h2>"
+        "<p class=sub>Your name or your business name — either is fine. Avatars and "
+        "videos belong to the account, so anyone you add later shares them.</p>"
+        '<label class=fld>Name<input name=name required '
+        'placeholder="e.g. Thandi Mokoena, or Mokoena Consulting"></label>'
         '<button class="act">Create it</button></form>'
     )
 

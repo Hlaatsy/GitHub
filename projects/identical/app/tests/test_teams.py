@@ -24,7 +24,7 @@ class TeamTests(unittest.TestCase):
         self.conn = connect(Path(self._tmp.name) / "t.db")
         self.owner_id = self.sign_in("owner@co.za")
         self.org_id = teams.create_organisation(self.conn, self.owner_id, "Sandton Mutual")
-        self.conn.execute("UPDATE organisations SET plan = 'team5' WHERE id = ?",
+        self.conn.execute("UPDATE organisations SET plan = 'premium' WHERE id = ?",
                           (self.org_id,))
         self.conn.commit()
 
@@ -115,7 +115,7 @@ class TeamTests(unittest.TestCase):
     # -- the seat limit ---------------------------------------------------
 
     def test_seats_run_out_at_the_plan_limit(self):
-        seats = plans.PLANS["team5"].seats
+        seats = plans.PLANS["premium"].seats
         for index in range(seats - 1):        # owner already holds one
             teams.invite(self.conn, self.org(), self.owner(), f"p{index}@co.za")
         self.assertEqual(teams.seats_left(self.conn, self.org()), 0)
@@ -187,7 +187,7 @@ class DowngradeTests(unittest.TestCase):
         owner_id = auth.complete_sign_in(self.conn, auth.start_sign_in(self.conn, "o@co.za"))
         self.owner_id = owner_id
         self.org_id = teams.create_organisation(self.conn, owner_id, "Co")
-        self.conn.execute("UPDATE organisations SET plan = 'team5' WHERE id = ?",
+        self.conn.execute("UPDATE organisations SET plan = 'premium' WHERE id = ?",
                           (self.org_id,))
         self.conn.commit()
 

@@ -10,53 +10,35 @@ publish_at: 2026-10-08T07:00:00Z
 ---
 R149 a month. No setup fee. Your avatar built free.
 
-We priced this for the market we are actually in.
-
-The global platforms are not expensive at the entry price. They are expensive
-by the time you have actually used them: billed in dollars, so the amount
-changes with the rand; charged again to build a custom avatar; and priced per
-minute, so the second half of a video costs as much as the first.
-
-What we sell is not a cheaper login. It is the part nobody ships with the
-software — the avatar built for you, the consent record behind it, and a
-person who answers when it matters.
-
-So here is ours.
+The overseas tools start around R520 a month once your bank has taken its
+cut, and several charge you again to build the avatar. We are a third of
+that, billed in rands, by people in this country.
 
 FREE — R0
-2 videos a month, on us. Standard voices.
+Your avatar and 3 videos. No card. Watermarked, so you can see exactly what
+you would be paying to remove.
 
 STARTER — R149/mo
-Your digital avatar, built for you at no charge. 7 videos a month, and your
-own custom AI voice.
+Your avatar built free, your own voice, no watermark. 7 videos a month.
 
 PRO — R299/mo
-16 videos a month, 3 avatars, voice cloning and translation.
+23 videos a month, voice cloning, translation, a second seat.
 
 PREMIUM — R449/mo
-28 videos a month, 10 avatars, team seats and priority.
+43 videos a month, 3 seats, priority.
 
-Every video up to 2 minutes. R150 between each plan. Move up when you outgrow
-one, move back down when you do not need it.
+Every video up to 2 minutes. R150 between each plan.
 
-Need more than your plan covers in a given month? Buy credits. One credit,
-one video — from R26.60 each in a pack. No commitment, no upgrade required,
-and they do not expire at month end.
+Need more in a month? Top up from R99. And if you top up every month, we
+will tell you — a plan costs less, and we would rather move you up than
+quietly take the difference.
 
-And if you find yourself buying credits every month, we will tell you so.
-Two packs costs about what Pro does, for fewer videos. We would rather move
-you up a plan than quietly take the difference.
+Month to month. Cancel any time. No contract, no lock-in, no "speak to
+sales" before you can see a price.
 
-Pay for ten months up front and get twelve.
+Pay by EFT, debit order, Ozow or SnapScan — not only by card.
 
-Month to month otherwise. Cancel any time. No contract, no lock-in, no
-"speak to sales" before you can see a price.
+Send us one clear photo and we will send back a 60-second video of your
+avatar talking, free. Then decide.
 
-The avatar build being free is the part we would like you to notice. It is
-skilled work, and it is where most people give up trying this alone — so we
-do it for you, properly, from Starter up.
-
-Send us one clear photo and we will send back a 60-second video of your avatar
-talking. Then decide.
-
-#Pricing #AIVideo #SmallBusiness #SouthAfrica #Affordable
+#Pricing #AIVideo #SmallBusiness #SouthAfrica

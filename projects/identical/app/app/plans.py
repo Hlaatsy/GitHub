@@ -75,73 +75,70 @@ class Plan:
 
 
 PLANS: dict[str, Plan] = {
-    "trial": Plan(
-        key="trial",
-        name="Trial",
+    "free": Plan(
+        key="free",
+        name="Free",
         cents=0,
-        # An avatar is 5 tokens, so a 2-token trial could not make one at all.
-        # 8 buys an avatar and three videos: enough to judge the output, which
-        # is the only thing a trial has to do.
+        # An avatar is 5 tokens, so anything less than this and a free account
+        # cannot make the one thing it exists to show.
         tokens=8,
         seats=1,
         custom_voice=False,
-        # The guided build is human time. It is a paid service (Avatar Setup),
-        # not something a trial account consumes.
         guided_build=False,
         watermark=True,
-        features=("1 avatar and 3 videos", "Standard voices", "Watermarked"),
+        features=("Your avatar and 3 videos", "Standard voices", "Watermarked"),
     ),
     "starter": Plan(
         key="starter",
         name="Starter",
-        cents=49900,
-        tokens=10,
+        cents=14900,
+        tokens=12,
         seats=1,
         custom_voice=True,
         guided_build=True,
         watermark=False,
-        features=("1 seat", "Custom AI voice", "Consent record on file"),
+        features=("Your avatar built free", "Your own voice", "No watermark"),
     ),
     "pro": Plan(
         key="pro",
         name="Pro",
-        cents=149900,
-        tokens=40,
+        cents=29900,
+        tokens=28,
+        seats=2,
+        custom_voice=True,
+        guided_build=True,
+        watermark=False,
+        shared_library=True,
+        features=("Everything in Starter", "Voice cloning", "Translation",
+                  "A second seat"),
+    ),
+    "premium": Plan(
+        key="premium",
+        name="Premium",
+        cents=44900,
+        tokens=48,
         seats=3,
         custom_voice=True,
         guided_build=True,
         watermark=False,
         shared_library=True,
-        features=("3 seats", "Voice cloning", "Video translation", "Shared library"),
-    ),
-    "team5": Plan(
-        key="team5",
-        name="Team 5",
-        cents=399900,
-        tokens=120,
-        seats=5,
-        custom_voice=True,
-        guided_build=True,
-        watermark=False,
-        shared_library=True,
-        # What a communications lead is actually accountable for, and usually
-        # what decides the purchase.
+        # Approvals stay in the code and off by default: a solopreneur has
+        # nobody to approve anything. A three-seat account can switch it on.
         approvals=True,
-        features=("5 seats for marketing and PR", "Shared brand avatars",
-                  "Approval workflow", "Consent register across the team"),
+        features=("Everything in Pro", "3 seats", "Priority queue"),
     ),
 }
 
 
-ORDER = ("trial", "starter", "pro", "team5")
+ORDER = ("free", "starter", "pro", "premium")
 
 #: What a new account starts on.
-DEFAULT_PLAN = "trial"
+DEFAULT_PLAN = "free"
 
 #: Plan keys from the consumer model, mapped to their B2B equivalent. An
 #: account created before the change still carries the old key, and every
 #: lookup against PLANS would raise without this.
-RENAMED = {"free": "trial", "premium": "team5", "business": "team5"}
+RENAMED = {"trial": "free", "team5": "premium", "business": "premium"}
 PAID = ORDER[1:]
 
 
@@ -159,9 +156,9 @@ class TokenPack:
 #: subscription tier's per-token rate on purpose -- see
 #: ``top_ups_stay_dearer_than_plans``.
 TOKEN_PACKS: tuple[TokenPack, ...] = (
-    TokenPack(tokens=5, cents=39500),
-    TokenPack(tokens=20, cents=138000),
-    TokenPack(tokens=50, cents=295000),
+    TokenPack(tokens=5, cents=9900),
+    TokenPack(tokens=20, cents=34900),
+    TokenPack(tokens=50, cents=79900),
 )
 
 
