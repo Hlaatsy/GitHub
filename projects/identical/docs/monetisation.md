@@ -31,16 +31,15 @@ One currency. A plan buys tokens each month, and everything made spends them:
 Every video up to 2 minutes. Cost per token falls at each step and each
 upgrade is R150 — a ladder somebody climbs without a budget meeting.
 
-### The price is the pitch, and here it is actually true
+### R149 is the number, on its own
 
-HeyGen's entry plan is about $29, near **R520**. Starter is **R149**. That is
-not a discount on their price, it is roughly a third of it, and it is the
-first thing to say.
+R149 a month, in rands, with the avatar built free. That is the whole pitch
+and it needs no second half.
 
-Worth stating plainly because an earlier version of this document claimed a
-price advantage that did not exist: at the business pricing of R499 the gap
-was about R23, which is nothing. At R149 it is real, and it is the strongest
-argument the product has.
+Earlier versions of this document argued the price by comparison against
+other platforms. That is out: a price defended by comparison is a price
+somebody re-checks the moment the other one moves, and it points a customer
+at a name they had not thought about.
 
 ### What the free tier is for
 
@@ -116,6 +115,13 @@ Short, self-serve, measured in conversion rather than conversations.
   a per-minute API rate near $3 would put every full-length video under water.
   This is now the most urgent open question here, not the least.
 - **Check the top-up ordering** every time any price moves.
+- **The Free-to-Starter step is the weak rung.** Free includes 8 tokens and
+  Starter 12, so R149 buys 4 more tokens -- R37 each, dearer than any top-up.
+  The tier rate (R12.42) is fine; the *marginal* rate is not, and the app now
+  says so rather than claiming the upgrade is better value. Starter still
+  sells on the watermark, the custom voice and the free build. Either narrow
+  the free tier or widen Starter, but decide it deliberately: raising Free
+  from 2 tokens to 8 was right for onboarding and is what created this.
 - **Payment rails.** An affordable price payable only by international card is
   not affordable. EFT, debit order, Ozow and SnapScan through Paystack.
 - **The free tier's cost at a thousand accounts.** Model it before opening

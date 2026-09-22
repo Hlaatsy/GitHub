@@ -8,7 +8,8 @@ to tokens: the signed-out landing page still read ``plan.avatars`` and nothing
 noticed until a browser asked for the page.
 
     pip install playwright
-    python tests/browser_preview.py     # screenshots land in /tmp/claude-0/shots
+    python tests/browser_preview.py     # screenshots land in /tmp/identical-shots
+    SHOTS=/somewhere python tests/browser_preview.py
 
 Run it before shipping a change that touches a view.
 """
