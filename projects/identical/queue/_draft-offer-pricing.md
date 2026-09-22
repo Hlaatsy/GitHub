@@ -12,10 +12,14 @@ R149 a month. No setup fee. Your avatar built free.
 
 We priced this for the market we are actually in.
 
-The global AI video platforms start around forty or fifty US dollars a month
-— roughly R900 before your bank takes its cut — and several charge you again
-to build the avatar in the first place. For a small South African business,
-that is not a tool. That is a decision you postpone.
+The global platforms are not expensive at the entry price. They are expensive
+by the time you have actually used them: billed in dollars, so the amount
+changes with the rand; charged again to build a custom avatar; and priced per
+minute, so the second half of a video costs as much as the first.
+
+What we sell is not a cheaper login. It is the part nobody ships with the
+software — the avatar built for you, the consent record behind it, and a
+person who answers when it matters.
 
 So here is ours.
 
