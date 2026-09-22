@@ -10,9 +10,9 @@ publish_at: 2026-10-08T07:00:00Z
 ---
 R149 a month. No setup fee. Your avatar built free.
 
-The overseas tools start around R520 a month once your bank has taken its
-cut, and several charge you again to build the avatar. We are a third of
-that, billed in rands, by people in this country.
+R149 a month, in rands, and the avatar is built for you at no charge. That
+is the whole thing — no setup fee, no conversion, nothing that appears on
+the statement later.
 
 FREE — R0
 Your avatar and 3 videos. No card. Watermarked, so you can see exactly what

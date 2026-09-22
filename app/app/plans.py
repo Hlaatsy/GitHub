@@ -213,15 +213,7 @@ def advise_at_cap(plan_key: str, wanted: int = 5) -> Advice:
         return Advice(packs=packs, upgrade=None,
                       verdict="You are on the top plan -- topping up it is.")
 
-    # Cheapest way to buy `wanted` videos from whole packs, largest first.
-    remaining, spend = wanted, 0
-    for pack in sorted(TOKEN_PACKS, key=lambda p: -p.tokens):
-        while remaining >= pack.tokens:
-            spend += pack.cents
-            remaining -= pack.tokens
-    if remaining:
-        smallest = min(TOKEN_PACKS, key=lambda p: p.tokens)
-        spend += smallest.cents * remaining
+    spend = cheapest_packs(wanted)
 
     extra = upgrade.tokens - plan.tokens
 
@@ -245,12 +237,58 @@ def advise_at_cap(plan_key: str, wanted: int = 5) -> Advice:
                 f"{wanted - extra} this month.)"
             )
     else:
+        # We are here precisely because topping up costs less than the step
+        # up does -- and both are monthly if the need repeats, so repetition
+        # does not turn the upgrade into the cheaper option. This branch used
+        # to promise it did ("better value the moment this stops being a
+        # one-off"), which was untrue at every tier and worst at Free, where
+        # the four tokens Starter adds work out dearer each than a top-up.
         verdict = (
-            f"{wanted} more {noun} topped up is {_rand(spend)} this month only. "
-            f"{upgrade.name} is {_rand(marginal)} more a month for {extra} extra -- "
-            "better value the moment this stops being a one-off."
+            f"{wanted} more {noun} topped up is {_rand(spend)}, and that stays "
+            f"the cheaper way to cover it even every month. "
+            f"{upgrade.name} is {_rand(marginal)} more a month for {extra} extra"
         )
+        if extra > wanted:
+            verdict += " -- worth it for the headroom, not the arithmetic."
+        else:
+            verdict += (
+                " -- worth it for the watermark, the voice and the seats, "
+                "not the tokens."
+            )
     return Advice(packs=packs, upgrade=upgrade, verdict=verdict)
+
+
+def cheapest_packs(wanted: int) -> int:
+    """Cheapest cost in cents of top-up packs that covers `wanted` tokens.
+
+    Packs are whole, so covering 7 tokens means buying 10. A greedy
+    largest-first walk is not enough: the leftover after the big packs has to
+    be rounded up to a whole pack, and sometimes one pack up is cheaper than
+    the greedy remainder. Exhaustive over three pack sizes is cheap and
+    cannot be talked into overcharging, which the greedy version did -- it
+    billed a whole small pack per leftover token and quoted 9 tokens at R495
+    when two small packs cover 10 for R198.
+    """
+    if wanted <= 0:
+        return 0
+    best = None
+    packs = sorted(TOKEN_PACKS, key=lambda p: p.tokens)
+    cap = [wanted // pack.tokens + 1 for pack in packs]
+
+    def walk(i: int, tokens: int, cents: int) -> None:
+        nonlocal best
+        if best is not None and cents >= best:
+            return
+        if tokens >= wanted:
+            best = cents
+            return
+        if i == len(packs):
+            return
+        for n in range(cap[i] + 1):
+            walk(i + 1, tokens + n * packs[i].tokens, cents + n * packs[i].cents)
+
+    walk(0, 0, 0)
+    return best or 0
 
 
 def _rand(cents: int) -> str:

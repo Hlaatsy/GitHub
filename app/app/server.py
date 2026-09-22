@@ -162,9 +162,8 @@ def view_signin(sent_to: str = "", link: str = "", error: str = "") -> str:
     return (
         '<header class="hero"><div class="eyebrow">Made in South Africa</div>'
         "<h1>Post every day without filming every day.</h1>"
-        "<p>Send one photo. Get an avatar that speaks your script, in your voice, "
-        "for R149 a month — a third of what the overseas tools charge, and billed "
-        "in rands.</p></header>"
+        "<p>Send one photo. Get an avatar that speaks your script, in your voice. "
+        "R149 a month, in rands, and we build the avatar for free.</p></header>"
         f'<section class="tiers">{tiers}</section>'
         '<form method="post" action="/signin" class="card">'
         "<h2>Start free</h2>"

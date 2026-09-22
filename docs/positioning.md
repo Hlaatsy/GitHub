@@ -3,23 +3,21 @@
 Internal. Not published, not a post. This is the argument the public copy is
 built on.
 
-## The problem with competing on features
+## Say what it is, not what it is cheaper than
 
-**Sold to people, not organisations.** Solopreneurs, creators, small business
-owners and marketers who are the whole marketing department. The business
-buyer was tried and the market was not there; this is the buyer the product
-was designed for in the first place.
+A position defined against somebody else is not a position. It makes the
+other name the reference point, it dates the moment they change a price, and
+it teaches a customer to go and look at them.
 
-The global AI video platforms — HeyGen, Synthesia, D-ID, Colossyan — are
-racing each other on model quality, avatar counts and language totals. That
-race is won with capital, and it is not winnable here. Any feature claim of
-the form "our avatars look better" is a claim a well-funded competitor
-overturns on their next release, and a claim a buyer cannot verify before
-paying.
+So: no comparison tables, no "unlike the overseas tools", no price-per-month
+against anyone. What IDENTICAL is, in its own words, to somebody who has
+never heard of any of them — which is most of this market.
 
-So IDENTICAL does not compete on the model. It competes on everything
-wrapped around the model, where a small local operator is structurally
-advantaged and a global platform is structurally weak.
+**The sentence:** send a photo, get an avatar that speaks your script, and
+post every day without filming every day.
+
+Everything below is a reason that sentence is true, not a reason somebody
+else is worse.
 
 ## The five pillars
 
@@ -35,42 +33,26 @@ no storage to free up, no data spent on a download that fails. In most of
 these markets WhatsApp is where business is already conducted, and a product
 that lives there reaches people no web onboarding will.
 
-No global platform is going to build this, because their buyer does not work
-this way. That makes it the most defensible item on the roadmap as well as
-the most useful.
+It is also the hardest thing on the roadmap to copy, because it only makes
+sense if you already believe WhatsApp is where business happens — which is
+obvious here and not obvious anywhere the big tools are built.
 
 Public framing: send a voice note, get a video back.
 
 Not yet true — see `product.md` section 3. Do not put it in a post until it
 works.
 
-### 2. Priced for this market, in its own money, with no setup fee
+### 2. R149, in rands, with no setup fee
 
-Global platforms start around USD 40-50/mo — roughly R900 before the bank
-takes its cut — and several charge again to build the avatar. They bill in
-USD, so the buyer absorbs the exchange rate, a 2-3% international card fee
-and a number that moves every month. Some SA cards are declined outright.
+A price somebody decides on in one sitting, in the currency they are paid in,
+with nothing to work out afterwards. No conversion, no card fee that appears
+later, no separate charge to build the avatar.
 
-IDENTICAL starts at R149/mo with the avatar built free. That is not a discount
-on their price, it is a different price band, and it is the pillar that
-decides whether the other four ever get heard.
+The avatar build being free is the sharpest part. It is the step where people
+give up when they try this alone, and giving it away costs us once while
+removing the reason to say no.
 
-Across the region the same pillar is really two things: a local price, and a
-way to pay it. Card-only checkout excludes most buyers in Kenya and Ghana
-outright, so M-Pesa and mobile money are not a convenience feature — they are
-the difference between a market and no market. A competitor cannot match this
-without local payment infrastructure and a local entity.
-
-The free avatar build is the sharpest edge here. It is the step where DIY
-buyers give up, every competitor either charges for it or leaves you to it,
-and giving it away costs you once while it removes the reason to say no.
-
-Public framing: from R149 a month. No setup fee. Pay the way you already pay.
-
-The trade this makes is in `docs/monetisation.md` — setup becomes an
-acquisition cost carried before any revenue arrives, so templated onboarding
-and retention stop being nice-to-haves and become the thing the model rests
-on.
+Public framing: R149 a month. No setup fee. Pay the way you already pay.
 
 ### 3. Done-for-you, not do-it-yourself
 
@@ -133,11 +115,13 @@ worth a line.
 
 ## What we do not claim
 
-- Not "better AI" or "more realistic than X". Unverifiable and brittle.
-- Not a named competitor comparison on the company page. If the product sits
-  on a third-party platform, naming that platform as an inferior competitor
-  is both a contractual risk and an invitation to look into the plumbing.
-  Compare against the category ("generic global avatar tools"), not a brand.
+- Not "better AI" or "more realistic than X". Unverifiable, brittle, and it
+  hands the comparison to somebody else.
+- **Not any competitor, named or implied.** No "unlike the overseas tools",
+  no price comparison, no category swipe. If the product sits on a
+  third-party platform, naming that platform is also a contractual risk and
+  an invitation to look into the plumbing — but the first reason is enough on
+  its own.
 - Not language quality we have not personally listened to, and not
   code-mixing quality until the test set in `product.md` says so. This claim
   fails publicly, instantly, in one clip.
@@ -150,16 +134,3 @@ worth a line.
 - Not compliance guarantees. "We understand the questions and help you answer
   them" is defensible. "POPIA compliant" as a blanket claim about someone
   else's deployment is not.
-
-## If you do want to name them
-
-Comparison marketing against a named competitor is legal in South Africa if
-every claim is truthful, substantiated and not misleading — the ASA's Code
-and the Consumer Protection Act both bite otherwise. The practical test is
-whether you could hand a regulator the evidence for each line on the same day
-they ask.
-
-If you want it, the safe form is a comparison table of verifiable, checkable
-facts — billing currency, support hours and timezone, contract terms, local
-entity, service inclusions — and not a single subjective quality claim. Tell
-me and I will write it, but check the reseller or partner agreement first.

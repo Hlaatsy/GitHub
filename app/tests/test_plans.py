@@ -80,7 +80,72 @@ class AdviceTests(unittest.TestCase):
 
     def test_does_not_oversell_a_one_off(self):
         advice = plans.advise_at_cap("starter", wanted=1)
-        self.assertIn("one-off", advice.verdict)
+        self.assertIn("cheaper way to cover it", advice.verdict)
+        self.assertNotIn("rather move you up", advice.verdict)
+
+    def test_never_claims_the_upgrade_is_cheaper_when_it_is_not(self):
+        """The value claim is a price claim, so it has to survive division.
+
+        The tier rates all beat the top-up rates, but a step's *marginal*
+        rate need not: Free already includes 8 tokens, so the 4 Starter adds
+        cost R37 each against R20 topped up. The old copy promised the
+        upgrade won "the moment this stops being a one-off" whenever topping
+        up was cheaper -- which is exactly when it does not.
+        """
+        for key in plans.ORDER[:-1]:
+            plan = plans.PLANS[key]
+            upgrade = plans.PLANS[plans.ORDER[plans.ORDER.index(key) + 1]]
+            marginal = upgrade.cents - plan.cents
+            for wanted in range(1, 25):
+                advice = plans.advise_at_cap(key, wanted=wanted)
+                spend = plans.cheapest_packs(wanted)
+                if spend < marginal:
+                    self.assertIn(
+                        "cheaper way to cover it even every month", advice.verdict,
+                        f"{key} at {wanted}: topping up is R{spend / 100:.0f} against "
+                        f"R{marginal / 100:.0f} a month, but the copy does not say so",
+                    )
+                else:
+                    self.assertIn("rather move you up", advice.verdict)
+
+    def test_free_to_starter_is_sold_on_what_else_it_carries(self):
+        advice = plans.advise_at_cap("free", wanted=1)
+        self.assertIn("cheaper way to cover it", advice.verdict)
+        self.assertIn("not the arithmetic", advice.verdict)
+        self.assertNotIn("better value", advice.verdict)
+
+    def test_never_quotes_more_than_buying_whole_packs_costs(self):
+        """A leftover token is one more pack, not one pack per token.
+
+        The greedy version billed a whole small pack per leftover token and
+        put 9 tokens at R495 when two small packs cover 10 for R198. That
+        number is shown to the customer and it decides which way the advice
+        points, so it is asserted rather than trusted.
+        """
+        smallest = min(plans.TOKEN_PACKS, key=lambda pack: pack.tokens)
+        for wanted in range(1, 60):
+            cost = plans.cheapest_packs(wanted)
+            packs_needed = -(-wanted // smallest.tokens)
+            self.assertLessEqual(cost, packs_needed * smallest.cents,
+                                 f"{wanted} tokens quoted above the small-pack price")
+            self.assertGreater(cost, 0)
+
+    def test_cheapest_packs_actually_covers_what_was_asked(self):
+        for wanted in range(1, 60):
+            cost = plans.cheapest_packs(wanted)
+            reachable = set()
+            for a in range(13):
+                for b in range(13):
+                    for c in range(13):
+                        tokens = (a * plans.TOKEN_PACKS[0].tokens
+                                  + b * plans.TOKEN_PACKS[1].tokens
+                                  + c * plans.TOKEN_PACKS[2].tokens)
+                        cents = (a * plans.TOKEN_PACKS[0].cents
+                                 + b * plans.TOKEN_PACKS[1].cents
+                                 + c * plans.TOKEN_PACKS[2].cents)
+                        if tokens >= wanted:
+                            reachable.add(cents)
+            self.assertEqual(cost, min(reachable), f"{wanted} tokens not the cheapest cover")
 
     def test_top_plan_has_no_upgrade_to_push(self):
         advice = plans.advise_at_cap(plans.ORDER[-1])

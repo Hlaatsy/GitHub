@@ -132,9 +132,9 @@ because for safety induction, POPIA awareness or a code of conduct, the
 completion record *is* the compliance artefact. A video nobody can prove was
 watched does not discharge the obligation that made them buy it.
 
-Colossyan, Elai and HeyGen all export SCORM. We do not, and that single gap
-disqualifies us from the L&D conversation regardless of how good the avatar
-looks.
+Not built, and no longer on the critical path: the training buyer belonged to
+the business model. Kept here because the note is cheap and the requirement
+would be unchanged if that buyer is ever revisited.
 
 **What to build:** SCORM 1.2 and SCORM 2004 packages wrapping the rendered
 video, with completion and pass/fail reported back to the LMS. xAPI is the
