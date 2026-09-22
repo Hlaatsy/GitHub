@@ -43,7 +43,8 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command")
 
     run = sub.add_parser("serve", help="run the web app (the default)")
-    run.add_argument("--port", type=int, default=8000)
+    run.add_argument("--port", type=int, default=None,
+                     help="overrides PORT from the environment")
     run.set_defaults(func=lambda a: serve(port=a.port, db_path=a.db) or 0)
 
     sub.add_parser("health", help="account health and retention").set_defaults(
@@ -53,7 +54,7 @@ def main() -> int:
     args = parser.parse_args()
     if args.command is None:
         # Bare `python -m app` still starts the server.
-        serve(port=8000, db_path=args.db)
+        serve(db_path=args.db)
         return 0
     return args.func(args)
 

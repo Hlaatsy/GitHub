@@ -88,6 +88,22 @@ watching is **month five**: with the avatar build given away up front, that is
 roughly where an account has repaid what it cost to win. A cohort from this
 month reading 0% is a trial that has not converted yet, not a churn.
 
+## Deploying
+
+`DEPLOY.md` covers Fly.io: one machine, one volume for the SQLite file, TLS
+at the edge. Three things the app enforces because they only fail in
+production:
+
+- **`IDENTICAL_DB`** must point at a mounted volume, or the database is
+  written into the container filesystem and is gone on the next deploy.
+- **`IDENTICAL_SECRET`** must be set when the site is https, and the app
+  refuses to start without it. Unset, it generates a key per boot: every
+  restart signs all users out, and two machines cannot read each other's
+  sessions.
+- **Session cookies are marked `Secure`** whenever `IDENTICAL_BASE_URL` is
+  https, derived from that one setting so it cannot drift out of step with
+  how the site is actually reached.
+
 ## Payments
 
 Paystack, because it carries the rails this market uses — EFT, instant EFT,

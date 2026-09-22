@@ -28,7 +28,34 @@ from . import auth, billing, mail, payments, plans, teams
 from .db import Pool, log, now
 from .provider import StubProvider, share_encode
 
-SECRET = os.environ.get("IDENTICAL_SECRET", secrets.token_hex(32)).encode()
+def _secret() -> bytes:
+    """The key that signs session cookies.
+
+    Generated per run when unset, which is right for development and wrong
+    everywhere else: a new key signs everybody out on restart, and two
+    machines with different keys cannot read each other's sessions at all.
+    So a deployment serving https must set it, and is refused if it has not.
+    """
+    configured = os.environ.get("IDENTICAL_SECRET", "").strip()
+    if configured:
+        return configured.encode()
+    if mail.base_url().startswith("https://"):
+        raise SystemExit(
+            "IDENTICAL_SECRET is not set. Without it every restart signs all "
+            "users out, and a second machine cannot read the first's sessions.\n"
+            "Generate one with:  python -c \"import secrets;print(secrets.token_hex(32))\""
+        )
+    return secrets.token_hex(32).encode()
+
+
+SECRET = _secret()
+
+#: Cookies must not travel in the clear once the site is served over https.
+#: Set from the base URL rather than a separate switch, so it cannot drift
+#: out of step with how the site is actually reached.
+COOKIE_FLAGS = ("Path=/; HttpOnly; SameSite=Lax; Secure"
+                if mail.base_url().startswith("https://")
+                else "Path=/; HttpOnly; SameSite=Lax")
 
 PROVIDER = StubProvider()
 POOL: Pool | None = None
@@ -473,10 +500,10 @@ class Handler(BaseHTTPRequestHandler):
             except auth.AuthError as exc:
                 self.send(page(f'<div class="warn">{e(exc)}</div>' + view_signin()))
                 return
-            self.redirect("/", f"sid={sign(user_id)}; Path=/; HttpOnly; SameSite=Lax")
+            self.redirect("/", f"sid={sign(user_id)}; {COOKIE_FLAGS}")
             return
         if path == "/signout":
-            self.redirect("/", "sid=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax")
+            self.redirect("/", f"sid=; Max-Age=0; {COOKIE_FLAGS}")
             return
 
         user, member, org = self.context()
@@ -786,8 +813,10 @@ class Handler(BaseHTTPRequestHandler):
             self.redirect("/")
 
 
-def serve(port: int = 8000, db_path: str | None = None) -> None:
+def serve(port: int | None = None, db_path: str | None = None) -> None:
+    """Start the server. PORT from the environment wins, as hosts expect."""
     global POOL
+    port = port or int(os.environ.get("PORT", "8000"))
     POOL = Pool(db_path)
     POOL.conn  # fail fast rather than on the first request
     print(f"IDENTICAL running on http://localhost:{port}")

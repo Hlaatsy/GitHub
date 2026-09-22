@@ -9,11 +9,16 @@ no SQLite-only types, explicit foreign keys, UTC ISO-8601 timestamps.
 from __future__ import annotations
 
 import datetime as dt
+import os
 import sqlite3
 import threading
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent.parent / "identical.db"
+#: Where the database lives. On a host with an ephemeral filesystem this must
+#: point at a mounted volume, or every deploy silently starts from an empty
+#: database -- the accounts are not corrupted, they are simply gone.
+DB_PATH = Path(os.environ.get("IDENTICAL_DB")
+               or Path(__file__).resolve().parent.parent / "identical.db")
 
 SCHEMA = """
 -- An organisation holds the plan, the quota and the avatars. People belong to
