@@ -16,7 +16,7 @@ So IDENTICAL does not compete on the model. It competes on everything
 wrapped around the model, where a small local operator is structurally
 advantaged and a global platform is structurally weak.
 
-## The five pillars
+## The six pillars
 
 ### 1. Priced for this market, in its own money, with no setup fee
 
@@ -68,16 +68,68 @@ mid-way, which is where a foreign engine pauses or mispronounces and the
 illusion collapses. A local operator can hear that. A global QA process
 cannot.
 
-See `product.md` section 1 — this pillar is only as true as the test set
-behind it, and it is the claim a single bad clip disproves in public.
+**This is not a moat, and it should stop being described as one.** EqualyzAI
+is already shipping voice AI for African languages built explicitly around
+code-switching and naturally mixed speech — English-Pidgin, Yoruba-English —
+which is this pillar almost word for word. The Masakhane African Languages
+Hub is funding twenty-six African-language AI projects with Microsoft and
+Google cloud credits behind them. The capability is being built as public
+infrastructure by people better resourced than us.
+
+What that leaves is real but smaller: **we listen before it ships.** A
+global QA process cannot hear that a sentence sounds wrong to an isiZulu
+speaker; somebody in the room can. That is a quality practice, not a
+technology advantage, and it is worth exactly as much as the test set behind
+it (`product.md` section 1).
 
 Public framing: content your market hears in their own language, checked by
-people who speak it.
+people who speak it. Not "the only ones who can do this".
 
-Caveat before publishing this: verify the output quality per language
-yourself. This pillar is a liability if the claim outruns the result.
+If EqualyzAI have solved code-switching, the faster move is to buy it rather
+than rebuild it. Treat them as a supplier conversation before treating them
+as a competitor.
 
-### 4. Compliance is the wedge
+### 4. The training avatar — the use case that fits best
+
+Training and induction video is where an avatar earns its place more clearly
+than anywhere else, and it is worth leading with rather than listing.
+
+**Why the work suits the tool.** Training content is high-volume, repetitive,
+and obsolete the moment a policy changes. Filming it means a crew, a
+presenter with a free afternoon, and doing it all again in six months for one
+amended paragraph. An avatar means editing the script. That is not a marginal
+saving, it is a different process.
+
+**Why South Africa specifically.** Safety induction, code of conduct, POPIA
+awareness and onboarding all have to land with a workforce that does not
+share one first language. Twelve official languages means a compliance
+manager either accepts that induction is understood unevenly, or pays to film
+it repeatedly. One avatar, one script, several languages, is the first honest
+answer to that — and for safety and compliance training, "they understood it"
+is a legal question, not a preference.
+
+**Why the tool suits us rather than the incumbents.** Colossyan and Elai are
+built for exactly this and are good at it. What they cannot offer a South
+African employer is the thing training video needs most: a **consent record
+for the employee whose face is in the module**, retention terms for that
+footage, and an answer for what happens when that person resigns. Pillar 5 is
+not a separate sale here — it is what makes this sale closeable.
+
+**Why the buyer is worth having.** L&D and HR budgets are annual, renew on a
+cycle rather than a whim, and the content need recurs by definition. A
+marketing team can stop posting; an employer cannot stop inducting staff.
+
+**Honest gap before this is pitched.** Training buyers expect SCORM export
+and LMS delivery, and Colossyan, Elai and HeyGen all have it. We do not. A
+module that cannot be tracked to completion is not a training module to a
+compliance manager, because the completion record *is* the compliance
+artefact. See `product.md` — this is a build requirement, not a detail, and
+the pillar is only half true until it exists.
+
+Public framing: train your people in the language they actually speak, and
+keep the consent record that proves you may.
+
+### 5. Compliance is the wedge
 
 This is the pillar nobody else has, and it should lead.
 
@@ -113,7 +165,7 @@ Public framing: AI video from people who understand consent, likeness rights
 and POPIA — because the compliance question arrives right after the
 creative one.
 
-### 5. WhatsApp-first, for people without a production day
+### 6. WhatsApp-first, for people without a production day
 
 Shortcuts and Video Agent on iOS mean a video gets made between meetings, on
 a phone. The enterprise platforms are desktop studio tools sold to marketing

@@ -10,11 +10,21 @@ Organisations, not individuals. Marketing and PR teams, internal comms, HR and
 training, at companies that already spend real money on video and already have
 a compliance function that asks where a person's likeness went.
 
+**Of those, lead with training and induction.** It is the use case the tool
+fits best — high volume, repetitive, obsolete whenever a policy changes, and
+required in more than one language for a workforce that does not share a
+first language. The budget is annual rather than discretionary, it renews on
+a cycle, and the content need recurs by definition: a marketing team can stop
+posting, an employer cannot stop inducting staff. See `positioning.md`
+pillar 4, and the SCORM gap in `product.md` that has to close before this can
+be pitched.
+
 That decision changes the pricing more than it changes the product. A
 solopreneur weighing R149 against their airtime is a different buyer from a
 marketing manager with a production budget, comparing us against the
-R40 000-R80 000 it costs to book a crew, a presenter and a studio day — and to
-do it again when the policy changes.
+R5 000-R25 000 a South African agency charges for a single short corporate
+video, or the R5 500-R25 000 day rate behind it — and the fact that it costs
+that again when the policy changes.
 
 Against that anchor the entry price is not the objection. Trust, consent,
 delivery and somebody answering the phone are what decide it.
@@ -247,9 +257,14 @@ Not monthly signups. In this model the numbers that matter are:
 
 - **Cost a video properly.** Every tier rests on the per-video platform cost,
   which is still unknown — `app/provider.py` deliberately reports None for it.
-  It matters less than it did at R149: at R49.90 a video on the entry tier and
-  a buyer anchored to a R40 000 studio day, there is room. It still has to be
-  a number rather than a hope.
+  At R49.90 a token on the entry tier there is room against agency rates, but
+  less than the old R40 000 anchor implied — a short corporate video in South
+  Africa is R5 000-R25 000, not R40 000-R80 000, and a marketing manager who
+  has bought video will know that. The platform cost still has to be a number
+  rather than a hope: a per-minute API rate near $3 would put a full-length
+  video under water at every tier, while credit-based generation nearer
+  $0.30 a minute leaves the model comfortable. Which of those you are buying
+  is the single open question in this document.
 - **Check the overage ordering** in every market, every time a price moves.
   Overage must stay dearer per video than every subscription tier. It broke
   the moment pricing changed, and it broke silently.

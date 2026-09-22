@@ -121,6 +121,29 @@ audience reads one or the other. Caption quality on mixed-language speech
 depends on the same engine as section 1, so the two succeed or fail together
 — budget them as one piece of work, not two.
 
+## 6. SCORM export and LMS delivery
+
+Required before the training avatar in `positioning.md` can honestly be
+pitched, and currently missing.
+
+A training buyer does not want a video file. They want a module their
+learning system can deliver and, more importantly, **track to completion** —
+because for safety induction, POPIA awareness or a code of conduct, the
+completion record *is* the compliance artefact. A video nobody can prove was
+watched does not discharge the obligation that made them buy it.
+
+Colossyan, Elai and HeyGen all export SCORM. We do not, and that single gap
+disqualifies us from the L&D conversation regardless of how good the avatar
+looks.
+
+**What to build:** SCORM 1.2 and SCORM 2004 packages wrapping the rendered
+video, with completion and pass/fail reported back to the LMS. xAPI is the
+better modern answer and the one to add second — plenty of South African
+employers still run older systems that speak SCORM and nothing else.
+
+**Dependency:** none. This is ours to build and needs no provider, which is
+unusual on this list.
+
 ## Build order
 
 South Africa is the first and only market until this list is substantially
@@ -138,7 +161,12 @@ Sequenced by what unlocks revenue rather than what is most interesting:
    it early: the Business Platform has an approval process, like every other
    approval on this project, and the payment integration behind it is its
    own piece of work.
-4. **Regional avatar presets.** Commissioned work, so it runs in parallel
+4. **SCORM export.** Small, entirely ours, and the difference between being
+   in the L&D conversation and not being in it. The training buyer has annual
+   budget, a recurring content need, and a compliance reason to care — that
+   is the best-shaped customer on this list, and one missing export format
+   keeps them out of reach.
+5. **Regional avatar presets.** Commissioned work, so it runs in parallel
    rather than blocking.
 5. **Code-mixing quality.** Continuous, and gated on what the platform
    supports. Begin the test set now regardless — it costs nothing and tells

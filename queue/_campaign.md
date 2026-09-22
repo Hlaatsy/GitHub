@@ -142,6 +142,28 @@ payment rails, code-mixing tests — is what makes the other markets real, and
 none of it is done. Posting to a market you cannot serve converts nobody and
 spends credibility you have not built yet.
 
+## Claims corrected after market research
+
+Three things in this campaign and the docs behind it were wrong, and were
+checkable in under a minute by anyone who cared to:
+
+- **"Platforms start at forty or fifty dollars — roughly R900."** HeyGen
+  Creator and Synthesia entry are both about **$29**, near R520, against our
+  R499. There is no meaningful price advantage at entry, and the pricing post
+  now argues on what the money buys rather than on being cheaper.
+- **"A R40 000-R80 000 studio day."** A short corporate video in South Africa
+  is **R5 000-R25 000**, with day rates of R5 500-R25 000. Still a strong
+  comparison, but the number as written would have lost us the room with any
+  marketing manager who has actually commissioned video.
+- **African language quality as a moat.** EqualyzAI already ships voice AI
+  built around code-switching in African languages, and the Masakhane hub is
+  funding twenty-six more projects with Microsoft and Google behind them. The
+  honest claim is that we listen before it ships, not that we are the only
+  ones who can.
+
+None of the six scheduled posts carried the first claim -- it was in the
+pricing draft, which has not run. Worth noting how close it came.
+
 ## Claims to make true before publishing
 
 The copy asserts things about how you operate. Each is defensible, but only
@@ -163,6 +185,10 @@ if it is actually the case on the day the post goes out:
   before it ships. If not, cut that line — it is the one claim in the set
   that a single bad video disproves publicly. `../docs/product.md` section 1
   has the test set this depends on, and it is not built yet.
+- **The training pitch needs SCORM first.** Pillar 4 in `../docs/positioning.md`
+  is the strongest use case we have, and a training buyer will ask for LMS
+  delivery in the first meeting. Until `../docs/product.md` section 6 is
+  built, pitch training as a conversation rather than a product.
 - **Nothing from the roadmap.** The WhatsApp pipeline, regional avatar
   presets, bandwidth-optimised exports and subtitles are all planned and none
   are live. They are the most tempting things in the whole product to post
