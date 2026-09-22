@@ -1,0 +1,42 @@
+# Fly.io deployment. See DEPLOY.md for the steps and the secrets to set.
+app = "identical"
+primary_region = "jnb"          # Johannesburg -- closest to the customers
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  # SQLite lives on the mounted volume. Without this the database is written
+  # into the container filesystem and is gone on the next deploy.
+  IDENTICAL_DB = "/data/identical.db"
+
+# A single writer. SQLite is one file on one volume, so a second machine
+# would be a second database, not a second copy of the same one -- users
+# would see different data depending on which machine answered.
+[[mounts]]
+  source = "identical_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true            # cookies are marked Secure; do not serve plain http
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0      # a pilot does not need a machine awake overnight
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 40
+    hard_limit = 60
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
