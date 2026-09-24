@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: theme("colors.paper");
+  color: theme("colors.ink");
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  /* The one loud button. WhatsApp green means "this does the thing". */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3
+           text-[15px] font-semibold transition active:translate-y-px;
+  }
+  .btn-go {
+    @apply btn bg-whatsapp text-emerald-deep shadow-sm hover:bg-whatsapp-600;
+  }
+  .btn-deep {
+    @apply btn bg-emerald-ink text-white hover:bg-emerald-deep;
+  }
+  .btn-quiet {
+    @apply btn border border-line bg-white text-ink hover:border-emerald-ink/40;
+  }
+  .card {
+    @apply rounded-2xl border border-line bg-white p-5 shadow-[0_1px_0_rgba(10,92,54,0.04)];
+  }
+  .label {
+    @apply text-xs font-semibold uppercase tracking-[0.12em] text-muted;
+  }
+  .field {
+    @apply w-full rounded-xl border border-line bg-white px-4 py-3 text-[15px]
+           outline-none focus:border-whatsapp focus:ring-2 focus:ring-whatsapp/30;
+  }
+}
