@@ -1,81 +1,96 @@
 # IDENTICAL
 
-AI clone video maker for Sub-Saharan Africa. Own brand, own LinkedIn page,
-own app — separate from KhutsoGRC and StoreBurst, which are separate projects
-with separate apps.
+AI avatar video for Sub-Saharan Africa. Send one photo, get an avatar that
+speaks your script, in your voice.
 
 South Africa is the first market, not the only one. Nigeria, Kenya and Ghana
 are next, and the pricing and product decisions are made to extend rather
 than be redone — see `docs/monetisation.md` and `docs/product.md`.
 
-This directory is the whole project. Nothing here is shared with the other
-brands except the publisher itself (`linkedin/`, at the repository root).
+    app/      the running web app
+    docs/     product requirements, positioning, revenue model
+    assets/   artwork, and the prompts that generated it
 
-    projects/identical/
-      project.conf    defaults for every post here (profile: identical)
-      queue/          posts waiting to publish
-      published/      posts after they have gone out, with their URNs
-      assets/         artwork, and the prompts that generated it
-      docs/           product requirements, positioning, revenue model
+## Who it is for
 
-## Status
+People, not organisations. Solopreneurs, creators, small business owners, and
+the marketer who is the entire marketing department.
 
-Pre-launch. Six posts scheduled from 21 September, four offer posts held as
-drafts pending confirmed pricing. Two things are unresolved and both are in
-`queue/_campaign.md`: the app's Community Management API approval, and the
-fact that a new page has no followers to publish to.
-
-## The three apps
-
-IDENTICAL publishes through its own LinkedIn app, selected by
-`profile: identical` in `project.conf`. Credentials never fall back to
-another brand's, so a missing token fails this project's posts and leaves
-the other projects publishing normally.
-
-    python -m linkedin profiles                      # all brands, what is missing
-    python -m linkedin.auth --profile identical      # mint this app's token
-    python -m linkedin --profile identical pages     # confirm page access
-
-Setup is in `linkedin/README.md` under "Three separate apps".
-
-## Working on this project
-
-- **Posts** go in `queue/` as markdown with front matter. Format is in
-  `content/queue/README.md`. A file starting with `_` is a draft and is never
-  published — that is how the offer posts are held back.
-- **The profile is set once** in `project.conf`, so a new post cannot publish
-  as the wrong brand by forgetting a line.
-- **Image paths resolve from the repository root**, not from here:
-  `projects/identical/assets/whatever.png`. See `assets/README.md`.
-- **Prices** are proposals until confirmed — see `docs/monetisation.md`. The
-  offer drafts carry them in public copy and stay underscore-prefixed until
-  the numbers are yours.
-
-## Reading order
-
-1. `queue/_campaign.md` — what is scheduled, what is blocking, what to do
-   before the launch date.
-2. `docs/positioning.md` — why the copy says what it says.
-3. `docs/monetisation.md` — tiers, credits, payment rails, revenue model.
-4. `docs/product.md` — what the product must do to work across African
-   markets, and which of those depend on the underlying platform rather than
-   on us.
-
-## If this outgrows the repo
-
-It is a self-contained project sharing one publisher. If IDENTICAL ends up
-with its own site, app releases or CI, move this directory into its own
-repository and take `linkedin/` with it as a dependency — nothing here
-reaches into the other projects, so the split is a `git mv` rather than an
-untangling. Worth doing before that is true, not after.
+The business market was tried and was not there. This is a volume business:
+many small customers, low touch, and a price somebody decides in one sitting
+rather than through a procurement process.
 
 ## The app
 
-`app/` is a running web app — accounts, plans, quotas, credits, consent
-records and the cap logic, with the video generation vendor behind a stub so
-it runs end to end before a contract exists.
+`app/` is a real web app, not a prototype — accounts, plans, tokens, consent
+records, approvals, payments and the cap logic, with the video generation
+vendor behind a stub so the whole thing runs end to end before a contract
+exists. Python standard library only; no pip install.
 
     cd app && python -m app
 
-See `app/README.md` for what is bought versus built, and what is still to
-build. The short version: everything except the talking-face model itself.
+```sh
+cd app
+python -m unittest discover -s tests   # 149 unit tests
+python tests/browser_preview.py        # drives the real app in Chromium
+python tests/payments_e2e.py
+python tests/mail_e2e.py
+```
+
+Run all four before pushing anything that touches a view. The unit tests
+test modules, so a template can reference an attribute that no longer exists
+and every one of them still passes — which is exactly what happened when
+plans moved to tokens.
+
+See `app/README.md` for what is bought versus built. The short version:
+everything except the talking-face model itself.
+
+## Pricing
+
+One pool pays for everything: **a video is 1 token, an avatar is 5.**
+
+| Tier | Price | Tokens | Videos after your avatar |
+| --- | --- | --- | --- |
+| Free | R0 | 8 | 3 |
+| Starter | R149/mo | 12 | 7 |
+| Pro | R299/mo | 28 | 23 |
+| Premium | R449/mo | 48 | 43 |
+
+Top-ups: 5 for R99, 20 for R349, 50 for R799.
+
+**A topped-up token must always cost more than a subscribed one**, or nobody
+upgrades. It runs R15.98–R19.80 against a dearest tier rate of R12.42. This
+has broken twice on a price change, both times silently, so it is asserted in
+the test suite rather than trusted. Prices live only in `app/app/plans.py`.
+
+## Two open questions
+
+**What a video actually costs us.** `app/app/provider.py` reports `None` for
+the per-video platform cost deliberately, because it is not known. At R12.42
+a token there is far less room than the old business pricing allowed, and a
+per-minute API rate near $3 would put every full-length video under water.
+This is the most urgent thing here, not the least.
+
+**Free-to-Starter is the weak rung.** Free includes 8 tokens and Starter 12,
+so R149 buys 4 more — R37 each, dearer than any top-up. The tier rate is
+fine; the marginal rate is not, and the app says so rather than claiming the
+upgrade is better value. Either narrow Free or widen Starter, but decide it
+deliberately: raising Free from 2 tokens to 8 was right for onboarding and is
+what created this.
+
+## Reading order
+
+1. `docs/positioning.md` — why the copy says what it says.
+2. `docs/monetisation.md` — tiers, tokens, payment rails, revenue model.
+3. `docs/product.md` — what the product must do to work across African
+   markets, and which parts depend on the underlying platform rather than us.
+
+## The LinkedIn campaign
+
+Not in this repository. IDENTICAL's queued launch posts stay in the
+`Hlaatsy/GitHub` repository alongside the publisher that sends them, which is
+shared with KhutsoGRC and StoreBurst. Splitting the publisher would have left
+two copies to drift apart.
+
+Nothing in this repository depends on it, and nothing there reaches into the
+app.
