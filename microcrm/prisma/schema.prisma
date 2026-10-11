@@ -1,0 +1,298 @@
+// Multi-tenant WhatsApp micro-CRM.
+//
+// Isolation: every tenant-owned row carries `tenantId`, and cross-table
+// references use composite foreign keys on (tenantId, id). The database itself
+// therefore rejects an appointment or order that points at another tenant's
+// customer, service or product, even if application code gets a query wrong.
+//
+// POPIA: only the minimum personal information needed to respond and fulfil
+// bookings is stored (WhatsApp ID, profile name). Message bodies are never
+// persisted. Deleting a tenant cascades to all of its customers' data.
+//
+// Money: all amounts are integer ZAR cents.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum IndustryType {
+  SALON
+  DECOR_HIRE
+  PRODUCT_SELLER
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  FULFILLED
+  CANCELLED
+}
+
+enum WalletTransactionType {
+  TOP_UP
+  MESSAGE_DEBIT
+  ADJUSTMENT
+}
+
+enum MessageCategory {
+  SERVICE
+  UTILITY
+}
+
+model Tenant {
+  id                   String       @id @default(uuid()) @db.Uuid
+  businessName         String       @db.VarChar(120)
+  industry             IndustryType
+  /// Meta `phone_number_id`: every inbound webhook is resolved to a tenant by this value.
+  waPhoneNumberId      String       @unique @db.VarChar(32)
+  waDisplayPhone       String       @db.VarChar(20)
+  /// Owner's WhatsApp ID (digits only) for wallet top-up alerts.
+  ownerWaId            String?      @db.VarChar(15)
+  /// Meta Commerce catalog linked to the WABA; enables `product_list` messages.
+  metaCatalogId        String?      @db.VarChar(32)
+
+  currency             String       @default("ZAR") @db.Char(3)
+  vatRegistered        Boolean      @default(false)
+  vatRateBps           Int          @default(1500)
+  pricesIncludeVat     Boolean      @default(true)
+
+  timezone             String       @default("Africa/Johannesburg") @db.VarChar(64)
+  /// { "mon": [{ "open": "08:00", "close": "17:00" }], ..., "sun": [] }
+  workingHours         Json
+  slotIntervalMinutes  Int          @default(30)
+  defaultSlotMinutes   Int          @default(60)
+  /// Concurrent bookings per slot (e.g. number of chairs).
+  bookingCapacity      Int          @default(1)
+  minLeadMinutes       Int          @default(60)
+  autoConfirmBookings  Boolean      @default(false)
+
+  addressLine          String?      @db.VarChar(200)
+  mapsUrl              String?      @db.VarChar(500)
+  /// Inbound media is never downloaded unless the tenant opts in.
+  mediaDownloadEnabled Boolean      @default(false)
+  active               Boolean      @default(true)
+
+  createdAt            DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime     @updatedAt @db.Timestamptz(3)
+
+  wallet               TenantWallet?
+  walletTransactions   WalletTransaction[]
+  customers            Customer[]
+  services             Service[]
+  products             Product[]
+  appointments         Appointment[]
+  orders               Order[]
+  orderItems           OrderItem[]
+  inboundMessages      InboundMessage[]
+  outboundMessages     OutboundMessage[]
+
+  @@map("tenants")
+}
+
+model Customer {
+  id                 String    @id @default(uuid()) @db.Uuid
+  tenantId           String    @db.Uuid
+  /// WhatsApp ID: E.164 digits without '+', e.g. 27821234567.
+  waId               String    @db.VarChar(15)
+  displayName        String?   @db.VarChar(80)
+  /// Lawful-basis evidence: the data subject initiated contact on this date.
+  firstContactAt     DateTime  @default(now()) @db.Timestamptz(3)
+  /// POPIA s69: electronic direct marketing requires opt-in. Null means none.
+  marketingConsentAt DateTime? @db.Timestamptz(3)
+  optedOutAt         DateTime? @db.Timestamptz(3)
+  lastInboundAt      DateTime? @db.Timestamptz(3)
+  lastMenuSentAt     DateTime? @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant             Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments       Appointment[]
+  orders             Order[]
+  outboundMessages   OutboundMessage[]
+
+  @@unique([tenantId, waId])
+  @@unique([tenantId, id])
+  @@map("customers")
+}
+
+model Service {
+  id              String   @id @default(uuid()) @db.Uuid
+  tenantId        String   @db.Uuid
+  name            String   @db.VarChar(60)
+  durationMinutes Int
+  priceCents      Int
+  active          Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments    Appointment[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, active, sortOrder])
+  @@map("services")
+}
+
+model Product {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @db.Uuid
+  name           String   @db.VarChar(60)
+  description    String?  @db.VarChar(200)
+  priceCents     Int
+  /// Shown after the price, e.g. "per day" for decor hire.
+  priceUnit      String?  @db.VarChar(20)
+  /// `retailer_id` of the matching item in the Meta catalog.
+  metaRetailerId String?  @db.VarChar(100)
+  active         Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderItems     OrderItem[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, metaRetailerId])
+  @@index([tenantId, active, sortOrder])
+  @@map("products")
+}
+
+model Appointment {
+  id         String            @id @default(uuid()) @db.Uuid
+  tenantId   String            @db.Uuid
+  customerId String            @db.Uuid
+  serviceId  String?           @db.Uuid
+  status     AppointmentStatus @default(PENDING)
+  startsAt   DateTime          @db.Timestamptz(3)
+  endsAt     DateTime          @db.Timestamptz(3)
+  totalCents Int               @default(0)
+  createdAt  DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime          @updatedAt @db.Timestamptz(3)
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer   Customer @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Cascade)
+  service    Service? @relation(fields: [tenantId, serviceId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, status, startsAt])
+  @@index([tenantId, customerId])
+  @@map("appointments")
+}
+
+model Order {
+  id         String      @id @default(uuid()) @db.Uuid
+  tenantId   String      @db.Uuid
+  customerId String      @db.Uuid
+  /// Short human-friendly reference quoted to the customer.
+  reference  String      @db.VarChar(12)
+  status     OrderStatus @default(PENDING)
+  totalCents Int
+  createdAt  DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime    @updatedAt @db.Timestamptz(3)
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer   Customer    @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Cascade)
+  items      OrderItem[]
+
+  @@unique([tenantId, reference])
+  @@unique([tenantId, id])
+  @@index([tenantId, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String @id @default(uuid()) @db.Uuid
+  tenantId       String @db.Uuid
+  orderId        String @db.Uuid
+  productId      String @db.Uuid
+  quantity       Int
+  unitPriceCents Int
+
+  tenant         Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order          Order   @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
+  product        Product @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, orderId])
+  @@map("order_items")
+}
+
+/// Prepaid ZAR balance that funds the tenant's WhatsApp message costs.
+model TenantWallet {
+  tenantId                 String    @id @db.Uuid
+  balanceCents             Int       @default(0)
+  lowBalanceThresholdCents Int       @default(1000)
+  /// Last top-up warning sent to the owner; reset by a top-up above threshold.
+  lowBalanceNotifiedAt     DateTime? @db.Timestamptz(3)
+  updatedAt                DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant                   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_wallets")
+}
+
+/// Append-only ledger. Unique `outboundMessageId` makes a message debit idempotent.
+model WalletTransaction {
+  id                String                @id @default(uuid()) @db.Uuid
+  tenantId          String                @db.Uuid
+  type              WalletTransactionType
+  /// Signed: positive for top-ups, negative for debits.
+  amountCents       Int
+  balanceAfterCents Int
+  outboundMessageId String?               @unique @db.Uuid
+  reference         String?               @db.VarChar(64)
+  createdAt         DateTime              @default(now()) @db.Timestamptz(3)
+
+  tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  outboundMessage   OutboundMessage? @relation(fields: [outboundMessageId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@map("wallet_transactions")
+}
+
+/// Idempotency ledger for Meta webhook redeliveries. Holds no message content;
+/// prune rows older than 30 days (see pruneInboundLedger).
+model InboundMessage {
+  wamid       String   @id @db.VarChar(128)
+  tenantId    String   @db.Uuid
+  messageType String   @db.VarChar(24)
+  receivedAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([receivedAt])
+  @@map("inbound_messages")
+}
+
+/// Cost log of every message sent. Holds no message content.
+model OutboundMessage {
+  id         String          @id @default(uuid()) @db.Uuid
+  tenantId   String          @db.Uuid
+  customerId String?         @db.Uuid
+  wamid      String          @unique @db.VarChar(128)
+  category   MessageCategory
+  /// e.g. "interactive:button", "interactive:list", "text", "template:wallet_low_balance"
+  kind       String          @db.VarChar(64)
+  costCents  Int
+  inReplyTo  String?         @db.VarChar(128)
+  createdAt  DateTime        @default(now()) @db.Timestamptz(3)
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer           Customer?           @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  walletTransaction  WalletTransaction?
+
+  @@index([tenantId, createdAt])
+  @@map("outbound_messages")
+}

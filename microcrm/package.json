@@ -1,0 +1,37 @@
+{
+  "name": "whatsapp-microcrm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-tenant, WhatsApp-native micro-CRM for South African SMEs",
+  "main": "dist/server.js",
+  "engines": {
+    "node": ">=20.10"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3",
+    "express": "4.22.3",
+    "pino": "10.4.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/express": "4.17.25",
+    "@types/node": "22.15.30",
+    "@types/supertest": "6.0.3",
+    "prisma": "6.19.3",
+    "supertest": "7.1.4",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}
