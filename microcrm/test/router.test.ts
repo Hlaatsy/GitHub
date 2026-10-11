@@ -46,6 +46,31 @@ describe('GET /webhooks/whatsapp', () => {
     expect(res.text).toBe('1158201444');
   });
 
+  it('returns the challenge as text/plain, not HTML', async () => {
+    const { app } = setup();
+    const res = await request(app)
+      .get('/webhooks/whatsapp')
+      .query({ 'hub.mode': 'subscribe', 'hub.verify_token': VERIFY_TOKEN, 'hub.challenge': '42' });
+    expect(res.headers['content-type']).toMatch(/^text\/plain/);
+  });
+
+  it('refuses challenges that are not plain tokens (reflected XSS)', async () => {
+    const { app } = setup();
+    const res = await request(app)
+      .get('/webhooks/whatsapp')
+      .query({ 'hub.mode': 'subscribe', 'hub.verify_token': VERIFY_TOKEN, 'hub.challenge': '<script>alert(1)</script>' });
+    expect(res.status).toBe(403);
+    expect(res.text).not.toContain('<script>');
+  });
+
+  it('refuses repeated or nested query parameters', async () => {
+    const { app } = setup();
+    const base = `hub.mode=subscribe&hub.verify_token=${VERIFY_TOKEN}`;
+    expect((await request(app).get(`/webhooks/whatsapp?${base}&hub.challenge=1&hub.challenge=2`)).status).toBe(403);
+    expect((await request(app).get(`/webhooks/whatsapp?${base}&hub.verify_token=x&hub.challenge=1`)).status).toBe(403);
+    expect((await request(app).get(`/webhooks/whatsapp?${base}&hub.challenge[a]=1`)).status).toBe(403);
+  });
+
   it('refuses a wrong verify token', async () => {
     const { app } = setup();
     const res = await request(app)
