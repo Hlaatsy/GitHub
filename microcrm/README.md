@@ -3,14 +3,26 @@
 Multi-tenant WhatsApp booking and ordering for South African SMEs, with prepaid
 message billing and Ozow pay-by-bank deposits.
 
-## Run
+## Deploy (Ubuntu 22.04 / 24.04)
+
+Point an A record at the server, clone this repository onto it, then run:
 
 ```sh
-cp .env.example .env   # fill in secrets
-docker compose up -d --build
+sudo ./microcrm/deploy/deploy.sh
 ```
 
-Put `deploy/nginx.conf` in front of it (TLS on 443, app on 127.0.0.1:5000).
+The script does the following:
+- Installs Docker (Compose v2), nginx and certbot.
+- Locks the firewall down to SSH, 80 and 443.
+- Generates `.env` with a random database password and webhook verify token.
+- Gets a Let's Encrypt certificate using the webroot method, so renewals work without stopping nginx.
+- Starts the stack.
+- Schedules nightly database backups.
+
+It finishes by checking the app end to end over TLS, including Meta's webhook handshake.
+Re-run it to deploy updates. Existing secrets, data and certificates are kept.
+
+Local development: `cp .env.example .env`, then `docker compose up -d --build`.
 
 Register these webhooks:
 

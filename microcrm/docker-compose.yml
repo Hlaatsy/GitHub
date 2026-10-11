@@ -1,9 +1,17 @@
 # Secrets live in .env next to this file (never committed); see .env.example.
 
+# Rotated container logs: caps disk use and how long log data is retained.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   api:
     build: .
     container_name: whatsapp_crm_api
+    logging: *logging
     restart: unless-stopped
     env_file: .env
     environment:
@@ -21,6 +29,7 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: whatsapp_crm_db
+    logging: *logging
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -38,6 +47,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: whatsapp_crm_cache
+    logging: *logging
     restart: unless-stopped
     volumes:
       - redis_data:/data
