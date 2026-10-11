@@ -1,0 +1,47 @@
+# Secrets live in .env next to this file (never committed); see .env.example.
+
+services:
+  api:
+    build: .
+    container_name: whatsapp_crm_api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+    # Loopback only: the public reaches the app exclusively through nginx/TLS.
+    ports:
+      - "127.0.0.1:5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Personal information stays on this host's volume (POPIA: local storage).
+  postgres:
+    image: postgres:15-alpine
+    container_name: whatsapp_crm_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Not used by the app yet: reserved for sharing rate limits across API instances.
+  redis:
+    image: redis:7-alpine
+    container_name: whatsapp_crm_cache
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:

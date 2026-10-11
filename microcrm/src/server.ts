@@ -1,9 +1,11 @@
 import { ConversationHandlers } from './bot/handlers';
-import { loadEnv } from './config/env';
+import { loadEnv, paymentsEnv } from './config/env';
 import { createApp } from './app';
 import { logger } from './lib/logger';
 import { createPrismaClient } from './lib/prisma';
 import { SlidingWindowLimiter } from './lib/rateLimiter';
+import { OzowGateway } from './payments/ozow';
+import { PaymentService } from './payments/PaymentService';
 import { CustomerRepository } from './services/customers';
 import { InboundLedger } from './services/inboundLedger';
 import { OutboundMessenger } from './services/messenger';
@@ -14,6 +16,7 @@ import { WhatsAppService } from './whatsapp/WhatsAppService';
 
 async function main(): Promise<void> {
   const env = loadEnv();
+  const paymentConfig = paymentsEnv(env);
   const prisma = createPrismaClient();
 
   const whatsapp = new WhatsAppService({
@@ -24,25 +27,59 @@ async function main(): Promise<void> {
     logger,
   });
   const customers = new CustomerRepository(prisma);
+  const tenants = new TenantDirectory(prisma, logger);
   const limiter = new SlidingWindowLimiter(env.CUSTOMER_MAX_EVENTS_PER_MINUTE, 60_000);
+  const messenger = new OutboundMessenger({
+    prisma,
+    whatsapp,
+    wallet: new WalletService(prisma),
+    logger,
+    costs: {
+      serviceCents: env.COST_SERVICE_MESSAGE_CENTS,
+      utilityTemplateCents: env.COST_UTILITY_TEMPLATE_CENTS,
+    },
+    lowBalanceTemplate: env.WA_LOW_BALANCE_TEMPLATE,
+    templateLanguage: env.WA_TEMPLATE_LANGUAGE,
+  });
+
+  const payments = paymentConfig
+    ? new PaymentService(
+        {
+          prisma,
+          gateway: new OzowGateway({ ...paymentConfig.ozow, logger }),
+          messenger,
+          tenants,
+          logger,
+        },
+        {
+          publicBaseUrl: paymentConfig.publicBaseUrl,
+          linkTtlMinutes: env.PAYMENT_LINK_TTL_MINUTES,
+          maxAmountCents: env.PAYMENT_MAX_CENTS,
+          confirmationTemplate: env.WA_PAYMENT_CONFIRMED_TEMPLATE,
+          templateLanguage: env.WA_TEMPLATE_LANGUAGE,
+        },
+      )
+    : null;
 
   const processor = new WebhookProcessor({
-    tenants: new TenantDirectory(prisma, logger),
+    tenants,
     customers,
     ledger: new InboundLedger(prisma),
-    handlers: new ConversationHandlers(prisma, customers, { menuCooldownMs: env.MENU_COOLDOWN_SECONDS * 1000 }),
-    messenger: new OutboundMessenger({
-      prisma,
-      whatsapp,
-      wallet: new WalletService(prisma),
-      logger,
-      costs: {
-        serviceCents: env.COST_SERVICE_MESSAGE_CENTS,
-        utilityTemplateCents: env.COST_UTILITY_TEMPLATE_CENTS,
-      },
-      lowBalanceTemplate: env.WA_LOW_BALANCE_TEMPLATE,
-      templateLanguage: env.WA_TEMPLATE_LANGUAGE,
+    handlers: new ConversationHandlers(prisma, customers, {
+      menuCooldownMs: env.MENU_COOLDOWN_SECONDS * 1000,
+      ...(payments
+        ? {
+            payments: {
+              service: payments,
+              holdMinutes: env.PAYMENT_LINK_TTL_MINUTES,
+              requestTemplate: env.WA_PAYMENT_REQUEST_TEMPLATE,
+              templateLanguage: env.WA_TEMPLATE_LANGUAGE,
+              logger,
+            },
+          }
+        : {}),
     }),
+    messenger,
     whatsapp,
     limiter,
     logger,
@@ -55,15 +92,37 @@ async function main(): Promise<void> {
     verifyToken: env.WA_VERIFY_TOKEN,
     sink: processor,
     logger,
+    ...(payments && paymentConfig ? { payments: { service: payments, allowedIps: paymentConfig.allowedIps } } : {}),
   });
 
+  // Catches missed settlement webhooks, expires abandoned links and retries
+  // unsent confirmations. Safe to run on every instance: settlement is idempotent.
+  let reconciling = false;
+  const reconciler = payments
+    ? setInterval(() => {
+        if (reconciling) return;
+        reconciling = true;
+        payments
+          .reconcile()
+          .then((summary) => {
+            if (summary.checked || summary.notified) logger.info({ summary }, 'payment reconciliation');
+          })
+          .catch((err: unknown) => logger.error({ err }, 'payment reconciliation failed'))
+          .finally(() => {
+            reconciling = false;
+          });
+      }, env.PAYMENT_RECONCILE_INTERVAL_SECONDS * 1000)
+    : null;
+  reconciler?.unref();
+
   const server = app.listen(env.PORT, () => {
-    logger.info({ port: env.PORT, graphVersion: env.WA_GRAPH_VERSION }, 'micro-crm listening');
+    logger.info({ port: env.PORT, graphVersion: env.WA_GRAPH_VERSION, payments: Boolean(payments) }, 'micro-crm listening');
   });
 
   const shutdown = (signal: string) => {
     logger.info({ signal }, 'shutting down');
     limiter.stop();
+    if (reconciler) clearInterval(reconciler);
     server.close(() => {
       prisma
         .$disconnect()

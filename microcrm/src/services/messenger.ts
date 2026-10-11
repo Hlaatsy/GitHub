@@ -29,6 +29,18 @@ export type ReplyOutcome =
   | { status: 'skipped'; reason: 'WALLET_EMPTY'; topUpWarning: TopUpWarning }
   | { status: 'failed'; error: string };
 
+export interface SendOptions {
+  now: Date;
+  /** Inbound wamid this message answers, if any. */
+  inReplyTo?: string;
+  /**
+   * Transactional messages the customer has already paid for (e.g. payment
+   * confirmations) go out even if the wallet is empty; the debit then takes
+   * the balance negative and the next top-up settles it.
+   */
+  essential?: boolean;
+}
+
 /**
  * The only path that sends a customer-facing message: checks the prepaid
  * wallet, sends, records the cost and debits it.
@@ -36,12 +48,21 @@ export type ReplyOutcome =
 export class OutboundMessenger {
   constructor(private readonly deps: OutboundMessengerDeps) {}
 
-  async reply(
+  reply(
     tenant: TenantProfile,
     customer: CustomerContext,
     message: OutboundMessage,
     inReplyTo: string,
     now: Date,
+  ): Promise<ReplyOutcome> {
+    return this.send(tenant, customer, message, { now, inReplyTo });
+  }
+
+  async send(
+    tenant: TenantProfile,
+    customer: Pick<CustomerContext, 'id' | 'waId'>,
+    message: OutboundMessage,
+    { now, inReplyTo, essential = false }: SendOptions,
   ): Promise<ReplyOutcome> {
     const { prisma, whatsapp, wallet, logger } = this.deps;
     const category: MessageCategory = message.type === 'template' ? 'UTILITY' : 'SERVICE';
@@ -49,7 +70,7 @@ export class OutboundMessenger {
     const log = logger.child({ tenantId: tenant.id, to: maskMsisdn(customer.waId), kind: describeMessage(message) });
 
     const funds = await wallet.balance(tenant.id);
-    if (!funds || funds.balanceCents < costCents) {
+    if (!funds || (!essential && funds.balanceCents < costCents)) {
       const warning = wallet.warning(
         tenant.id,
         funds?.balanceCents ?? 0,
@@ -77,7 +98,7 @@ export class OutboundMessenger {
         category,
         kind: describeMessage(message),
         costCents,
-        inReplyTo,
+        inReplyTo: inReplyTo ?? null,
       },
     });
     const billing = await wallet.debitForMessage(tenant.id, costCents, record.id, now);

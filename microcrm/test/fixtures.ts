@@ -17,6 +17,8 @@ export function salonTenant(overrides: Partial<TenantProfile> = {}): TenantProfi
     bookingCapacity: 1,
     minLeadMinutes: 60,
     autoConfirmBookings: false,
+    depositBps: 0,
+    waDisplayPhone: '+27 11 000 0001',
     addressLine: '12 Vilakazi St, Soweto',
     mapsUrl: null,
     mediaDownloadEnabled: false,

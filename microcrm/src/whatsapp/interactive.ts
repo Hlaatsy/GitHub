@@ -1,5 +1,7 @@
 import {
   type ButtonInteractive,
+  type CtaUrlInteractive,
+  type InteractiveObject,
   type ListInteractive,
   type ListRow,
   type OutboundMessage,
@@ -23,6 +25,8 @@ export const LIMITS = {
   ROW_DESCRIPTION: 72,
   ROW_ID: 200,
   MAX_PRODUCTS: 30,
+  CTA_DISPLAY_TEXT: 20,
+  TEMPLATE_PARAM: 1024,
 } as const;
 
 export class InteractiveSpecError extends Error {
@@ -163,7 +167,24 @@ export function productList(input: ProductListInput): ProductListInteractive {
   };
 }
 
-export function asInteractive(interactive: ButtonInteractive | ListInteractive | ProductListInteractive): OutboundMessage {
+export interface CtaUrlInput extends CommonParts {
+  displayText: string;
+  url: string;
+}
+
+export function ctaUrl(input: CtaUrlInput): CtaUrlInteractive {
+  const url = new URL(input.url);
+  if (url.protocol !== 'https:') {
+    throw new InteractiveSpecError('CTA URLs must use https');
+  }
+  return {
+    type: 'cta_url',
+    ...commonParts(input),
+    action: { name: 'cta_url', parameters: { display_text: clip(input.displayText, LIMITS.CTA_DISPLAY_TEXT), url: url.toString() } },
+  };
+}
+
+export function asInteractive(interactive: InteractiveObject): OutboundMessage {
   return { type: 'interactive', interactive };
 }
 

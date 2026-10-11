@@ -28,6 +28,8 @@ enum IndustryType {
 
 enum AppointmentStatus {
   PENDING
+  /// Slot held until `holdExpiresAt` while the customer pays a deposit.
+  PENDING_DEPOSIT
   CONFIRMED
   CANCELLED
   COMPLETED
@@ -36,6 +38,7 @@ enum AppointmentStatus {
 
 enum OrderStatus {
   PENDING
+  PENDING_DEPOSIT
   CONFIRMED
   FULFILLED
   CANCELLED
@@ -45,6 +48,18 @@ enum WalletTransactionType {
   TOP_UP
   MESSAGE_DEBIT
   ADJUSTMENT
+}
+
+enum PaymentProvider {
+  OZOW
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  EXPIRED
 }
 
 enum MessageCategory {
@@ -78,6 +93,9 @@ model Tenant {
   bookingCapacity      Int          @default(1)
   minLeadMinutes       Int          @default(60)
   autoConfirmBookings  Boolean      @default(false)
+  /// Share of the total collected upfront via pay-by-bank, in basis points.
+  /// 0 disables payments; 10000 collects the full amount.
+  depositBps           Int          @default(0)
 
   addressLine          String?      @db.VarChar(200)
   mapsUrl              String?      @db.VarChar(500)
@@ -98,6 +116,7 @@ model Tenant {
   orderItems           OrderItem[]
   inboundMessages      InboundMessage[]
   outboundMessages     OutboundMessage[]
+  paymentIntents       PaymentIntent[]
 
   @@map("tenants")
 }
@@ -122,6 +141,7 @@ model Customer {
   appointments       Appointment[]
   orders             Order[]
   outboundMessages   OutboundMessage[]
+  paymentIntents     PaymentIntent[]
 
   @@unique([tenantId, waId])
   @@unique([tenantId, id])
@@ -180,13 +200,17 @@ model Appointment {
   startsAt   DateTime          @db.Timestamptz(3)
   endsAt     DateTime          @db.Timestamptz(3)
   totalCents Int               @default(0)
+  /// While PENDING_DEPOSIT, the slot only counts as taken until this instant.
+  holdExpiresAt DateTime?      @db.Timestamptz(3)
   createdAt  DateTime          @default(now()) @db.Timestamptz(3)
   updatedAt  DateTime          @updatedAt @db.Timestamptz(3)
 
   tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   customer   Customer @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Cascade)
   service    Service? @relation(fields: [tenantId, serviceId], references: [tenantId, id], onDelete: Restrict)
+  paymentIntents PaymentIntent[]
 
+  @@unique([tenantId, id])
   @@index([tenantId, status, startsAt])
   @@index([tenantId, customerId])
   @@map("appointments")
@@ -206,6 +230,7 @@ model Order {
   tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   customer   Customer    @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Cascade)
   items      OrderItem[]
+  paymentIntents PaymentIntent[]
 
   @@unique([tenantId, reference])
   @@unique([tenantId, id])
@@ -295,4 +320,45 @@ model OutboundMessage {
 
   @@index([tenantId, createdAt])
   @@map("outbound_messages")
+}
+
+/// One pay-by-bank attempt for exactly one appointment or order (enforced by
+/// a CHECK constraint in the migration). Holds no bank or card details: the
+/// customer pays on the provider's hosted page.
+model PaymentIntent {
+  id                    String          @id @default(uuid()) @db.Uuid
+  tenantId              String          @db.Uuid
+  customerId            String          @db.Uuid
+  appointmentId         String?         @db.Uuid
+  orderId               String?         @db.Uuid
+  provider              PaymentProvider
+  /// Our merchant reference sent to the provider; echoed back in notifications.
+  reference             String          @unique @db.VarChar(50)
+  /// Unguessable token behind the short link https://<domain>/pay/<token>.
+  linkToken             String          @unique @db.VarChar(64)
+  amountCents           Int
+  currency              String          @default("ZAR") @db.Char(3)
+  status                PaymentStatus   @default(PENDING)
+  providerPaymentId     String?         @db.VarChar(100)
+  providerTransactionId String?         @db.VarChar(100)
+  checkoutUrl           String?         @db.VarChar(1000)
+  expiresAt             DateTime        @db.Timestamptz(3)
+  settledAt             DateTime?       @db.Timestamptz(3)
+  /// Set when the confirmation template went out; the reconciler retries until it is.
+  customerNotifiedAt    DateTime?       @db.Timestamptz(3)
+  /// Paid, but needs a human: e.g. the booking was cancelled or the slot overbooked meanwhile.
+  reviewRequired        Boolean         @default(false)
+  failureReason         String?         @db.VarChar(200)
+  createdAt             DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime        @updatedAt @db.Timestamptz(3)
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer    Customer     @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  appointment Appointment? @relation(fields: [tenantId, appointmentId], references: [tenantId, id], onDelete: Restrict)
+  order       Order?       @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@index([tenantId, appointmentId])
+  @@index([tenantId, orderId])
+  @@map("payment_intents")
 }

@@ -1,5 +1,8 @@
 import express, { type Express } from 'express';
 import { type Logger } from './lib/logger';
+import { createPayLinkRouter } from './payments/payLink.router';
+import { createPaymentsWebhookRouter } from './payments/payments.router';
+import { type PaymentService } from './payments/PaymentService';
 import { type WebhookSink } from './webhooks/processor';
 import { createWhatsAppWebhookRouter } from './webhooks/whatsapp.router';
 
@@ -8,6 +11,10 @@ export interface AppOptions {
   verifyToken: string;
   sink: WebhookSink;
   logger: Logger;
+  payments?: {
+    service: Pick<PaymentService, 'handleNotification' | 'resolveLink' | 'describeReturn'>;
+    allowedIps?: ReadonlySet<string>;
+  };
 }
 
 export function createApp(options: AppOptions): Express {
@@ -21,6 +28,14 @@ export function createApp(options: AppOptions): Express {
 
   // Raw-body route first: it must see the request before any JSON parser.
   app.use('/webhooks/whatsapp', createWhatsAppWebhookRouter(options));
+  if (options.payments) {
+    const { service, allowedIps } = options.payments;
+    app.use(
+      '/webhooks/payments',
+      createPaymentsWebhookRouter({ payments: service, logger: options.logger, ...(allowedIps ? { allowedIps } : {}) }),
+    );
+    app.use('/pay', createPayLinkRouter({ payments: service, logger: options.logger }));
+  }
 
   app.use(express.json({ limit: '64kb' }));
   app.use((_req, res) => {

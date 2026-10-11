@@ -153,12 +153,21 @@ export interface ProductListInteractive {
   action: { catalog_id: string; sections: ProductSection[] };
 }
 
-export type InteractiveObject = ButtonInteractive | ListInteractive | ProductListInteractive;
-
-export interface TemplateComponent {
-  type: 'body';
-  parameters: Array<{ type: 'text'; text: string }>;
+/** Single call-to-action URL button; free-form, so it needs no template approval. */
+export interface CtaUrlInteractive {
+  type: 'cta_url';
+  header?: TextHeader;
+  body: TextObject;
+  footer?: TextObject;
+  action: { name: 'cta_url'; parameters: { display_text: string; url: string } };
 }
+
+export type InteractiveObject = ButtonInteractive | ListInteractive | ProductListInteractive | CtaUrlInteractive;
+
+export type TemplateComponent =
+  | { type: 'body'; parameters: Array<{ type: 'text'; text: string }> }
+  /** Fills the `{{1}}` suffix of a URL button whose base URL was approved with the template. */
+  | { type: 'button'; sub_type: 'url'; index: string; parameters: Array<{ type: 'text'; text: string }> };
 
 export type OutboundMessage =
   | { type: 'interactive'; interactive: InteractiveObject }

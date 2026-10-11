@@ -17,6 +17,9 @@ export interface TenantProfile {
   bookingCapacity: number;
   minLeadMinutes: number;
   autoConfirmBookings: boolean;
+  /** Upfront payment share in basis points; 0 means no online payment. */
+  depositBps: number;
+  waDisplayPhone: string;
   addressLine: string | null;
   mapsUrl: string | null;
   mediaDownloadEnabled: boolean;
@@ -51,6 +54,12 @@ export class TenantDirectory {
     return value;
   }
 
+  /** Uncached: used off the hot path (payment settlement). */
+  async byId(tenantId: string): Promise<TenantProfile | null> {
+    const row = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    return row ? this.toProfile(row) : null;
+  }
+
   invalidate(phoneNumberId: string): void {
     this.cache.delete(phoneNumberId);
   }
@@ -74,6 +83,8 @@ export class TenantDirectory {
       bookingCapacity: row.bookingCapacity,
       minLeadMinutes: row.minLeadMinutes,
       autoConfirmBookings: row.autoConfirmBookings,
+      depositBps: row.depositBps,
+      waDisplayPhone: row.waDisplayPhone,
       addressLine: row.addressLine,
       mapsUrl: row.mapsUrl,
       mediaDownloadEnabled: row.mediaDownloadEnabled,
