@@ -80,6 +80,32 @@ describe('POST /webhooks/whatsapp', () => {
     expect(process).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['missing', undefined],
+    ['without the sha256= prefix', createHmac('sha256', APP_SECRET).update(payload).digest('hex')],
+    ['truncated', 'sha256=abc'],
+    ['non-hex', `sha256=${'zz'.repeat(32)}`],
+    ['over-long', `${sign(payload)}00`],
+  ])('answers 401, never 500, for a %s signature header', async (_case, header) => {
+    const { app, process } = setup();
+    const req = request(app).post('/webhooks/whatsapp').set('Content-Type', 'application/json');
+    const res = await (header === undefined ? req : req.set('X-Hub-Signature-256', header)).send(payload);
+    expect(res.status).toBe(401);
+    expect(process).not.toHaveBeenCalled();
+  });
+
+  it('verifies the raw bytes whatever the content type', async () => {
+    const { app, process } = setup();
+    const res = await request(app)
+      .post('/webhooks/whatsapp')
+      .set('Content-Type', 'text/plain')
+      .set('X-Hub-Signature-256', sign(payload))
+      .send(payload);
+    expect(res.status).toBe(200);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(process).toHaveBeenCalledOnce();
+  });
+
   it('rejects signed bodies that are not WhatsApp webhooks', async () => {
     const { app, process } = setup();
     const body = JSON.stringify({ object: 'page', entry: [] });
