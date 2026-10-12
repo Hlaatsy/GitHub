@@ -36,6 +36,9 @@ async function main(): Promise<number> {
       for (const issue of parsed.error.issues) console.error(`✘ ${issue.path.join('.') || '(file)'}: ${issue.message}`);
       return 1;
     }
+    // WhatsApp list rows show at most 24 characters; longer names arrive cut short.
+    const long = [...parsed.data.services, ...parsed.data.products].filter((item) => item.name.length > 24);
+    for (const item of long) console.warn(`⚠ "${item.name}" is ${item.name.length} characters; WhatsApp lists show only the first 24.`);
     const prisma = createPrismaClient();
     try {
       const result = await applyTenantFile(prisma, parsed.data);

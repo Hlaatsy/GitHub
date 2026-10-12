@@ -8,23 +8,81 @@
   "addressLine": "Collections: 14 Jacaranda Lane, Hatfield, Pretoria",
   "mapsUrl": "https://maps.google.com/?q=Hatfield+Pretoria",
   "workingHours": {
-    "mon": [{ "open": "09:00", "close": "17:00" }],
-    "tue": [{ "open": "09:00", "close": "17:00" }],
-    "wed": [{ "open": "09:00", "close": "17:00" }],
-    "thu": [{ "open": "09:00", "close": "17:00" }],
-    "fri": [{ "open": "09:00", "close": "17:00" }],
-    "sat": [{ "open": "09:00", "close": "13:00" }],
+    "mon": [
+      {
+        "open": "09:00",
+        "close": "17:00"
+      }
+    ],
+    "tue": [
+      {
+        "open": "09:00",
+        "close": "17:00"
+      }
+    ],
+    "wed": [
+      {
+        "open": "09:00",
+        "close": "17:00"
+      }
+    ],
+    "thu": [
+      {
+        "open": "09:00",
+        "close": "17:00"
+      }
+    ],
+    "fri": [
+      {
+        "open": "09:00",
+        "close": "17:00"
+      }
+    ],
+    "sat": [
+      {
+        "open": "09:00",
+        "close": "13:00"
+      }
+    ],
     "sun": []
   },
   "depositPercent": 100,
   "products": [
-    { "name": "Soy Candle Vanilla Rooibos", "description": "200g, 40-hour burn", "price": 180 },
-    { "name": "Reed Diffuser Fynbos", "description": "100ml, 8 reeds", "price": 220 },
-    { "name": "Room Spray Lemongrass", "description": "100ml", "price": 95 },
-    { "name": "Body Butter Marula", "description": "200ml whipped shea", "price": 150 },
-    { "name": "Wax Melts Mixed", "description": "Pack of 6", "price": 65 },
-    { "name": "Linen Spray Lavender", "description": "100ml", "price": 85 },
-    { "name": "Gift Box Candle + Diffuser", "description": "Gift wrapped, with card", "price": 360 }
+    {
+      "name": "Candle Vanilla Rooibos",
+      "description": "200g, 40-hour burn",
+      "price": 180
+    },
+    {
+      "name": "Reed Diffuser Fynbos",
+      "description": "100ml, 8 reeds",
+      "price": 220
+    },
+    {
+      "name": "Room Spray Lemongrass",
+      "description": "100ml",
+      "price": 95
+    },
+    {
+      "name": "Body Butter Marula",
+      "description": "200ml whipped shea",
+      "price": 150
+    },
+    {
+      "name": "Wax Melts Mixed",
+      "description": "Pack of 6",
+      "price": 65
+    },
+    {
+      "name": "Linen Spray Lavender",
+      "description": "100ml",
+      "price": 85
+    },
+    {
+      "name": "Candle & Diffuser Gift",
+      "description": "Gift wrapped, with card",
+      "price": 360
+    }
   ],
   "openingWalletBalance": 50
 }
