@@ -35,6 +35,17 @@ describe('main menu', () => {
       },
     });
   });
+
+  it.each([
+    ['SALON', '📅 Book Spot/Order'],
+    ['DECOR_HIRE', '📅 Hire Items'],
+    ['PRODUCT_SELLER', '🛍️ Shop Now'],
+  ] as const)('words the first button for a %s business', (industry, title) => {
+    const menu = mainMenu(salonTenant({ industry }), null);
+    if (menu.type !== 'interactive' || menu.interactive.type !== 'button') throw new Error('expected buttons');
+    expect(menu.interactive.action.buttons[0]?.reply).toEqual({ id: 'menu:book', title });
+    expect(title.length).toBeLessThanOrEqual(20);
+  });
 });
 
 describe('builders enforce Meta limits', () => {

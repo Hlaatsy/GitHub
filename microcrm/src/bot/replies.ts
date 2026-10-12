@@ -27,6 +27,13 @@ export interface ProductSummary {
   metaRetailerId: string | null;
 }
 
+/** First menu button, worded for what the business actually does (titles max 20 characters). */
+const BOOK_BUTTON_TITLES: Record<TenantProfile['industry'], string> = {
+  SALON: '📅 Book Spot/Order',
+  DECOR_HIRE: '📅 Hire Items',
+  PRODUCT_SELLER: '🛍️ Shop Now',
+};
+
 export function mainMenu(tenant: TenantProfile, customerName: string | null): OutboundMessage {
   const firstName = customerName?.split(' ', 1)[0];
   return asInteractive(
@@ -35,7 +42,7 @@ export function mainMenu(tenant: TenantProfile, customerName: string | null): Ou
       body: `Hi${firstName ? ` ${firstName}` : ''} 👋 How can we help? Tap an option below.`,
       footer: 'Reply STOP to opt out',
       buttons: [
-        { id: MENU_BUTTONS.BOOK, title: '📅 Book Spot/Order' },
+        { id: MENU_BUTTONS.BOOK, title: BOOK_BUTTON_TITLES[tenant.industry] },
         { id: MENU_BUTTONS.CATALOG, title: '🧾 Pricing/Catalog' },
         { id: MENU_BUTTONS.LOCATION, title: '📍 Location/Hours' },
       ],
