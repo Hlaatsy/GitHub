@@ -4,7 +4,10 @@ import { createApp } from './app';
 import { logger } from './lib/logger';
 import { createPrismaClient } from './lib/prisma';
 import { SlidingWindowLimiter } from './lib/rateLimiter';
+import { type PaymentGateway } from './payments/gateway';
 import { OzowGateway } from './payments/ozow';
+import { PayFastGateway } from './payments/payfast';
+import { PaystackGateway } from './payments/paystack';
 import { PaymentService } from './payments/PaymentService';
 import { CustomerRepository } from './services/customers';
 import { InboundLedger } from './services/inboundLedger';
@@ -20,6 +23,24 @@ import { OnboardingService } from './onboarding/OnboardingService';
 import { WebhookProcessor } from './webhooks/processor';
 import { TemplateService } from './whatsapp/templates/TemplateService';
 import { WhatsAppService } from './whatsapp/WhatsAppService';
+
+function buildGateways(config: NonNullable<ReturnType<typeof paymentsEnv>>): Partial<Record<'OZOW' | 'PAYFAST' | 'PAYSTACK', PaymentGateway>> {
+  return {
+    ...(config.ozow ? { OZOW: new OzowGateway({ ...config.ozow, logger }) } : {}),
+    ...(config.payfast ? { PAYFAST: new PayFastGateway({ ...config.payfast, logger }) } : {}),
+    ...(config.paystack
+      ? {
+          PAYSTACK: new PaystackGateway({
+            ...config.paystack,
+            logger,
+            // Paystack requires an email; WhatsApp gives none. A per-payment
+            // placeholder on our own domain carries no personal information.
+            placeholderEmail: (reference) => `pay-${reference.toLowerCase()}@${config.paystack?.placeholderEmailDomain}`,
+          }),
+        }
+      : {}),
+  };
+}
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -55,7 +76,8 @@ async function main(): Promise<void> {
     ? new PaymentService(
         {
           prisma,
-          gateway: new OzowGateway({ ...paymentConfig.ozow, logger }),
+          gateways: buildGateways(paymentConfig),
+          defaultProvider: paymentConfig.defaultProvider,
           messenger,
           tenants,
           logger,

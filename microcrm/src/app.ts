@@ -1,10 +1,12 @@
+import { type PaymentProvider } from '@prisma/client';
 import express, { type Express } from 'express';
 import { type Logger } from './lib/logger';
 import { type createDashboardRouters } from './dashboard/dashboard.router';
 import { createOnboardingRouter } from './onboarding/onboarding.router';
 import { type OnboardingService } from './onboarding/OnboardingService';
 import { createPayLinkRouter } from './payments/payLink.router';
-import { createPaymentsWebhookRouter } from './payments/payments.router';
+import { createPaymentWebhookHandler } from './payments/payments.router';
+import { SETTLEMENT_PATHS } from './payments/PaymentService';
 import { type PaymentService } from './payments/PaymentService';
 import { type WebhookSink } from './webhooks/processor';
 import { createWhatsAppWebhookHandlers } from './webhooks/whatsapp.controller';
@@ -15,8 +17,9 @@ export interface AppOptions {
   sink: WebhookSink;
   logger: Logger;
   payments?: {
-    service: Pick<PaymentService, 'handleNotification' | 'resolveLink' | 'describeReturn'>;
-    allowedIps?: ReadonlySet<string>;
+    service: Pick<PaymentService, 'handleNotification' | 'resolveLink' | 'describeReturn' | 'providers'>;
+    /** Per-provider source-IP allowlists for the settlement webhooks. */
+    allowedIps?: Partial<Record<PaymentProvider, ReadonlySet<string>>>;
   };
   onboarding?: Pick<OnboardingService, 'resolve' | 'checklist' | 'sendTestPayment'>;
   dashboard?: ReturnType<typeof createDashboardRouters>;
@@ -40,12 +43,30 @@ export function createApp(options: AppOptions): Express {
   app.get('/webhooks/whatsapp', whatsapp.verifyMetaWebhookHandshake);
   app.post('/webhooks/whatsapp', whatsapp.captureRawBody, whatsapp.verifyWhatsAppSignature, whatsapp.handleWhatsAppWebhook);
 
+
+  // Payment settlement callbacks, one per configured gateway. Each reads its
+  // own raw body for signature checks, so they also stay above the parsers.
   if (options.payments) {
-    const { service, allowedIps } = options.payments;
-    app.use(
-      '/webhooks/payments',
-      createPaymentsWebhookRouter({ payments: service, logger: options.logger, ...(allowedIps ? { allowedIps } : {}) }),
-    );
+    const { service, allowedIps = {} } = options.payments;
+    const configured = new Set(service.providers);
+    const settlement = (provider: PaymentProvider) =>
+      createPaymentWebhookHandler(provider, {
+        payments: service,
+        logger: options.logger,
+        ...(allowedIps[provider] ? { allowedIps: allowedIps[provider] } : {}),
+      });
+
+    if (configured.has('OZOW')) {
+      app.post(SETTLEMENT_PATHS.OZOW, settlement('OZOW')); // /webhooks/payments: Ozow pay-by-bank (JSON or form)
+    }
+    if (configured.has('PAYSTACK')) {
+      const handlePaymentWebhook = settlement('PAYSTACK');
+      app.post(SETTLEMENT_PATHS.PAYSTACK, handlePaymentWebhook); // /api/payments/callback: Paystack JSON webhooks
+    }
+    if (configured.has('PAYFAST')) {
+      const handlePayfastITN = settlement('PAYFAST');
+      app.post(SETTLEMENT_PATHS.PAYFAST, handlePayfastITN); // /api/payments/payfast-itn: PayFast form-urlencoded ITN
+    }
     app.use('/pay', createPayLinkRouter({ payments: service, logger: options.logger }));
   }
   if (options.dashboard) {

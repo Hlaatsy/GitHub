@@ -67,20 +67,33 @@ In the Meta app, open **WhatsApp → Configuration → Webhook**:
    - **`messages`**: customer messages and delivery statuses.
    - **`message_template_status_update`**: Meta's template approval decisions.
 
-### A5. Payments (Ozow)
+### A5. Payments
 
-Add your Ozow details to `/var/www/whatsapp-crm/.env`, then run `docker compose up -d --force-recreate api` in that directory so the app picks them up:
+The app supports three gateways. Configure any combination in `/var/www/whatsapp-crm/.env`, then run `docker compose up -d --force-recreate api`. Each provider's settings are all-or-nothing, and the app refuses to start with a half-configured provider.
 
-```env
-OZOW_SITE_CODE=…
-OZOW_API_KEY=…
-OZOW_PRIVATE_KEY=…
-OZOW_IS_TEST=false
-```
+| Provider | Customers pay with | Settlement endpoint | You configure |
+| --- | --- | --- | --- |
+| **Ozow** | Instant EFT | `/webhooks/payments` | `OZOW_SITE_CODE`, `OZOW_API_KEY`, `OZOW_PRIVATE_KEY`, `OZOW_IS_TEST=false` |
+| **PayFast** | Card, EFT and more | `/api/payments/payfast-itn` | `PAYFAST_MERCHANT_ID`, `PAYFAST_MERCHANT_KEY`, `PAYFAST_PASSPHRASE` (the same passphrase set in PayFast's developer settings), `PAYFAST_SANDBOX=false` |
+| **Paystack** | Card, Capitec Pay | `/api/payments/callback` | `PAYSTACK_SECRET_KEY` (`sk_live_…`), **and** the webhook URL `https://app.yourdomain.co.za/api/payments/callback` in the Paystack dashboard |
 
-- **Test on staging first:** set `OZOW_BASE_URL=https://stagingapi.ozow.com` and `OZOW_IS_TEST=true`. The app refuses `OZOW_IS_TEST=true` when `NODE_ENV=production`, so a test site can't confirm real bookings.
-- **Notification URL:** you don't configure one in Ozow. The app sends `https://app.yourdomain.co.za/webhooks/payments` with every payment.
-- **Where the money goes.** Every business's deposits settle into this one Ozow account, and paying businesses out isn't built into the app. Holding customer money for other businesses may bring payment-regulation obligations in South Africa, so take advice before launch. Ask Ozow whether a split or sub-merchant setup fits better.
+- **Which provider a business uses:** new payment links use `PAYMENT_DEFAULT_PROVIDER`, or the first one configured. A business can override this with `"paymentProvider"` in its config file (B2). If a business names a provider that isn't configured, its customers' bookings fall back to manual confirmation instead of failing.
+- **Notification URLs:**
+  - **Ozow and PayFast:** the app sends each its own settlement URL with every payment.
+  - **Paystack:** the URL is set once in Paystack's dashboard.
+- **Test first:**
+  - **Ozow:** `OZOW_BASE_URL=https://stagingapi.ozow.com` with `OZOW_IS_TEST=true`.
+  - **PayFast:** `PAYFAST_SANDBOX=true`.
+  - **Paystack:** an `sk_test_…` key.
+
+  The app refuses all three in production (`NODE_ENV=production`), so a test account can never confirm real bookings.
+- **How a payment is accepted:** a booking is only confirmed after the provider's own record confirms the payment. This is in addition to the notification's signature:
+  - **Ozow:** `GetTransactionByReference`.
+  - **Paystack:** `/transaction/verify`.
+  - **PayFast:** the ITN must also come from a PayFast address and pass PayFast's `validate` check.
+- **PayFast and missed notifications.** PayFast has no lookup the app can use without extra credentials, so a PayFast ITN that never arrives is not recovered automatically: the unpaid hold expires and the slot is released. Ozow and Paystack payments are re-checked every 2 minutes.
+- **Paystack and customer email.** Paystack requires one, and WhatsApp doesn't provide it, so each payment uses a placeholder such as `pay-wa3apvxkekrb@app.yourdomain.co.za`. It contains no personal information. Paystack may send receipts to it, so expect mail to that domain to bounce, or route it to a catch-all.
+- **Where the money goes.** Every business's deposits settle into the platform's merchant accounts, and paying businesses out isn't built into the app. Holding customer money for other businesses may bring payment-regulation obligations in South Africa, so take advice before launch. Ask your providers whether a split or sub-merchant setup fits better.
 
 Optional: **SMS fallback.** Set `BULKSMS_TOKEN_ID` and `BULKSMS_TOKEN_SECRET`, and an unpaid pay link that WhatsApp reports as undeliverable is re-sent once by SMS.
 
@@ -112,6 +125,7 @@ Copy [`example-business.json`](example-business.json) and fill it in:
 | `workingHours` | Opening windows per day; `[]` means closed |
 | `bookingCapacity` | How many customers can book the same slot (chairs) |
 | `depositPercent` | Share paid upfront by instant EFT: `0` turns payments off, `100` means pay in full |
+| `paymentProvider` | Optional: `OZOW`, `PAYFAST` or `PAYSTACK`; omit it to use the platform default |
 | `services` / `products` | Name, price in rand, and duration for services |
 | `openingWalletBalance` | Starting message credit in rand (first creation only) |
 

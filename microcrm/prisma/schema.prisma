@@ -52,6 +52,8 @@ enum WalletTransactionType {
 
 enum PaymentProvider {
   OZOW
+  PAYFAST
+  PAYSTACK
 }
 
 enum PaymentStatus {
@@ -100,6 +102,8 @@ model Tenant {
   /// Share of the total collected upfront via pay-by-bank, in basis points.
   /// 0 disables payments; 10000 collects the full amount.
   depositBps           Int          @default(0)
+  /// Gateway for this business's new payment links; null uses the platform default.
+  paymentProvider      PaymentProvider?
 
   addressLine          String?      @db.VarChar(200)
   mapsUrl              String?      @db.VarChar(500)
@@ -353,6 +357,8 @@ model PaymentIntent {
   providerPaymentId     String?         @db.VarChar(100)
   providerTransactionId String?         @db.VarChar(100)
   checkoutUrl           String?         @db.VarChar(1000)
+  /// Signed form fields when the checkout is a browser form POST (PayFast) rather than a redirect.
+  checkoutFields        Json?
   expiresAt             DateTime        @db.Timestamptz(3)
   settledAt             DateTime?       @db.Timestamptz(3)
   /// Set when the confirmation template went out; the reconciler retries until it is.

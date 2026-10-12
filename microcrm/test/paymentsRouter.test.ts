@@ -7,6 +7,7 @@ import { PaymentError } from '../src/payments/errors';
 function setup(handle: () => Promise<unknown>, allowedIps?: ReadonlySet<string>) {
   const service = {
     handleNotification: vi.fn(handle),
+    providers: ['OZOW', 'PAYFAST', 'PAYSTACK'] as const,
     resolveLink: vi.fn(async () => ({ action: 'redirect' as const, url: 'https://pay.ozow.com/pr-1/Secure' })),
     describeReturn: vi.fn(async () => ({ action: 'show' as const, state: 'processing' as const, businessName: '<b>Glow</b>', waDisplayPhone: '+27 11 000 0001' })),
   };
@@ -15,7 +16,7 @@ function setup(handle: () => Promise<unknown>, allowedIps?: ReadonlySet<string>)
     verifyToken: 'verify-token-0123456789',
     sink: { process: vi.fn() },
     logger: pino({ level: 'silent' }),
-    payments: { service: service as never, ...(allowedIps ? { allowedIps } : {}) },
+    payments: { service: service as never, ...(allowedIps ? { allowedIps: { OZOW: allowedIps } } : {}) },
   });
   return { app, service };
 }
@@ -28,7 +29,11 @@ describe('POST /webhooks/payments', () => {
     const { app, service } = setup(async () => ({ status: 'settled' }));
     const res = await post(app);
     expect(res.status).toBe(200);
-    expect(service.handleNotification).toHaveBeenCalledWith(expect.any(Buffer), 'application/x-www-form-urlencoded', expect.any(Date));
+    expect(service.handleNotification).toHaveBeenCalledWith(
+      'OZOW',
+      expect.objectContaining({ rawBody: expect.any(Buffer), contentType: 'application/x-www-form-urlencoded' }),
+      expect.any(Date),
+    );
   });
 
   it.each([
@@ -68,6 +73,29 @@ describe('POST /webhooks/payments', () => {
   });
 });
 
+describe('per-provider settlement routes', () => {
+  it('routes each path to its own provider', async () => {
+    const { app, service } = setup(async () => ({ status: 'settled' }));
+    await request(app).post('/api/payments/callback').set('Content-Type', 'application/json').send('{"event":"charge.success"}');
+    await request(app).post('/api/payments/payfast-itn').set('Content-Type', 'application/x-www-form-urlencoded').send('m_payment_id=X');
+    expect(service.handleNotification.mock.calls.map((call) => (call as unknown[])[0])).toEqual(['PAYSTACK', 'PAYFAST']);
+  });
+
+  it('does not mount routes for providers that are not configured', async () => {
+    const handleNotification = vi.fn();
+    const app = createApp({
+      appSecret: 's',
+      verifyToken: 'verify-token-0123456789',
+      sink: { process: vi.fn() },
+      logger: pino({ level: 'silent' }),
+      payments: { service: { handleNotification, providers: ['OZOW'], resolveLink: vi.fn(), describeReturn: vi.fn() } as never },
+    });
+    expect((await request(app).post('/api/payments/callback').set('Content-Type', 'application/json').send('{}')).status).toBe(404);
+    expect((await request(app).post('/api/payments/payfast-itn').type('form').send('a=1')).status).toBe(404);
+    expect(handleNotification).not.toHaveBeenCalled();
+  });
+});
+
 describe('GET /pay/:token', () => {
   const token = 'abcdefghijklmnopqrstuvwxyz012345';
 
@@ -94,4 +122,23 @@ describe('GET /pay/:token', () => {
     expect(res.text).toContain('&#60;b&#62;Glow&#60;/b&#62;');
     expect(res.text).toContain('https://wa.me/27110000001');
   });
+
+  it('renders a self-submitting form for PayFast, with a CSP that only allows posting to PayFast', async () => {
+    const { app, service } = setup(async () => ({}));
+    service.resolveLink.mockResolvedValueOnce({
+      action: 'form',
+      url: 'https://www.payfast.co.za/eng/process',
+      fields: { merchant_id: '10000100', item_name: 'Glow "Studio" <deposit>', signature: 'abc' },
+    } as never);
+    const res = await request(app).get(`/pay/${token}`);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('action="https://www.payfast.co.za/eng/process"');
+    expect(res.text).toContain('value="Glow &#34;Studio&#34; &#60;deposit&#62;"');
+    const csp = String(res.headers['content-security-policy']);
+    expect(csp).toContain('form-action https://www.payfast.co.za');
+    const nonce = /script-src 'nonce-([^']+)'/.exec(csp)?.[1];
+    expect(nonce).toBeTruthy();
+    expect(res.text).toContain(`<script nonce="${nonce}">`);
+  });
 });
+

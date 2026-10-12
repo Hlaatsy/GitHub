@@ -174,30 +174,30 @@ describe('Ozow settlement notification hash', () => {
   const form = (fields: Record<string, string>) => Buffer.from(new URLSearchParams(fields).toString());
 
   it('accepts a genuine notification', () => {
-    expect(gateway.verifyNotification(form(notification()), FORM).outcome).toBe('SUCCESSFUL');
+    expect(gateway.verifyNotificationBody(form(notification()), FORM).outcome).toBe('SUCCESSFUL');
   });
 
   it('rejects an amount changed after signing', () => {
-    expect(() => gateway.verifyNotification(form({ ...notification(), Amount: '1.00' }), FORM)).toThrow(
+    expect(() => gateway.verifyNotificationBody(form({ ...notification(), Amount: '1.00' }), FORM)).toThrow(
       expect.objectContaining({ code: 'SIGNATURE_INVALID' }),
     );
   });
 
   it('rejects a "Complete" status forged onto a cancelled payment', () => {
     const cancelled = notification({ Status: 'Cancelled' });
-    expect(() => gateway.verifyNotification(form({ ...cancelled, Status: 'Complete' }), FORM)).toThrow(
+    expect(() => gateway.verifyNotificationBody(form({ ...cancelled, Status: 'Complete' }), FORM)).toThrow(
       expect.objectContaining({ code: 'SIGNATURE_INVALID' }),
     );
   });
 
   it('rejects a hash made without the merchant private key', () => {
-    expect(() => gateway.verifyNotification(form(notification({}, 'guessed-key')), FORM)).toThrow(
+    expect(() => gateway.verifyNotificationBody(form(notification({}, 'guessed-key')), FORM)).toThrow(
       expect.objectContaining({ code: 'SIGNATURE_INVALID' }),
     );
   });
 
   it('rejects a smuggled duplicate Status field', () => {
     const body = Buffer.from(`${new URLSearchParams(notification({ Status: 'Cancelled' })).toString()}&Status=Complete`);
-    expect(() => gateway.verifyNotification(body, FORM)).toThrow(expect.objectContaining({ code: 'PAYLOAD_INVALID' }));
+    expect(() => gateway.verifyNotificationBody(body, FORM)).toThrow(expect.objectContaining({ code: 'PAYLOAD_INVALID' }));
   });
 });

@@ -11,7 +11,9 @@
 #
 # Non-interactive use: export DOMAIN, ADMIN_EMAIL, WA_ACCESS_TOKEN and
 # WA_APP_SECRET (and optionally OZOW_SITE_CODE, OZOW_API_KEY,
-# OZOW_PRIVATE_KEY, BULKSMS_TOKEN_ID, BULKSMS_TOKEN_SECRET, BULKSMS_SENDER_ID)
+# OZOW_PRIVATE_KEY, PAYFAST_MERCHANT_ID, PAYFAST_MERCHANT_KEY, PAYFAST_PASSPHRASE,
+# PAYSTACK_SECRET_KEY, PAYMENT_DEFAULT_PROVIDER, BULKSMS_TOKEN_ID,
+# BULKSMS_TOKEN_SECRET, BULKSMS_SENDER_ID)
 # before running.
 # ==============================================================================
 
@@ -159,7 +161,8 @@ if [[ "$FIRST_INSTALL" == true ]]; then
   set_env WA_ACCESS_TOKEN "$WA_ACCESS_TOKEN"
   set_env WA_APP_SECRET "$WA_APP_SECRET"
   set_env OZOW_IS_TEST false
-  for key in OZOW_SITE_CODE OZOW_API_KEY OZOW_PRIVATE_KEY BULKSMS_TOKEN_ID BULKSMS_TOKEN_SECRET BULKSMS_SENDER_ID; do
+  for key in OZOW_SITE_CODE OZOW_API_KEY OZOW_PRIVATE_KEY PAYFAST_MERCHANT_ID PAYFAST_MERCHANT_KEY PAYFAST_PASSPHRASE \
+    PAYSTACK_SECRET_KEY PAYMENT_DEFAULT_PROVIDER BULKSMS_TOKEN_ID BULKSMS_TOKEN_SECRET BULKSMS_SENDER_ID; do
     if [[ -n "${!key:-}" ]]; then set_env "$key" "${!key}"; fi
   done
   ok "Generated .env with random database password and webhook verify token"
@@ -288,5 +291,6 @@ else
   echo -e "  Verify token:  WA_VERIFY_TOKEN in $APP_DIR/.env"
 fi
 echo -e "  Subscribe to:  messages"
-echo -e "Payments webhook (sent to Ozow per payment): https://$DOMAIN/webhooks/payments"
+echo -e "Payment settlement endpoints: Ozow https://$DOMAIN/webhooks/payments · PayFast https://$DOMAIN/api/payments/payfast-itn"
+echo -e "Paystack: set the webhook URL in its dashboard to ${GREEN}https://$DOMAIN/api/payments/callback${NC}"
 echo -e "Next: get the WhatsApp templates in README.md approved, then send HI to the business number."

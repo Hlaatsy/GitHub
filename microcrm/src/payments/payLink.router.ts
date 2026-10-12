@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { Router, type Request, type Response } from 'express';
 import { type Logger } from '../lib/logger';
 import { type LinkResolution, type PaymentService } from './PaymentService';
@@ -28,6 +29,26 @@ function page(view: Extract<LinkResolution, { action: 'show' }>): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(copy.title)}</title><style>body{font-family:system-ui,sans-serif;max-width:28rem;margin:3rem auto;padding:0 1rem;line-height:1.5}a{color:#128c7e;font-weight:600}</style></head><body><h1>${escapeHtml(copy.title)}</h1>${from}<p>${escapeHtml(copy.body)}</p>${back}</body></html>`;
 }
 
+/**
+ * PayFast checkout: the signed fields must reach PayFast as a browser POST.
+ * The form submits itself (nonce-allowed script); the button is the fallback.
+ */
+function checkoutForm(res: Response, url: string, fields: Record<string, string>): void {
+  const nonce = randomBytes(16).toString('base64');
+  res.set(
+    'Content-Security-Policy',
+    `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; form-action ${new URL(url).origin}; base-uri 'none'; frame-ancestors 'none'`,
+  );
+  const inputs = Object.entries(fields)
+    .map(([name, value]) => `<input type="hidden" name="${escapeHtml(name)}" value="${escapeHtml(value)}">`)
+    .join('');
+  res
+    .type('html')
+    .send(
+      `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Continue to payment</title><style>body{font-family:system-ui,sans-serif;max-width:28rem;margin:3rem auto;padding:0 1rem}button{background:#128c7e;color:#fff;border:0;border-radius:8px;padding:12px 18px;font:inherit;font-weight:600}</style></head><body><h1>Taking you to secure payment…</h1><form id="pay" method="post" action="${escapeHtml(url)}">${inputs}<button type="submit">Continue to payment</button></form><script nonce="${nonce}">document.getElementById('pay').submit();</script></body></html>`,
+    );
+}
+
 function secureHeaders(res: Response): void {
   res.set({
     'Cache-Control': 'no-store',
@@ -56,6 +77,7 @@ export function createPayLinkRouter({ payments, logger }: PayLinkRouterOptions):
     try {
       const resolution = await payments.resolveLink(token);
       if (resolution.action === 'redirect') return res.redirect(302, resolution.url);
+      if (resolution.action === 'form') return checkoutForm(res, resolution.url, resolution.fields);
       return show(res, resolution, resolution.state === 'unknown' ? 404 : 200);
     } catch (error) {
       logger.error({ err: error }, 'pay link resolution failed');

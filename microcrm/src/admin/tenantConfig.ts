@@ -32,6 +32,8 @@ export const TenantFileSchema = z
     minLeadMinutes: z.number().int().min(0).max(10_080).default(60),
     autoConfirmBookings: z.boolean().default(false),
     depositPercent: z.number().min(0).max(100).default(0),
+    /** Gateway for this business's deposits; omit to use the platform default. */
+    paymentProvider: z.enum(['OZOW', 'PAYFAST', 'PAYSTACK']).optional(),
     metaCatalogId: z.string().regex(/^\d{5,32}$/).optional(),
     services: z
       .array(z.object({ name: z.string().min(1).max(60), durationMinutes: z.number().int().min(5).max(720), price: rands }))
@@ -87,6 +89,7 @@ export async function applyTenantFile(prisma: PrismaClient, file: TenantFile): P
       minLeadMinutes: file.minLeadMinutes,
       autoConfirmBookings: file.autoConfirmBookings,
       depositBps: Math.round(file.depositPercent * 100),
+      paymentProvider: file.paymentProvider ?? null,
       metaCatalogId: file.metaCatalogId ?? null,
     };
 

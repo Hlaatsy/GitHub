@@ -18,7 +18,7 @@ const gateway = new OzowGateway(config);
 const createInput = {
   reference: 'WAABC234DEFG',
   amountCents: 15050,
-  bankReference: 'WAABC234DEFG',
+  description: 'Glow Studio booking deposit WAABC234DEFG',
   notifyUrl: 'https://crm.example.co.za/webhooks/payments',
   successUrl: 'https://crm.example.co.za/pay/t/return?result=success',
   cancelUrl: 'https://crm.example.co.za/pay/t/return?result=cancelled',
@@ -72,7 +72,10 @@ describe('createPayment', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(gateway.createPayment(createInput)).resolves.toEqual({ providerPaymentId: 'pr-1', checkoutUrl: 'https://pay.ozow.com/pr-1/Secure' });
+    await expect(gateway.createPayment(createInput)).resolves.toEqual({
+      providerPaymentId: 'pr-1',
+      checkout: { method: 'GET', url: 'https://pay.ozow.com/pr-1/Secure' },
+    });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('https://stagingapi.ozow.com/PostPaymentRequest');
@@ -80,7 +83,7 @@ describe('createPayment', () => {
     const body = JSON.parse(init.body as string);
     expect(body).toMatchObject({ SiteCode: 'TST-TST-001', CountryCode: 'ZA', CurrencyCode: 'ZAR', Amount: '150.50', IsTest: 'true' });
     const concatenated = [
-      'TST-TST-001', 'ZA', 'ZAR', '150.50', createInput.reference, createInput.bankReference,
+      'TST-TST-001', 'ZA', 'ZAR', '150.50', createInput.reference, createInput.reference,
       createInput.cancelUrl, createInput.errorUrl, createInput.successUrl, createInput.notifyUrl, 'true',
     ].join('') + config.privateKey;
     expect(body.HashCheck).toBe(createHash('sha512').update(concatenated.toLowerCase()).digest('hex'));
@@ -117,51 +120,50 @@ describe('createPayment', () => {
 
 describe('verifyNotification', () => {
   it('accepts a correctly hashed form notification', () => {
-    expect(gateway.verifyNotification(form(notification()), FORM)).toEqual({
+    expect(gateway.verifyNotificationBody(form(notification()), FORM)).toEqual({
       reference: 'WAABC234DEFG',
       providerTransactionId: 'a1b2c3d4-0000-4000-8000-000000000001',
       outcome: 'SUCCESSFUL',
       rawStatus: 'Complete',
       amountCents: 15050,
       currency: 'ZAR',
-      isTest: true,
     });
   });
 
   it('accepts an uppercase hash', () => {
     const fields = notification();
     fields.Hash = fields.Hash!.toUpperCase();
-    expect(gateway.verifyNotification(form(fields), FORM).outcome).toBe('SUCCESSFUL');
+    expect(gateway.verifyNotificationBody(form(fields), FORM).outcome).toBe('SUCCESSFUL');
   });
 
   it('rejects a tampered amount', () => {
     const fields = { ...notification(), Amount: '1.00' };
-    expect(() => gateway.verifyNotification(form(fields), FORM)).toThrow(expect.objectContaining({ code: 'SIGNATURE_INVALID' }));
+    expect(() => gateway.verifyNotificationBody(form(fields), FORM)).toThrow(expect.objectContaining({ code: 'SIGNATURE_INVALID' }));
   });
 
   it('rejects a hash made with the wrong key', () => {
-    expect(() => gateway.verifyNotification(form(notification({}, 'wrong')), FORM)).toThrow(expect.objectContaining({ code: 'SIGNATURE_INVALID' }));
+    expect(() => gateway.verifyNotificationBody(form(notification({}, 'wrong')), FORM)).toThrow(expect.objectContaining({ code: 'SIGNATURE_INVALID' }));
   });
 
   it('rejects duplicate fields (parameter pollution)', () => {
     const body = Buffer.from(`${new URLSearchParams(notification()).toString()}&Status=Complete`);
-    expect(() => gateway.verifyNotification(body, FORM)).toThrow(expect.objectContaining({ code: 'PAYLOAD_INVALID' }));
+    expect(() => gateway.verifyNotificationBody(body, FORM)).toThrow(expect.objectContaining({ code: 'PAYLOAD_INVALID' }));
   });
 
   it('rejects authentic notifications for another site or environment', () => {
-    expect(() => gateway.verifyNotification(form(notification({ SiteCode: 'OTHER-SITE' })), FORM)).toThrow(
+    expect(() => gateway.verifyNotificationBody(form(notification({ SiteCode: 'OTHER-SITE' })), FORM)).toThrow(
       expect.objectContaining({ code: 'PAYLOAD_INVALID' }),
     );
-    expect(() => gateway.verifyNotification(form(notification({ IsTest: 'false' })), FORM)).toThrow(
+    expect(() => gateway.verifyNotificationBody(form(notification({ IsTest: 'false' })), FORM)).toThrow(
       expect.objectContaining({ code: 'PAYLOAD_INVALID' }),
     );
   });
 
   it('rejects malformed fields and unsupported content types', () => {
-    expect(() => gateway.verifyNotification(form(notification({ TransactionReference: "x' OR 1=1" })), FORM)).toThrow(
+    expect(() => gateway.verifyNotificationBody(form(notification({ TransactionReference: "x' OR 1=1" })), FORM)).toThrow(
       expect.objectContaining({ code: 'PAYLOAD_INVALID' }),
     );
-    expect(() => gateway.verifyNotification(form(notification()), 'text/plain')).toThrow(expect.objectContaining({ code: 'PAYLOAD_INVALID' }));
+    expect(() => gateway.verifyNotificationBody(form(notification()), 'text/plain')).toThrow(expect.objectContaining({ code: 'PAYLOAD_INVALID' }));
   });
 });
 

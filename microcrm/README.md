@@ -61,6 +61,18 @@ Example `payment_confirmed` body: *"{{1}}: payment of {{3}} received for {{2}}. 
 
 ## Payments
 
+There are three gateways behind one `PaymentGateway` interface (`src/payments/`): **Ozow**
+(`/webhooks/payments`), **PayFast** (`/api/payments/payfast-itn`, signed form checkout plus ITN), and
+**Paystack** (`/api/payments/callback`). Configure any combination; see `.env.example` and
+[docs/onboarding.md](docs/onboarding.md#a5-payments).
+
+Before go-live, confirm the formats I couldn't check against current provider docs:
+- the PayFast checkout field order and ITN host list in `src/payments/payfast.ts`;
+- Paystack's webhook IPs, if you set the allowlist.
+
+Then run one sandbox payment per provider.
+
+
 - A tenant's `depositBps` (basis points of the total; `10000` means pay in full) turns on payment collection.
   Bookings are then held as `PENDING_DEPOSIT` until paid or until the link expires.
 - Every settlement notification is checked against its SHA512 hash, then confirmed server-to-server with

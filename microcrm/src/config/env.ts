@@ -58,7 +58,29 @@ const EnvSchema = z.object({
   PAYMENT_MAX_CENTS: z.coerce.number().int().positive().default(5_000_000),
   PAYMENT_RECONCILE_INTERVAL_SECONDS: z.coerce.number().int().min(30).default(120),
   /** Comma-separated provider egress IPs; empty disables the allowlist. */
+  /** Comma-separated Ozow egress IPs for /webhooks/payments; empty disables the allowlist. */
   PAYMENT_WEBHOOK_ALLOWED_IPS: z.string().default(''),
+
+  // PayFast (form checkout + ITN at /api/payments/payfast-itn). Enabled when all three are set.
+  PAYFAST_MERCHANT_ID: optionalSecret,
+  PAYFAST_MERCHANT_KEY: optionalSecret,
+  PAYFAST_PASSPHRASE: optionalSecret,
+  /** Deliberately no default: the sandbox in production would confirm unpaid bookings. */
+  PAYFAST_SANDBOX: z.enum(['true', 'false']).optional(),
+  PAYFAST_VERIFY_SOURCE_IP: z.enum(['true', 'false']).default('true'),
+  PAYFAST_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+
+  // Paystack (webhook at /api/payments/callback).
+  PAYSTACK_SECRET_KEY: optionalSecret,
+  PAYSTACK_BASE_URL: z.string().url().default('https://api.paystack.co'),
+  PAYSTACK_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  /** Comma-separated Paystack webhook IPs; empty disables the allowlist (the HMAC still applies). */
+  PAYSTACK_WEBHOOK_ALLOWED_IPS: z.string().default(''),
+  /** Domain for the per-payment placeholder email Paystack requires; defaults to PUBLIC_BASE_URL's host. */
+  PAYSTACK_PLACEHOLDER_EMAIL_DOMAIN: z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/i).optional(),
+
+  /** Gateway for new payment links: OZOW, PAYFAST or PAYSTACK. Defaults to the first configured. */
+  PAYMENT_DEFAULT_PROVIDER: z.enum(['OZOW', 'PAYFAST', 'PAYSTACK']).optional(),
   WA_PAYMENT_REQUEST_TEMPLATE: z.string().min(1).default('payment_request'),
   WA_PAYMENT_CONFIRMED_TEMPLATE: z.string().min(1).default('payment_confirmed'),
 
@@ -95,10 +117,32 @@ export interface SmsEnv {
   costPerSegmentCents: number;
 }
 
+export type ProviderName = 'OZOW' | 'PAYFAST' | 'PAYSTACK';
+
 export interface PaymentsEnv {
   publicBaseUrl: string;
-  ozow: { siteCode: string; apiKey: string; privateKey: string; baseUrl: string; isTest: boolean; timeoutMs: number };
-  allowedIps: ReadonlySet<string>;
+  defaultProvider: ProviderName;
+  ozow?: { siteCode: string; apiKey: string; privateKey: string; baseUrl: string; isTest: boolean; timeoutMs: number };
+  payfast?: { merchantId: string; merchantKey: string; passphrase: string; sandbox: boolean; verifySourceIp: boolean; timeoutMs: number };
+  paystack?: { secretKey: string; baseUrl: string; timeoutMs: number; placeholderEmailDomain: string };
+  allowedIps: Partial<Record<ProviderName, ReadonlySet<string>>>;
+}
+
+function ipSet(value: string): ReadonlySet<string> {
+  return new Set(
+    value
+      .split(',')
+      .map((ip) => ip.trim())
+      .filter(Boolean),
+  );
+}
+
+/** All of a provider's settings, or none: a half configuration is an error. */
+function allOrNone<T extends string>(provider: string, values: Record<T, string | undefined>): Record<T, string> | null {
+  const missing = Object.entries(values).filter(([, value]) => !value).map(([key]) => key);
+  if (missing.length === Object.keys(values).length) return null;
+  if (missing.length > 0) throw new Error(`${provider}: also set ${missing.join(', ')} (or none of its settings)`);
+  return values as Record<T, string>;
 }
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -127,31 +171,70 @@ export function smsEnv(env: Env): SmsEnv | null {
   };
 }
 
-/** Null when payments are not configured. Throws on a half or unsafe configuration. */
+/** Null when no payment provider is configured. Throws on a half or unsafe configuration. */
 export function paymentsEnv(env: Env): PaymentsEnv | null {
-  const { OZOW_SITE_CODE: siteCode, OZOW_API_KEY: apiKey, OZOW_PRIVATE_KEY: privateKey } = env;
-  const provided = [siteCode, apiKey, privateKey].filter(Boolean).length;
-  if (provided === 0) return null;
-  if (!siteCode || !apiKey || !privateKey) {
-    throw new Error('Set all of OZOW_SITE_CODE, OZOW_API_KEY and OZOW_PRIVATE_KEY, or none');
-  }
+  const production = env.NODE_ENV === 'production';
+  const ozowKeys = allOrNone('Ozow', { OZOW_SITE_CODE: env.OZOW_SITE_CODE, OZOW_API_KEY: env.OZOW_API_KEY, OZOW_PRIVATE_KEY: env.OZOW_PRIVATE_KEY });
+  const payfastKeys = allOrNone('PayFast', {
+    PAYFAST_MERCHANT_ID: env.PAYFAST_MERCHANT_ID,
+    PAYFAST_MERCHANT_KEY: env.PAYFAST_MERCHANT_KEY,
+    PAYFAST_PASSPHRASE: env.PAYFAST_PASSPHRASE,
+  });
+  const paystackKey = env.PAYSTACK_SECRET_KEY;
+  if (!ozowKeys && !payfastKeys && !paystackKey) return null;
+
   if (!env.PUBLIC_BASE_URL?.startsWith('https://')) {
     throw new Error('PUBLIC_BASE_URL must be an https URL when payments are enabled');
   }
-  if (!env.OZOW_IS_TEST) {
-    throw new Error('OZOW_IS_TEST must be set explicitly when payments are enabled');
+  const result: PaymentsEnv = { publicBaseUrl: env.PUBLIC_BASE_URL, defaultProvider: 'OZOW', allowedIps: {} };
+
+  if (ozowKeys) {
+    if (!env.OZOW_IS_TEST) throw new Error('OZOW_IS_TEST must be set explicitly when Ozow is enabled');
+    const isTest = env.OZOW_IS_TEST === 'true';
+    if (isTest && production) throw new Error('OZOW_IS_TEST=true is not allowed in production');
+    result.ozow = {
+      siteCode: ozowKeys.OZOW_SITE_CODE,
+      apiKey: ozowKeys.OZOW_API_KEY,
+      privateKey: ozowKeys.OZOW_PRIVATE_KEY,
+      baseUrl: env.OZOW_BASE_URL,
+      isTest,
+      timeoutMs: env.OZOW_TIMEOUT_MS,
+    };
+    result.allowedIps.OZOW = ipSet(env.PAYMENT_WEBHOOK_ALLOWED_IPS);
   }
-  const isTest = env.OZOW_IS_TEST === 'true';
-  if (isTest && env.NODE_ENV === 'production') {
-    throw new Error('OZOW_IS_TEST=true is not allowed in production');
+
+  if (payfastKeys) {
+    if (!env.PAYFAST_SANDBOX) throw new Error('PAYFAST_SANDBOX must be set explicitly when PayFast is enabled');
+    const sandbox = env.PAYFAST_SANDBOX === 'true';
+    if (sandbox && production) throw new Error('PAYFAST_SANDBOX=true is not allowed in production');
+    if (env.PAYFAST_VERIFY_SOURCE_IP === 'false' && production) throw new Error('PAYFAST_VERIFY_SOURCE_IP=false is not allowed in production');
+    result.payfast = {
+      merchantId: payfastKeys.PAYFAST_MERCHANT_ID,
+      merchantKey: payfastKeys.PAYFAST_MERCHANT_KEY,
+      passphrase: payfastKeys.PAYFAST_PASSPHRASE,
+      sandbox,
+      verifySourceIp: env.PAYFAST_VERIFY_SOURCE_IP === 'true',
+      timeoutMs: env.PAYFAST_TIMEOUT_MS,
+    };
   }
-  return {
-    publicBaseUrl: env.PUBLIC_BASE_URL,
-    ozow: { siteCode, apiKey, privateKey, baseUrl: env.OZOW_BASE_URL, isTest, timeoutMs: env.OZOW_TIMEOUT_MS },
-    allowedIps: new Set(
-      env.PAYMENT_WEBHOOK_ALLOWED_IPS.split(',')
-        .map((ip) => ip.trim())
-        .filter(Boolean),
-    ),
-  };
+
+  if (paystackKey) {
+    if (!/^sk_(live|test)_[A-Za-z0-9]+$/.test(paystackKey)) throw new Error('PAYSTACK_SECRET_KEY must be an sk_live_… or sk_test_… key');
+    if (paystackKey.startsWith('sk_test_') && production) throw new Error('A Paystack test key is not allowed in production');
+    result.paystack = {
+      secretKey: paystackKey,
+      baseUrl: env.PAYSTACK_BASE_URL,
+      timeoutMs: env.PAYSTACK_TIMEOUT_MS,
+      placeholderEmailDomain: env.PAYSTACK_PLACEHOLDER_EMAIL_DOMAIN ?? new URL(env.PUBLIC_BASE_URL).hostname,
+    };
+    result.allowedIps.PAYSTACK = ipSet(env.PAYSTACK_WEBHOOK_ALLOWED_IPS);
+  }
+
+  const configured: ProviderName[] = [...(result.ozow ? ['OZOW' as const] : []), ...(result.payfast ? ['PAYFAST' as const] : []), ...(result.paystack ? ['PAYSTACK' as const] : [])];
+  const wanted = env.PAYMENT_DEFAULT_PROVIDER ?? configured[0];
+  if (!wanted || !configured.includes(wanted)) {
+    throw new Error(`PAYMENT_DEFAULT_PROVIDER=${env.PAYMENT_DEFAULT_PROVIDER} is not configured (configured: ${configured.join(', ')})`);
+  }
+  result.defaultProvider = wanted;
+  return result;
 }

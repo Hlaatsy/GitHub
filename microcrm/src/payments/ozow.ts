@@ -5,6 +5,7 @@ import { PaymentError } from './errors';
 import {
   type CreatePaymentInput,
   type CreatedPayment,
+  type NotificationContext,
   type PaymentGateway,
   type PaymentOutcome,
   type ProviderTransaction,
@@ -128,6 +129,7 @@ const PaymentRequestResponseSchema = z.object({
 
 export class OzowGateway implements PaymentGateway {
   readonly provider = 'OZOW' as const;
+  readonly supportsLookup = true;
   private readonly baseUrl: string;
 
   constructor(private readonly config: OzowConfig) {
@@ -141,7 +143,8 @@ export class OzowGateway implements PaymentGateway {
       CurrencyCode: 'ZAR',
       Amount: centsToDecimal(input.amountCents),
       TransactionReference: input.reference,
-      BankReference: input.bankReference,
+      // Shown on the customer's bank statement; Ozow allows 20 characters.
+      BankReference: input.reference.slice(0, 20),
       CancelUrl: input.cancelUrl,
       ErrorUrl: input.errorUrl,
       SuccessUrl: input.successUrl,
@@ -157,10 +160,15 @@ export class OzowGateway implements PaymentGateway {
     if (!parsed.success || parsed.data.errorMessage || !parsed.data.url || !parsed.data.paymentRequestId) {
       throw new PaymentError('GATEWAY_REJECTED', `Ozow refused the payment request: ${parsed.success ? parsed.data.errorMessage ?? 'no checkout URL' : 'unexpected response'}`);
     }
-    return { providerPaymentId: parsed.data.paymentRequestId, checkoutUrl: assertOzowCheckoutUrl(parsed.data.url) };
+    return { providerPaymentId: parsed.data.paymentRequestId, checkout: { method: 'GET', url: assertOzowCheckoutUrl(parsed.data.url) } };
   }
 
-  verifyNotification(rawBody: Buffer, contentType: string | undefined): ProviderTransaction {
+  async verifyNotification({ rawBody, contentType }: NotificationContext): Promise<ProviderTransaction> {
+    return this.verifyNotificationBody(rawBody, contentType);
+  }
+
+  /** Ozow's notification hash, checked synchronously. */
+  verifyNotificationBody(rawBody: Buffer, contentType: string | undefined): ProviderTransaction {
     const parsed = NotificationSchema.safeParse(parseNotificationFields(rawBody, contentType));
     if (!parsed.success) {
       throw new PaymentError('PAYLOAD_INVALID', `Malformed Ozow notification: ${parsed.error.issues.map((i) => i.path.join('.')).join(', ')}`);
@@ -189,8 +197,15 @@ export class OzowGateway implements PaymentGateway {
       rawStatus: fields.Status,
       amountCents: decimalToCents(fields.Amount),
       currency: fields.CurrencyCode.toUpperCase(),
-      isTest,
     };
+  }
+
+  /** Ozow's own record of the notified transaction, via GetTransactionByReference. */
+  async confirmTransaction(notification: ProviderTransaction): Promise<ProviderTransaction | null> {
+    const matching = (await this.fetchTransactions(notification.reference)).filter(
+      (tx) => tx.providerTransactionId === notification.providerTransactionId,
+    );
+    return matching.find((tx) => tx.outcome === 'SUCCESSFUL') ?? matching[0] ?? null;
   }
 
   async fetchTransactions(reference: string): Promise<ProviderTransaction[]> {
@@ -213,7 +228,6 @@ export class OzowGateway implements PaymentGateway {
         rawStatus: tx.status,
         amountCents: Math.round(tx.amount * 100),
         currency: tx.currencyCode.toUpperCase(),
-        isTest: tx.isTest ?? this.config.isTest,
       }));
   }
 
