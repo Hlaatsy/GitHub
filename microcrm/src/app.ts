@@ -7,7 +7,7 @@ import { createPayLinkRouter } from './payments/payLink.router';
 import { createPaymentsWebhookRouter } from './payments/payments.router';
 import { type PaymentService } from './payments/PaymentService';
 import { type WebhookSink } from './webhooks/processor';
-import { createWhatsAppWebhookRouter } from './webhooks/whatsapp.router';
+import { createWhatsAppWebhookHandlers } from './webhooks/whatsapp.controller';
 
 export interface AppOptions {
   appSecret: string;
@@ -31,8 +31,15 @@ export function createApp(options: AppOptions): Express {
     res.json({ status: 'ok' });
   });
 
-  // Raw-body route first: it must see the request before any JSON parser.
-  app.use('/webhooks/whatsapp', createWhatsAppWebhookRouter(options));
+  // ---------------------------------------------------------------------------
+  // Signed webhooks. These MUST be registered before the global body parsers
+  // below: each reads its own raw body, and a parser that runs first consumes
+  // the stream, so signature checks would fail for every genuine request.
+  // ---------------------------------------------------------------------------
+  const whatsapp = createWhatsAppWebhookHandlers(options);
+  app.get('/webhooks/whatsapp', whatsapp.verifyMetaWebhookHandshake);
+  app.post('/webhooks/whatsapp', whatsapp.captureRawBody, whatsapp.verifyWhatsAppSignature, whatsapp.handleWhatsAppWebhook);
+
   if (options.payments) {
     const { service, allowedIps } = options.payments;
     app.use(
@@ -51,7 +58,21 @@ export function createApp(options: AppOptions): Express {
     app.use('/onboarding', createOnboardingRouter({ onboarding: options.onboarding, logger: options.logger }));
   }
 
-  app.use(express.json({ limit: '64kb' }));
+  // ---------------------------------------------------------------------------
+  // Global body parsers, for routes registered after this point. `rawBody`
+  // keeps the exact bytes (a Buffer, not a re-encoded string) for any future
+  // signed JSON callback; urlencoded accepts form posts such as PayFast's ITN.
+  // ---------------------------------------------------------------------------
+  app.use(
+    express.json({
+      limit: '64kb',
+      verify: (req, _res, buf) => {
+        (req as express.Request).rawBody = Buffer.from(buf);
+      },
+    }),
+  );
+  app.use(express.urlencoded({ extended: true, limit: '64kb' }));
+
   app.use((_req, res) => {
     res.sendStatus(404);
   });
