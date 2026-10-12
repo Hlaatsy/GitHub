@@ -6,15 +6,16 @@ import { formatZar } from '../lib/money';
 import { isSerializationFailure, isUniqueViolation } from '../lib/prisma';
 import { formatDayLabel, formatTime } from '../lib/time';
 import { formatPaymentLinkMessage } from '../payments/messages';
+import { type DashboardAuth } from '../dashboard/DashboardAuth';
 import { type PaymentService } from '../payments/PaymentService';
 import { type CustomerContext, type CustomerRepository } from '../services/customers';
 import { type TenantProfile } from '../services/tenants';
-import { LIMITS, clip } from '../whatsapp/interactive';
+import { LIMITS, asInteractive, asText, clip, ctaUrl } from '../whatsapp/interactive';
 import { type OutboundMessage } from '../whatsapp/types';
 import { type Intent } from './intents';
 import * as replies from './replies';
 
-export type ReplyKind = 'MENU' | 'SLOTS' | 'CATALOG' | 'LOCATION' | 'BOOKING' | 'ORDER' | 'PAYMENT' | 'OPT_OUT';
+export type ReplyKind = 'MENU' | 'SLOTS' | 'CATALOG' | 'LOCATION' | 'BOOKING' | 'ORDER' | 'PAYMENT' | 'OPT_OUT' | 'LOGIN';
 
 export interface BotReply {
   kind: ReplyKind;
@@ -43,6 +44,8 @@ export interface ConversationOptions {
   horizonHours?: number;
   /** When set, tenants with `depositBps > 0` collect payment before confirming. */
   payments?: ConversationPayments;
+  /** When set, the owner can request a dashboard login link by sending LOGIN. */
+  dashboard?: { auth: Pick<DashboardAuth, 'issueLoginLink' | 'countRecentLinks'>; maxLinksPerHour: number };
 }
 
 type DepositSubject = { kind: 'appointment' | 'order'; id: string; summary: string; fallback: BotReply };
@@ -126,6 +129,9 @@ export class ConversationHandlers {
       case 'PLACE_CART':
         return isSalon || intent.catalogId !== tenant.metaCatalogId ? this.menu(ctx) : this.orderCart(ctx, intent.items);
 
+      case 'DASHBOARD_LOGIN':
+        return this.dashboardLogin(ctx);
+
       case 'OPT_OUT':
         await this.customers.optOut(tenant.id, ctx.customer.id, ctx.now);
         return { kind: 'OPT_OUT', message: replies.optedOut(tenant) };
@@ -133,6 +139,34 @@ export class ConversationHandlers {
       case 'IGNORE':
         return null;
     }
+  }
+
+  /**
+   * Only the owner's own number gets a link: possession of that WhatsApp is the
+   * login credential. Anyone else is treated as ordinary free text, so the
+   * feature is not revealed.
+   */
+  private async dashboardLogin(ctx: ConversationContext): Promise<BotReply | null> {
+    const { tenant, customer, now } = ctx;
+    const dashboard = this.options.dashboard;
+    if (!dashboard || !tenant.ownerWaId || customer.waId !== tenant.ownerWaId) return this.menuUnlessRecentlySent(ctx);
+
+    const recent = await dashboard.auth.countRecentLinks(tenant.id, new Date(now.getTime() - 3_600_000));
+    if (recent >= dashboard.maxLinksPerHour) {
+      return { kind: 'LOGIN', message: asText('Too many login links in the last hour. Please try again later.') };
+    }
+    const link = await dashboard.auth.issueLoginLink(tenant.id, now);
+    return {
+      kind: 'LOGIN',
+      message: asInteractive(
+        ctaUrl({
+          body: `Your ${tenant.businessName} dashboard login link. It works once, for ${Math.round((link.expiresAt.getTime() - now.getTime()) / 60_000)} minutes. Don't forward it.`,
+          footer: "Didn't ask for this? Ignore it.",
+          displayText: 'Open dashboard',
+          url: link.url,
+        }),
+      ),
+    };
   }
 
   private menu(ctx: ConversationContext): BotReply {

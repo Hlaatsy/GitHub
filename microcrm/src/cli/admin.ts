@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { applyTenantFile, TenantFileSchema } from '../admin/tenantConfig';
 import { loadEnv } from '../config/env';
 import { logger } from '../lib/logger';
 import { createPrismaClient } from '../lib/prisma';
@@ -12,17 +14,54 @@ import { WhatsAppService } from '../whatsapp/WhatsAppService';
 // Operator commands. In production:
 //   docker compose exec api node dist/cli/admin.js <command> <tenantId>
 
-const USAGE = `Usage: admin <command> <tenantId>
+const USAGE = `Usage: admin <command> <args>
 
-  onboarding-link   Issue the owner's private setup checklist link (replaces any earlier link)
-  templates-submit  Validate and submit the app's message templates to Meta for approval
-  templates-sync    Pull Meta's current approval status for those templates`;
+  tenant-apply <file.json | ->             Create or update a business from a JSON file, or stdin (see docs/example-business.json)
+  wallet-topup <tenantId> <rands> <ref>    Credit the business's message wallet, e.g. wallet-topup <id> 200 EFT-2026-10-12
+  onboarding-link <tenantId>               Issue the owner's private setup checklist link (replaces any earlier link)
+  templates-submit <tenantId>              Validate and submit the app's message templates to Meta for approval
+  templates-sync <tenantId>                Pull Meta's current approval status for those templates`;
 
 async function main(): Promise<number> {
-  const [command, tenantId] = process.argv.slice(2);
+  const [command, tenantId, ...rest] = process.argv.slice(2);
   if (!command || !tenantId) {
     console.error(USAGE);
     return 2;
+  }
+
+  if (command === 'tenant-apply') {
+    // '-' reads stdin, so a file on the host can be piped into the container.
+    const parsed = TenantFileSchema.safeParse(JSON.parse(readFileSync(tenantId === '-' ? 0 : tenantId, 'utf8')));
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) console.error(`✘ ${issue.path.join('.') || '(file)'}: ${issue.message}`);
+      return 1;
+    }
+    const prisma = createPrismaClient();
+    try {
+      const result = await applyTenantFile(prisma, parsed.data);
+      console.log(`${result.created ? 'Created' : 'Updated'} ${parsed.data.businessName}: tenant id ${result.tenantId}`);
+      console.log(`Catalog: ${result.catalog.added} added, ${result.catalog.updated} updated, ${result.catalog.deactivated} deactivated.`);
+      return 0;
+    } finally {
+      await prisma.$disconnect();
+    }
+  }
+
+  if (command === 'wallet-topup') {
+    const [amount, reference] = rest;
+    const rands = Number(amount);
+    if (!Number.isFinite(rands) || rands <= 0 || !reference) {
+      console.error('Usage: admin wallet-topup <tenantId> <rands> <reference>');
+      return 2;
+    }
+    const prisma = createPrismaClient();
+    try {
+      const balance = await new WalletService(prisma).topUp(tenantId, Math.round(rands * 100), reference.slice(0, 64));
+      console.log(`Wallet balance is now R${(balance.balanceCents / 100).toFixed(2)}.`);
+      return 0;
+    } finally {
+      await prisma.$disconnect();
+    }
   }
 
   const env = loadEnv();

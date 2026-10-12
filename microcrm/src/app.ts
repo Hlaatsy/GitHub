@@ -1,5 +1,6 @@
 import express, { type Express } from 'express';
 import { type Logger } from './lib/logger';
+import { type createDashboardRouters } from './dashboard/dashboard.router';
 import { createOnboardingRouter } from './onboarding/onboarding.router';
 import { type OnboardingService } from './onboarding/OnboardingService';
 import { createPayLinkRouter } from './payments/payLink.router';
@@ -18,6 +19,7 @@ export interface AppOptions {
     allowedIps?: ReadonlySet<string>;
   };
   onboarding?: Pick<OnboardingService, 'resolve' | 'checklist' | 'sendTestPayment'>;
+  dashboard?: ReturnType<typeof createDashboardRouters>;
 }
 
 export function createApp(options: AppOptions): Express {
@@ -38,6 +40,12 @@ export function createApp(options: AppOptions): Express {
       createPaymentsWebhookRouter({ payments: service, logger: options.logger, ...(allowedIps ? { allowedIps } : {}) }),
     );
     app.use('/pay', createPayLinkRouter({ payments: service, logger: options.logger }));
+  }
+  if (options.dashboard) {
+    // Express matches '/dashboard/' here too; only redirect the exact slash-less path.
+    app.get('/dashboard', (req, res, next) => (req.path === '/dashboard' && !req.originalUrl.startsWith('/dashboard/') ? res.redirect(301, '/dashboard/') : next()));
+    app.use('/dashboard', options.dashboard.pages);
+    app.use('/api/dashboard', options.dashboard.api);
   }
   if (options.onboarding) {
     app.use('/onboarding', createOnboardingRouter({ onboarding: options.onboarding, logger: options.logger }));

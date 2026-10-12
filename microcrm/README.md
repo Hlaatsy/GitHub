@@ -3,6 +3,8 @@
 Multi-tenant WhatsApp booking and ordering for South African SMEs, with prepaid
 message billing and Ozow pay-by-bank deposits.
 
+**Setting up a server or a new business? Follow [docs/onboarding.md](docs/onboarding.md).**
+
 ## Deploy (Ubuntu 22.04 / 24.04)
 
 Point an A record at the server, clone this repository onto it, then run:
@@ -102,4 +104,25 @@ For the test payment, a button sends a real `ONBOARDING_TEST_AMOUNT_CENTS` (R5 b
 the owner's WhatsApp. The owner pays it like a customer, and the page refreshes itself until the bank
 settlement and the WhatsApp confirmation have both landed. Test orders carry `isTest` so they can be
 kept out of revenue figures. The page shows only the business's own setup state, never customer data.
+
+## Owner dashboard
+
+`https://<domain>/dashboard/`. Owners log in by sending **LOGIN** to their business WhatsApp number from
+the owner number on file, and get back a single-use link that's valid for 10 minutes. There are no passwords.
+
+- **Bookings or orders:** confirm, cancel, mark done or no-show. The customer is notified on WhatsApp
+  if they messaged in the last 24 hours.
+- **Payments:** including review flags.
+- **Wallet:** balance and ledger.
+
+The JSON API is under `/api/dashboard/*`.
+
+**Security**
+- **Session cookie:** `__Host-` prefixed, HttpOnly, Secure and SameSite=Strict, with a 12-hour lifetime
+  and 60-minute idle timeout. Only token hashes are stored.
+- **State changes:** require the same origin and a JSON body.
+- **Tenant scoping:** every query is scoped to the session's business.
+
+Cancelling a booking or order that was already paid flags its payment for a refund. Payments settle
+into the platform's merchant account, so refunds are the platform team's job.
 

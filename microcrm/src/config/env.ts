@@ -78,6 +78,12 @@ const EnvSchema = z.object({
   /** Real payment the owner makes to themselves during onboarding, in cents. */
   ONBOARDING_TEST_AMOUNT_CENTS: z.coerce.number().int().min(100).max(10_000).default(500),
   ONBOARDING_LINK_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(168),
+
+  // Owner dashboard (/dashboard): owners log in by sending LOGIN to their business number.
+  DASHBOARD_LOGIN_LINK_MINUTES: z.coerce.number().int().min(2).max(60).default(10),
+  DASHBOARD_SESSION_HOURS: z.coerce.number().int().min(1).max(72).default(12),
+  DASHBOARD_IDLE_MINUTES: z.coerce.number().int().min(5).max(1440).default(60),
+  DASHBOARD_MAX_LINKS_PER_HOUR: z.coerce.number().int().min(1).max(20).default(5),
 });
 
 export interface SmsEnv {

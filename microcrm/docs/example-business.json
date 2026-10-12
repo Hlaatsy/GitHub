@@ -1,0 +1,28 @@
+{
+  "businessName": "Glow Studio Soweto",
+  "industry": "SALON",
+  "waPhoneNumberId": "109283746561023",
+  "waDisplayPhone": "+27 11 000 0001",
+  "waBusinessAccountId": "92837465610192",
+  "ownerWaId": "27821234567",
+  "addressLine": "12 Vilakazi St, Orlando West, Soweto",
+  "mapsUrl": "https://maps.google.com/?q=12+Vilakazi+St+Soweto",
+  "workingHours": {
+    "mon": [{ "open": "08:00", "close": "17:00" }],
+    "tue": [{ "open": "08:00", "close": "17:00" }],
+    "wed": [{ "open": "08:00", "close": "17:00" }],
+    "thu": [{ "open": "08:00", "close": "17:00" }],
+    "fri": [{ "open": "08:00", "close": "17:00" }],
+    "sat": [{ "open": "08:00", "close": "14:00" }],
+    "sun": []
+  },
+  "slotIntervalMinutes": 30,
+  "bookingCapacity": 2,
+  "depositPercent": 50,
+  "services": [
+    { "name": "Wash & Blow", "durationMinutes": 45, "price": 250 },
+    { "name": "Box Braids", "durationMinutes": 240, "price": 850 },
+    { "name": "Gel Manicure", "durationMinutes": 60, "price": 300 }
+  ],
+  "openingWalletBalance": 50
+}

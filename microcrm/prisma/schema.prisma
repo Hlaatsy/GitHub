@@ -124,6 +124,8 @@ model Tenant {
   inboundMessages      InboundMessage[]
   outboundMessages     OutboundMessage[]
   paymentIntents       PaymentIntent[]
+  dashboardLoginTokens DashboardLoginToken[]
+  dashboardSessions    DashboardSession[]
 
   @@map("tenants")
 }
@@ -406,4 +408,35 @@ model MessageTemplate {
 
   @@unique([wabaId, name, language])
   @@map("message_templates")
+}
+
+/// Single-use dashboard login link, sent only to the owner's own WhatsApp. Only the token's hash is stored.
+model DashboardLoginToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @db.Uuid
+  tokenHash  String    @unique @db.Char(64)
+  expiresAt  DateTime  @db.Timestamptz(3)
+  consumedAt DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("dashboard_login_tokens")
+}
+
+/// Owner dashboard session behind an HttpOnly cookie. Only the cookie value's hash is stored.
+model DashboardSession {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @db.Uuid
+  tokenHash  String    @unique @db.Char(64)
+  expiresAt  DateTime  @db.Timestamptz(3)
+  lastSeenAt DateTime  @default(now()) @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("dashboard_sessions")
 }

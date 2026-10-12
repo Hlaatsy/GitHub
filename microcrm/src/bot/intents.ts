@@ -25,6 +25,8 @@ export type Intent =
   | { name: 'PICK_PRODUCT'; productId: string }
   | { name: 'PLACE_CART'; catalogId: string; items: Array<{ retailerId: string; quantity: number }> }
   | { name: 'OPT_OUT' }
+  /** Owner asking for a dashboard login link; the handler checks it really is the owner. */
+  | { name: 'DASHBOARD_LOGIN' }
   | { name: 'UNRECOGNISED' }
   | { name: 'IGNORE' };
 
@@ -37,6 +39,7 @@ const TRIGGER_WORDS = new Set([
 ]);
 
 const OPT_OUT_PHRASES = new Set(['stop', 'stop all', 'unsubscribe', 'opt out', 'optout', 'cancel all']);
+const LOGIN_PHRASES = new Set(['login', 'log in', 'dashboard']);
 
 export function encodeSlotId(startsAt: Date, serviceId: string | null): string {
   return `${ROW_PREFIX.SLOT}:${Math.floor(startsAt.getTime() / 1000)}:${serviceId ?? ''}`;
@@ -58,6 +61,7 @@ export function normaliseText(text: string): string {
 function resolveText(text: string): Intent {
   const normalised = normaliseText(text);
   if (OPT_OUT_PHRASES.has(normalised)) return { name: 'OPT_OUT' };
+  if (LOGIN_PHRASES.has(normalised)) return { name: 'DASHBOARD_LOGIN' };
   const firstWord = normalised.split(' ', 1)[0] ?? '';
   return TRIGGER_WORDS.has(firstWord) ? { name: 'MENU' } : { name: 'UNRECOGNISED' };
 }

@@ -19,6 +19,7 @@ ENV NODE_ENV=production
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/prisma ./prisma
+COPY --chown=node:node public ./public
 COPY --chown=node:node package.json ./
 USER node
 EXPOSE 5000

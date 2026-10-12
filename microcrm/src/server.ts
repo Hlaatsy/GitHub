@@ -13,6 +13,9 @@ import { TenantDirectory } from './services/tenants';
 import { WalletService } from './services/wallet';
 import { BulkSmsProvider } from './sms/bulksms';
 import { SmsFallbackService } from './sms/SmsFallbackService';
+import { DashboardAuth } from './dashboard/DashboardAuth';
+import { createDashboardRouters } from './dashboard/dashboard.router';
+import { DashboardService } from './dashboard/DashboardService';
 import { OnboardingService } from './onboarding/OnboardingService';
 import { WebhookProcessor } from './webhooks/processor';
 import { TemplateService } from './whatsapp/templates/TemplateService';
@@ -82,6 +85,15 @@ async function main(): Promise<void> {
       )
     : null;
 
+  const dashboardAuth = env.PUBLIC_BASE_URL?.startsWith('https://')
+    ? new DashboardAuth(prisma, {
+        publicBaseUrl: env.PUBLIC_BASE_URL,
+        loginLinkTtlMinutes: env.DASHBOARD_LOGIN_LINK_MINUTES,
+        sessionHours: env.DASHBOARD_SESSION_HOURS,
+        idleMinutes: env.DASHBOARD_IDLE_MINUTES,
+      })
+    : null;
+
   // SMS only ever re-sends pay links, so it needs payments enabled too.
   const smsFallback =
     smsConfig && paymentConfig
@@ -98,6 +110,7 @@ async function main(): Promise<void> {
     ledger: new InboundLedger(prisma),
     handlers: new ConversationHandlers(prisma, customers, {
       menuCooldownMs: env.MENU_COOLDOWN_SECONDS * 1000,
+      ...(dashboardAuth ? { dashboard: { auth: dashboardAuth, maxLinksPerHour: env.DASHBOARD_MAX_LINKS_PER_HOUR } } : {}),
       ...(payments
         ? {
             payments: {
@@ -127,6 +140,16 @@ async function main(): Promise<void> {
     logger,
     ...(payments && paymentConfig ? { payments: { service: payments, allowedIps: paymentConfig.allowedIps } } : {}),
     ...(onboarding ? { onboarding } : {}),
+    ...(dashboardAuth
+      ? {
+          dashboard: createDashboardRouters({
+            auth: dashboardAuth,
+            service: new DashboardService(prisma, messenger, logger),
+            tenants,
+            logger,
+          }),
+        }
+      : {}),
   });
 
   // Catches missed settlement webhooks, expires abandoned links and retries
