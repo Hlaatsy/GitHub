@@ -17,6 +17,15 @@ export interface WhatsAppServiceOptions {
   logger: Logger;
 }
 
+export interface GraphTemplate {
+  id: string;
+  name: string;
+  language: string;
+  status: string;
+  category: string;
+  rejected_reason?: string;
+}
+
 export interface SentMessage {
   wamid: string;
   waId: string;
@@ -101,6 +110,28 @@ export class WhatsAppService {
       status: 'read',
       message_id: messageId,
     });
+  }
+
+  /** Submits a template for Meta review. Returns Meta's id, initial status and assigned category. */
+  createTemplate(wabaId: string, template: unknown): Promise<{ id: string; status: string; category: string }> {
+    return this.request('POST', `${encodeURIComponent(wabaId)}/message_templates`, template);
+  }
+
+  /** All templates in a WABA, following Graph pagination. */
+  async listTemplates(wabaId: string): Promise<GraphTemplate[]> {
+    const templates: GraphTemplate[] = [];
+    let path: string | null =
+      `${encodeURIComponent(wabaId)}/message_templates?fields=id,name,language,status,category,rejected_reason&limit=100`;
+    for (let page = 0; path && page < 50; page++) {
+      const response: { data?: GraphTemplate[]; paging?: { cursors?: { after?: string }; next?: string } } =
+        await this.request('GET', path);
+      templates.push(...(response.data ?? []));
+      const after = response.paging?.next ? response.paging.cursors?.after : undefined;
+      path = after
+        ? `${encodeURIComponent(wabaId)}/message_templates?fields=id,name,language,status,category,rejected_reason&limit=100&after=${encodeURIComponent(after)}`
+        : null;
+    }
+    return templates;
   }
 
   getMediaMetadata(mediaId: string): Promise<MediaMetadata> {

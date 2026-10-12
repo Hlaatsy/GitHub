@@ -74,6 +74,10 @@ const EnvSchema = z.object({
     .transform((value) => (value ? value : undefined)),
   SMS_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
   SMS_COST_PER_SEGMENT_CENTS: z.coerce.number().int().min(0).default(25),
+
+  /** Real payment the owner makes to themselves during onboarding, in cents. */
+  ONBOARDING_TEST_AMOUNT_CENTS: z.coerce.number().int().min(100).max(10_000).default(500),
+  ONBOARDING_LINK_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(168),
 });
 
 export interface SmsEnv {

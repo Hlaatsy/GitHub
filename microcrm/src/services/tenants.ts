@@ -20,6 +20,7 @@ export interface TenantProfile {
   /** Upfront payment share in basis points; 0 means no online payment. */
   depositBps: number;
   waDisplayPhone: string;
+  waBusinessAccountId: string | null;
   addressLine: string | null;
   mapsUrl: string | null;
   mediaDownloadEnabled: boolean;
@@ -85,6 +86,7 @@ export class TenantDirectory {
       autoConfirmBookings: row.autoConfirmBookings,
       depositBps: row.depositBps,
       waDisplayPhone: row.waDisplayPhone,
+      waBusinessAccountId: row.waBusinessAccountId,
       addressLine: row.addressLine,
       mapsUrl: row.mapsUrl,
       mediaDownloadEnabled: row.mediaDownloadEnabled,

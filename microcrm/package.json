@@ -18,7 +18,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
     "test:unit": "vitest run",
-    "test:security": "jest"
+    "test:security": "jest",
+    "admin": "tsx src/cli/admin.ts"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",

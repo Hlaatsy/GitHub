@@ -31,9 +31,23 @@ Register these webhooks:
 | Meta (WhatsApp) | `https://yourdomain.co.za/webhooks/whatsapp` |
 | Ozow notify URL | sent per payment as `https://yourdomain.co.za/webhooks/payments` |
 
-## WhatsApp templates to submit for approval
+## WhatsApp templates
 
-The code fills these by position, so keep the parameter order.
+The templates are defined in `src/whatsapp/templates/definitions.ts`. They're checked locally against
+Meta's rules, then submitted per WhatsApp Business Account (set `waBusinessAccountId` on the tenant first):
+
+```sh
+docker compose exec api node dist/cli/admin.js templates-submit <tenantId>   # safe to re-run
+docker compose exec api node dist/cli/admin.js templates-sync <tenantId>     # pull current status
+```
+
+Meta's decisions arrive on the WhatsApp webhook. In Meta's dashboard, subscribe the webhook to
+**message_template_status_update** as well as **messages**. A rejected template is resubmitted on the
+next `templates-submit` once its definition is fixed. If Meta changes a template's category (for
+example utility to marketing, which is billed higher), it's flagged both when you submit and on the
+owner checklist.
+
+The code fills the parameters by position:
 
 | Name | Category | Body parameters | Button |
 | --- | --- | --- | --- |
@@ -66,4 +80,26 @@ R125.00 to confirm Wash & Blow Mon 12 Oct 08:00: https://…/pay/… (valid unti
 - It's enabled when `BULKSMS_TOKEN_ID` and `BULKSMS_TOKEN_SECRET` are set and payments are enabled.
 - Before go-live, confirm the auth scheme and response format in `src/sms/bulksms.ts` against BulkSMS's
   current docs, and register your sender ID with BulkSMS.
+
+## Owner onboarding checklist
+
+```sh
+docker compose exec api node dist/cli/admin.js onboarding-link <tenantId>
+```
+
+This prints a private link, valid for 7 days, to send to the business owner. Issuing a new link
+invalidates the old one, and only a hash of the link is stored. The page reads live status for seven
+steps:
+1. WhatsApp number connected (the owner sends HI)
+2. Opening hours
+3. Catalog
+4. Wallet funded
+5. Templates approved
+6. Deposits on
+7. A real test payment
+
+For the test payment, a button sends a real `ONBOARDING_TEST_AMOUNT_CENTS` (R5 by default) pay link to
+the owner's WhatsApp. The owner pays it like a customer, and the page refreshes itself until the bank
+settlement and the WhatsApp confirmation have both landed. Test orders carry `isTest` so they can be
+kept out of revenue figures. The page shows only the business's own setup state, never customer data.
 

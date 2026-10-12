@@ -1,5 +1,7 @@
 import express, { type Express } from 'express';
 import { type Logger } from './lib/logger';
+import { createOnboardingRouter } from './onboarding/onboarding.router';
+import { type OnboardingService } from './onboarding/OnboardingService';
 import { createPayLinkRouter } from './payments/payLink.router';
 import { createPaymentsWebhookRouter } from './payments/payments.router';
 import { type PaymentService } from './payments/PaymentService';
@@ -15,6 +17,7 @@ export interface AppOptions {
     service: Pick<PaymentService, 'handleNotification' | 'resolveLink' | 'describeReturn'>;
     allowedIps?: ReadonlySet<string>;
   };
+  onboarding?: Pick<OnboardingService, 'resolve' | 'checklist' | 'sendTestPayment'>;
 }
 
 export function createApp(options: AppOptions): Express {
@@ -35,6 +38,9 @@ export function createApp(options: AppOptions): Express {
       createPaymentsWebhookRouter({ payments: service, logger: options.logger, ...(allowedIps ? { allowedIps } : {}) }),
     );
     app.use('/pay', createPayLinkRouter({ payments: service, logger: options.logger }));
+  }
+  if (options.onboarding) {
+    app.use('/onboarding', createOnboardingRouter({ onboarding: options.onboarding, logger: options.logger }));
   }
 
   app.use(express.json({ limit: '64kb' }));

@@ -76,6 +76,8 @@ model Tenant {
   /// Meta `phone_number_id`: every inbound webhook is resolved to a tenant by this value.
   waPhoneNumberId      String       @unique @db.VarChar(32)
   waDisplayPhone       String       @db.VarChar(20)
+  /// WhatsApp Business Account that owns the number; message templates are approved per WABA.
+  waBusinessAccountId  String?      @db.VarChar(32)
   /// Owner's WhatsApp ID (digits only) for wallet top-up alerts.
   ownerWaId            String?      @db.VarChar(15)
   /// Meta Commerce catalog linked to the WABA; enables `product_list` messages.
@@ -104,6 +106,9 @@ model Tenant {
   /// Inbound media is never downloaded unless the tenant opts in.
   mediaDownloadEnabled Boolean      @default(false)
   active               Boolean      @default(true)
+  /// SHA-256 of the owner's onboarding link token; the token itself is never stored.
+  onboardingTokenHash      String?   @unique @db.Char(64)
+  onboardingTokenExpiresAt DateTime? @db.Timestamptz(3)
 
   createdAt            DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt            DateTime     @updatedAt @db.Timestamptz(3)
@@ -226,6 +231,8 @@ model Order {
   reference  String      @db.VarChar(12)
   status     OrderStatus @default(PENDING)
   totalCents Int
+  /// Owner's onboarding test payment: exclude from revenue and fulfilment.
+  isTest     Boolean     @default(false)
   createdAt  DateTime    @default(now()) @db.Timestamptz(3)
   updatedAt  DateTime    @updatedAt @db.Timestamptz(3)
 
@@ -367,4 +374,36 @@ model PaymentIntent {
   @@index([tenantId, appointmentId])
   @@index([tenantId, orderId])
   @@map("payment_intents")
+}
+
+enum TemplateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAUSED
+  DISABLED
+  IN_APPEAL
+  /// Any status Meta adds later; treated as not sendable.
+  OTHER
+}
+
+/// Meta's approval state for a message template in one WhatsApp Business Account.
+/// Rows are created by submission/sync only; status webhooks update existing rows.
+model MessageTemplate {
+  id                String         @id @default(uuid()) @db.Uuid
+  wabaId            String         @db.VarChar(32)
+  name              String         @db.VarChar(512)
+  language          String         @db.VarChar(15)
+  /// What we asked for.
+  requestedCategory String         @db.VarChar(20)
+  /// What Meta assigned. MARKETING costs more than UTILITY, so a change is flagged.
+  category          String         @db.VarChar(20)
+  status            TemplateStatus
+  metaTemplateId    String?        @db.VarChar(32)
+  rejectedReason    String?        @db.VarChar(200)
+  createdAt         DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime       @updatedAt @db.Timestamptz(3)
+
+  @@unique([wabaId, name, language])
+  @@map("message_templates")
 }

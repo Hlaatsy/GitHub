@@ -22,6 +22,9 @@ export type MediaHook = (tenant: TenantProfile, mediaId: string, mediaType: Medi
 /** Called for each delivery status Meta reports as failed (e.g. to fall back to SMS). */
 export type FailedStatusHook = (tenant: TenantProfile, status: FailedStatus, now: Date) => Promise<unknown>;
 
+/** Called with the WABA id and value of each `message_template_status_update` change. */
+export type TemplateStatusHook = (wabaId: string, value: unknown) => Promise<unknown>;
+
 export interface WebhookProcessorDeps {
   tenants: TenantDirectory;
   customers: CustomerRepository;
@@ -35,6 +38,7 @@ export interface WebhookProcessorDeps {
   staleAfterMs: number;
   onMediaRequested?: MediaHook;
   onFailedStatus?: FailedStatusHook;
+  onTemplateStatus?: TemplateStatusHook;
   clock?: () => Date;
 }
 
@@ -48,6 +52,13 @@ export class WebhookProcessor implements WebhookSink {
   async process(payload: WebhookPayload): Promise<void> {
     for (const entry of payload.entry) {
       for (const change of entry.changes) {
+        if (change.field === 'message_template_status_update') {
+          // entry.id is the WABA; the hook only updates templates already on record for it.
+          await this.deps.onTemplateStatus?.(entry.id, change.value).catch((err: unknown) => {
+            this.deps.logger.error({ err, wabaId: entry.id }, 'failed to apply template status update');
+          });
+          continue;
+        }
         if (change.field !== 'messages') continue;
 
         const value = parseMessagesValue(change.value);

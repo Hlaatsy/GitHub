@@ -13,7 +13,9 @@ import { TenantDirectory } from './services/tenants';
 import { WalletService } from './services/wallet';
 import { BulkSmsProvider } from './sms/bulksms';
 import { SmsFallbackService } from './sms/SmsFallbackService';
+import { OnboardingService } from './onboarding/OnboardingService';
 import { WebhookProcessor } from './webhooks/processor';
+import { TemplateService } from './whatsapp/templates/TemplateService';
 import { WhatsAppService } from './whatsapp/WhatsAppService';
 
 async function main(): Promise<void> {
@@ -65,6 +67,21 @@ async function main(): Promise<void> {
       )
     : null;
 
+  const templates = new TemplateService(prisma, whatsapp, logger);
+  const onboarding = env.PUBLIC_BASE_URL?.startsWith('https://')
+    ? new OnboardingService(
+        { prisma, tenants, messenger, payments, logger },
+        {
+          publicBaseUrl: env.PUBLIC_BASE_URL,
+          linkTtlHours: env.ONBOARDING_LINK_TTL_HOURS,
+          testAmountCents: env.ONBOARDING_TEST_AMOUNT_CENTS,
+          templateLanguage: env.WA_TEMPLATE_LANGUAGE,
+          requestTemplate: env.WA_PAYMENT_REQUEST_TEMPLATE,
+          requiredTemplates: [env.WA_PAYMENT_REQUEST_TEMPLATE, env.WA_PAYMENT_CONFIRMED_TEMPLATE, env.WA_LOW_BALANCE_TEMPLATE],
+        },
+      )
+    : null;
+
   // SMS only ever re-sends pay links, so it needs payments enabled too.
   const smsFallback =
     smsConfig && paymentConfig
@@ -100,6 +117,7 @@ async function main(): Promise<void> {
     markAsRead: env.WA_MARK_AS_READ,
     staleAfterMs: env.STALE_MESSAGE_SECONDS * 1000,
     ...(smsFallback ? { onFailedStatus: (tenant, status, now) => smsFallback.handleFailedStatus(tenant, status, now) } : {}),
+    onTemplateStatus: (wabaId, value) => templates.applyStatusUpdate(wabaId, value),
   });
 
   const app = createApp({
@@ -108,6 +126,7 @@ async function main(): Promise<void> {
     sink: processor,
     logger,
     ...(payments && paymentConfig ? { payments: { service: payments, allowedIps: paymentConfig.allowedIps } } : {}),
+    ...(onboarding ? { onboarding } : {}),
   });
 
   // Catches missed settlement webhooks, expires abandoned links and retries
