@@ -12,11 +12,13 @@
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run && jest",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "test:unit": "vitest run",
+    "test:security": "jest"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
@@ -27,9 +29,12 @@
   },
   "devDependencies": {
     "@types/express": "4.17.25",
+    "@types/jest": "29.5.14",
     "@types/node": "22.15.30",
     "@types/supertest": "6.0.3",
+    "jest": "29.7.0",
     "supertest": "7.1.4",
+    "ts-jest": "29.4.14",
     "tsx": "4.20.6",
     "typescript": "5.9.3",
     "vitest": "3.2.4"
