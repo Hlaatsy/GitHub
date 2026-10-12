@@ -43,6 +43,27 @@ export const MessagesValueSchema = z
   })
   .passthrough();
 
+const FailedStatusSchema = z
+  .object({
+    id: z.string().min(1).max(128),
+    status: z.literal('failed'),
+    recipient_id: z.string().min(8).max(20),
+    timestamp: z.string().regex(/^\d{1,12}$/),
+    errors: z.array(z.object({ code: z.number().int(), title: z.string().optional() }).passthrough()).default([]),
+  })
+  .passthrough();
+
+/** A delivery status Meta reports as failed, with its error codes. */
+export type FailedStatus = z.infer<typeof FailedStatusSchema>;
+
+/** Picks the well-formed `failed` statuses out of a change; everything else is ignored. */
+export function parseFailedStatuses(statuses: readonly unknown[] | undefined): FailedStatus[] {
+  return (statuses ?? []).flatMap((status) => {
+    const parsed = FailedStatusSchema.safeParse(status);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
 export function parseWebhookPayload(input: unknown): WebhookPayload {
   return WebhookPayloadSchema.parse(input) as unknown as WebhookPayload;
 }

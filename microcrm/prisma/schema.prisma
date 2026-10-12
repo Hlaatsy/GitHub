@@ -65,6 +65,8 @@ enum PaymentStatus {
 enum MessageCategory {
   SERVICE
   UTILITY
+  /// Fallback text message; `wamid` then holds the SMS provider's message id.
+  SMS
 }
 
 model Tenant {
@@ -346,6 +348,10 @@ model PaymentIntent {
   settledAt             DateTime?       @db.Timestamptz(3)
   /// Set when the confirmation template went out; the reconciler retries until it is.
   customerNotifiedAt    DateTime?       @db.Timestamptz(3)
+  /// WhatsApp message that carried the pay link; Meta's delivery statuses refer to it.
+  payLinkWamid          String?         @unique @db.VarChar(128)
+  /// Claimed before the SMS fallback is sent, so a re-delivered status cannot send a second one.
+  smsFallbackSentAt     DateTime?       @db.Timestamptz(3)
   /// Paid, but needs a human: e.g. the booking was cancelled or the slot overbooked meanwhile.
   reviewRequired        Boolean         @default(false)
   failureReason         String?         @db.VarChar(200)

@@ -19,6 +19,8 @@ export type ReplyKind = 'MENU' | 'SLOTS' | 'CATALOG' | 'LOCATION' | 'BOOKING' | 
 export interface BotReply {
   kind: ReplyKind;
   message: OutboundMessage;
+  /** Runs once Meta has accepted the message, with its wamid. */
+  afterSend?: (wamid: string) => Promise<void>;
 }
 
 export interface ConversationContext {
@@ -352,6 +354,10 @@ export class ConversationHandlers {
         .generateWhatsAppPaymentLink(subject.id, depositCents / 100, payments.service.webhookUrl, now);
       return {
         kind: 'PAYMENT',
+        // Meta's delivery statuses reference this wamid; the SMS fallback looks the payment up by it.
+        afterSend: async (wamid) => {
+          await this.prisma.paymentIntent.update({ where: { id: link.intentId }, data: { payLinkWamid: wamid } });
+        },
         message: formatPaymentLinkMessage(
           link,
           {

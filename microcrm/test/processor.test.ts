@@ -14,7 +14,7 @@ import { salonTenant } from './fixtures';
 const NOW = new Date('2026-10-12T08:00:00Z');
 const PHONE_ID = '100000000000001';
 
-function payload(messages: InboundMessage[], phoneNumberId = PHONE_ID): WebhookPayload {
+function payload(messages: InboundMessage[], phoneNumberId = PHONE_ID, statuses: unknown[] = []): WebhookPayload {
   return {
     object: 'whatsapp_business_account',
     entry: [
@@ -28,6 +28,7 @@ function payload(messages: InboundMessage[], phoneNumberId = PHONE_ID): WebhookP
               metadata: { display_phone_number: '27110000001', phone_number_id: phoneNumberId },
               contacts: [{ wa_id: '27821234567', profile: { name: 'Thandi' } }],
               messages,
+              statuses: statuses as never,
             },
           },
         ],
@@ -44,7 +45,7 @@ const text = (body: string, id = 'wamid.1'): InboundMessage => ({
   text: { body },
 });
 
-function setup(customer: Partial<CustomerContext> = {}) {
+function setup(customer: Partial<CustomerContext> = {}, onFailedStatus?: (...args: unknown[]) => Promise<unknown>) {
   const claimed = new Set<string>();
   const ledger = { claim: vi.fn(async (_t: string, wamid: string) => !claimed.has(wamid) && Boolean(claimed.add(wamid))) };
   const customers = {
@@ -76,6 +77,7 @@ function setup(customer: Partial<CustomerContext> = {}) {
     markAsRead: false,
     staleAfterMs: 3_600_000,
     clock: () => NOW,
+    ...(onFailedStatus ? { onFailedStatus } : {}),
   });
   return { processor, messenger, customers, tenants };
 }
@@ -120,5 +122,35 @@ describe('WebhookProcessor', () => {
     const { processor, messenger } = setup();
     await processor.process(payload([{ ...text('Hi'), timestamp: String(NOW.getTime() / 1000 - 7200) }]));
     expect(messenger.reply).not.toHaveBeenCalled();
+  });
+
+  it('routes only well-formed failed statuses to the failure hook', async () => {
+    const hook = vi.fn().mockResolvedValue({ status: 'sent' });
+    const { processor, messenger } = setup({}, hook);
+    const status = (id: string, value: string, extra: object = {}) => ({
+      id,
+      status: value,
+      recipient_id: '27821234567',
+      timestamp: '1792000000',
+      ...extra,
+    });
+    await processor.process(
+      payload([], PHONE_ID, [
+        status('wamid.sent', 'sent'),
+        status('wamid.read', 'read'),
+        status('wamid.fail', 'failed', { errors: [{ code: 131026, title: 'Message undeliverable' }] }),
+        { id: 'wamid.bad', status: 'failed' },
+      ]),
+    );
+    expect(hook).toHaveBeenCalledOnce();
+    expect(hook.mock.calls[0]?.[1]).toMatchObject({ id: 'wamid.fail', errors: [{ code: 131026 }] });
+    expect(messenger.reply).not.toHaveBeenCalled();
+  });
+
+  it('ignores failed statuses for unknown tenants', async () => {
+    const hook = vi.fn();
+    const { processor } = setup({}, hook);
+    await processor.process(payload([], '999', [{ id: 'w', status: 'failed', recipient_id: '27821234567', timestamp: '1', errors: [] }]));
+    expect(hook).not.toHaveBeenCalled();
   });
 });

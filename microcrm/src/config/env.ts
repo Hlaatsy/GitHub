@@ -61,7 +61,29 @@ const EnvSchema = z.object({
   PAYMENT_WEBHOOK_ALLOWED_IPS: z.string().default(''),
   WA_PAYMENT_REQUEST_TEMPLATE: z.string().min(1).default('payment_request'),
   WA_PAYMENT_CONFIRMED_TEMPLATE: z.string().min(1).default('payment_confirmed'),
+
+  // SMS fallback for undeliverable pay links (BulkSMS). Enabled when both token parts are set.
+  BULKSMS_TOKEN_ID: optionalSecret,
+  BULKSMS_TOKEN_SECRET: optionalSecret,
+  BULKSMS_BASE_URL: z.string().url().default('https://api.bulksms.com/v1'),
+  /** Registered alphanumeric sender ID (max 11 characters); empty uses BulkSMS's default route. */
+  BULKSMS_SENDER_ID: z
+    .string()
+    .regex(/^[A-Za-z0-9 ]{0,11}$/)
+    .optional()
+    .transform((value) => (value ? value : undefined)),
+  SMS_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
+  SMS_COST_PER_SEGMENT_CENTS: z.coerce.number().int().min(0).default(25),
 });
+
+export interface SmsEnv {
+  tokenId: string;
+  tokenSecret: string;
+  baseUrl: string;
+  senderId?: string;
+  timeoutMs: number;
+  costPerSegmentCents: number;
+}
 
 export interface PaymentsEnv {
   publicBaseUrl: string;
@@ -78,6 +100,21 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     throw new Error(`Invalid environment configuration: ${issues.join('; ')}`);
   }
   return result.data;
+}
+
+/** Null when SMS fallback is not configured. Throws on a half configuration. */
+export function smsEnv(env: Env): SmsEnv | null {
+  const { BULKSMS_TOKEN_ID: tokenId, BULKSMS_TOKEN_SECRET: tokenSecret } = env;
+  if (!tokenId && !tokenSecret) return null;
+  if (!tokenId || !tokenSecret) throw new Error('Set both BULKSMS_TOKEN_ID and BULKSMS_TOKEN_SECRET, or neither');
+  return {
+    tokenId,
+    tokenSecret,
+    baseUrl: env.BULKSMS_BASE_URL,
+    ...(env.BULKSMS_SENDER_ID ? { senderId: env.BULKSMS_SENDER_ID } : {}),
+    timeoutMs: env.SMS_TIMEOUT_MS,
+    costPerSegmentCents: env.SMS_COST_PER_SEGMENT_CENTS,
+  };
 }
 
 /** Null when payments are not configured. Throws on a half or unsafe configuration. */

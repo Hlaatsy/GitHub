@@ -1,5 +1,5 @@
 import { ConversationHandlers } from './bot/handlers';
-import { loadEnv, paymentsEnv } from './config/env';
+import { loadEnv, paymentsEnv, smsEnv } from './config/env';
 import { createApp } from './app';
 import { logger } from './lib/logger';
 import { createPrismaClient } from './lib/prisma';
@@ -11,12 +11,15 @@ import { InboundLedger } from './services/inboundLedger';
 import { OutboundMessenger } from './services/messenger';
 import { TenantDirectory } from './services/tenants';
 import { WalletService } from './services/wallet';
+import { BulkSmsProvider } from './sms/bulksms';
+import { SmsFallbackService } from './sms/SmsFallbackService';
 import { WebhookProcessor } from './webhooks/processor';
 import { WhatsAppService } from './whatsapp/WhatsAppService';
 
 async function main(): Promise<void> {
   const env = loadEnv();
   const paymentConfig = paymentsEnv(env);
+  const smsConfig = smsEnv(env);
   const prisma = createPrismaClient();
 
   const whatsapp = new WhatsAppService({
@@ -29,10 +32,11 @@ async function main(): Promise<void> {
   const customers = new CustomerRepository(prisma);
   const tenants = new TenantDirectory(prisma, logger);
   const limiter = new SlidingWindowLimiter(env.CUSTOMER_MAX_EVENTS_PER_MINUTE, 60_000);
+  const wallet = new WalletService(prisma);
   const messenger = new OutboundMessenger({
     prisma,
     whatsapp,
-    wallet: new WalletService(prisma),
+    wallet,
     logger,
     costs: {
       serviceCents: env.COST_SERVICE_MESSAGE_CENTS,
@@ -61,6 +65,16 @@ async function main(): Promise<void> {
       )
     : null;
 
+  // SMS only ever re-sends pay links, so it needs payments enabled too.
+  const smsFallback =
+    smsConfig && paymentConfig
+      ? new SmsFallbackService(
+          { prisma, provider: new BulkSmsProvider(smsConfig), wallet, messenger, logger },
+          { publicBaseUrl: paymentConfig.publicBaseUrl, costPerSegmentCents: smsConfig.costPerSegmentCents },
+        )
+      : null;
+  if (smsConfig && !paymentConfig) logger.warn('BulkSMS is configured but payments are not; SMS fallback stays off');
+
   const processor = new WebhookProcessor({
     tenants,
     customers,
@@ -85,6 +99,7 @@ async function main(): Promise<void> {
     logger,
     markAsRead: env.WA_MARK_AS_READ,
     staleAfterMs: env.STALE_MESSAGE_SECONDS * 1000,
+    ...(smsFallback ? { onFailedStatus: (tenant, status, now) => smsFallback.handleFailedStatus(tenant, status, now) } : {}),
   });
 
   const app = createApp({
@@ -116,7 +131,10 @@ async function main(): Promise<void> {
   reconciler?.unref();
 
   const server = app.listen(env.PORT, () => {
-    logger.info({ port: env.PORT, graphVersion: env.WA_GRAPH_VERSION, payments: Boolean(payments) }, 'micro-crm listening');
+    logger.info(
+      { port: env.PORT, graphVersion: env.WA_GRAPH_VERSION, payments: Boolean(payments), smsFallback: Boolean(smsFallback) },
+      'micro-crm listening',
+    );
   });
 
   const shutdown = (signal: string) => {

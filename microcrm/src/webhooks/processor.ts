@@ -10,7 +10,7 @@ import { type TenantDirectory, type TenantProfile } from '../services/tenants';
 import { type InboundMessage, type WebhookPayload } from '../whatsapp/types';
 import { type WhatsAppService } from '../whatsapp/WhatsAppService';
 import { normaliseMessage, type MediaType } from './normalise';
-import { parseMessagesValue } from './schema';
+import { parseFailedStatuses, parseMessagesValue, type FailedStatus } from './schema';
 
 export interface WebhookSink {
   process(payload: WebhookPayload): Promise<void>;
@@ -18,6 +18,9 @@ export interface WebhookSink {
 
 /** Invoked only for tenants that opted in to media handling; heavy work belongs in a queue. */
 export type MediaHook = (tenant: TenantProfile, mediaId: string, mediaType: MediaType) => Promise<void>;
+
+/** Called for each delivery status Meta reports as failed (e.g. to fall back to SMS). */
+export type FailedStatusHook = (tenant: TenantProfile, status: FailedStatus, now: Date) => Promise<unknown>;
 
 export interface WebhookProcessorDeps {
   tenants: TenantDirectory;
@@ -31,6 +34,7 @@ export interface WebhookProcessorDeps {
   markAsRead: boolean;
   staleAfterMs: number;
   onMediaRequested?: MediaHook;
+  onFailedStatus?: FailedStatusHook;
   clock?: () => Date;
 }
 
@@ -51,8 +55,9 @@ export class WebhookProcessor implements WebhookSink {
           this.deps.logger.warn({ wabaId: entry.id }, 'malformed messages change skipped');
           continue;
         }
-        // Delivery/read status callbacks never warrant a reply.
-        if (!value.messages?.length) continue;
+        // Sent/delivered/read statuses need nothing; only failures can trigger a fallback.
+        const failed = this.deps.onFailedStatus ? parseFailedStatuses(value.statuses) : [];
+        if (!value.messages?.length && failed.length === 0) continue;
 
         // Tenant isolation boundary: identity comes solely from the receiving
         // business number, resolved per change, so one batched webhook that
@@ -63,8 +68,17 @@ export class WebhookProcessor implements WebhookSink {
           continue;
         }
 
+        for (const status of failed) {
+          try {
+            const result = await this.deps.onFailedStatus?.(tenant, status, this.clock());
+            this.deps.logger.info({ tenantId: tenant.id, wamid: status.id, codes: status.errors.map((e) => e.code), result }, 'failed delivery status handled');
+          } catch (error) {
+            this.deps.logger.error({ err: error, tenantId: tenant.id, wamid: status.id }, 'failed to handle delivery status');
+          }
+        }
+
         const profileNames = new Map(value.contacts?.map((contact) => [contact.wa_id, contact.profile?.name]) ?? []);
-        for (const message of value.messages) {
+        for (const message of value.messages ?? []) {
           try {
             await this.handleMessage(tenant, message, profileNames.get(message.from));
           } catch (error) {
@@ -122,8 +136,8 @@ export class WebhookProcessor implements WebhookSink {
     if (!reply) return;
 
     const outcome = await messenger.reply(tenant, customer, reply.message, message.id, now);
-    if (outcome.status === 'sent' && reply.kind === 'MENU') {
-      await customers.markMenuSent(tenant.id, customer.id, now);
-    }
+    if (outcome.status !== 'sent') return;
+    if (reply.kind === 'MENU') await customers.markMenuSent(tenant.id, customer.id, now);
+    if (reply.afterSend) await reply.afterSend(outcome.wamid);
   }
 }

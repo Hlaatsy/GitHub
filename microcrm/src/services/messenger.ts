@@ -78,7 +78,7 @@ export class OutboundMessenger {
         await wallet.claimLowBalanceNotice(tenant.id, now),
       );
       log.warn({ balanceCents: warning.balanceCents }, 'wallet cannot cover reply; not sending');
-      await this.notifyOwner(tenant, warning);
+      await this.notifyLowBalance(tenant, warning);
       return { status: 'skipped', reason: 'WALLET_EMPTY', topUpWarning: warning };
     }
 
@@ -104,7 +104,7 @@ export class OutboundMessenger {
     const billing = await wallet.debitForMessage(tenant.id, costCents, record.id, now);
     log.info({ wamid, costCents, balanceCents: billing.balanceCents, lowBalance: billing.lowBalance }, 'reply sent');
 
-    if (billing.topUpWarning) await this.notifyOwner(tenant, billing.topUpWarning);
+    if (billing.topUpWarning) await this.notifyLowBalance(tenant, billing.topUpWarning);
     return { status: 'sent', wamid, billing };
   }
 
@@ -113,7 +113,7 @@ export class OutboundMessenger {
    * owner is usually outside a service window). Absorbed by the platform: it is
    * logged at zero cost to the tenant.
    */
-  private async notifyOwner(tenant: TenantProfile, warning: TopUpWarning): Promise<void> {
+  async notifyLowBalance(tenant: TenantProfile, warning: TopUpWarning): Promise<void> {
     if (!warning.notifyOwner || !tenant.ownerWaId) return;
     const { prisma, whatsapp, logger, lowBalanceTemplate, templateLanguage } = this.deps;
     try {

@@ -11,7 +11,8 @@
 #
 # Non-interactive use: export DOMAIN, ADMIN_EMAIL, WA_ACCESS_TOKEN and
 # WA_APP_SECRET (and optionally OZOW_SITE_CODE, OZOW_API_KEY,
-# OZOW_PRIVATE_KEY) before running.
+# OZOW_PRIVATE_KEY, BULKSMS_TOKEN_ID, BULKSMS_TOKEN_SECRET, BULKSMS_SENDER_ID)
+# before running.
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -158,7 +159,7 @@ if [[ "$FIRST_INSTALL" == true ]]; then
   set_env WA_ACCESS_TOKEN "$WA_ACCESS_TOKEN"
   set_env WA_APP_SECRET "$WA_APP_SECRET"
   set_env OZOW_IS_TEST false
-  for key in OZOW_SITE_CODE OZOW_API_KEY OZOW_PRIVATE_KEY; do
+  for key in OZOW_SITE_CODE OZOW_API_KEY OZOW_PRIVATE_KEY BULKSMS_TOKEN_ID BULKSMS_TOKEN_SECRET BULKSMS_SENDER_ID; do
     if [[ -n "${!key:-}" ]]; then set_env "$key" "${!key}"; fi
   done
   ok "Generated .env with random database password and webhook verify token"

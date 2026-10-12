@@ -53,3 +53,17 @@ Example `payment_confirmed` body: *"{{1}}: payment of {{3}} received for {{2}}. 
   which releases their holds. It also retries undelivered confirmations.
 - Before go-live, confirm the hash field orders in `src/payments/ozow.ts` against Ozow's current docs,
   and run a staging payment (`OZOW_BASE_URL=https://stagingapi.ozow.com`, `OZOW_IS_TEST=true`).
+
+## SMS fallback
+
+If Meta reports a pay-link message as undeliverable (error 131026: the number isn't on WhatsApp, or the
+app is too old), the link is re-sent once by SMS through BulkSMS. For example: *"Glow Studio: pay
+R125.00 to confirm Wash & Blow Mon 12 Oct 08:00: https://…/pay/… (valid until 02:31)"*.
+
+- No SMS is sent for other failure codes, if the payment is no longer pending, if the customer has
+  opted out, or if the wallet can't cover it.
+- Each SMS is billed per segment (`SMS_COST_PER_SEGMENT_CENTS`).
+- It's enabled when `BULKSMS_TOKEN_ID` and `BULKSMS_TOKEN_SECRET` are set and payments are enabled.
+- Before go-live, confirm the auth scheme and response format in `src/sms/bulksms.ts` against BulkSMS's
+  current docs, and register your sender ID with BulkSMS.
+
