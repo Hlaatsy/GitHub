@@ -1,0 +1,66 @@
+name: microcrm CI
+
+# Runs only when the micro-CRM changes, to save Actions minutes on a private repo.
+on:
+  push:
+    paths: ["microcrm/**", ".github/workflows/microcrm-ci.yml"]
+  pull_request:
+    paths: ["microcrm/**", ".github/workflows/microcrm-ci.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: microcrm-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: microcrm
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: crm
+          POSTGRES_PASSWORD: crm
+          POSTGRES_DB: crm_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U crm -d crm_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://crm:crm@localhost:5432/crm_test?schema=public
+      TEST_DATABASE_URL: postgresql://crm:crm@localhost:5432/crm_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: microcrm/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      # The same migrations production runs, CHECK constraints included.
+      - run: npx prisma migrate deploy
+      - name: Schema and migrations agree
+        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the production image
+        run: docker build --tag microcrm:ci microcrm
+      - name: Admin CLI is in the image
+        run: |
+          out=$(docker run --rm microcrm:ci node dist/cli/admin.js 2>&1 || true)
+          grep -q "Usage: admin" <<<"$out"

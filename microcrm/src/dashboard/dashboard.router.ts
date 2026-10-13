@@ -9,7 +9,7 @@ export interface DashboardRouterOptions {
   auth: Pick<DashboardAuth, 'origin' | 'sessionMaxAgeSeconds' | 'isLoginTokenUsable' | 'consumeLoginToken' | 'authenticate' | 'revoke'>;
   service: Pick<
     DashboardService,
-    'me' | 'summary' | 'bookings' | 'orders' | 'payments' | 'wallet' | 'setAppointmentStatus' | 'setOrderStatus'
+    'me' | 'summary' | 'bookings' | 'orders' | 'payments' | 'wallet' | 'setAppointmentStatus' | 'setOrderStatus' | 'products' | 'setStock'
   >;
   tenants: Pick<TenantDirectory, 'byId'>;
   logger: Logger;
@@ -188,6 +188,24 @@ export function createDashboardRouters(options: DashboardRouterOptions): { pages
     };
   api.post('/bookings/:id/status', statusAction(APPOINTMENT_TARGETS, (t, id, to) => service.setAppointmentStatus(t, id, to as never)));
   api.post('/orders/:id/status', statusAction(ORDER_TARGETS, (t, id, to) => service.setOrderStatus(t, id, to as never)));
+
+  api.get('/products', handle((_req, tenant) => service.products(tenant)));
+  api.post('/products/:id/stock', async (req: AuthedRequest, res: Response) => {
+    const id = req.params.id ?? '';
+    const stock = (req.body as { stock?: unknown } | undefined)?.stock;
+    const valid = stock === null || (typeof stock === 'number' && Number.isInteger(stock) && stock >= 0 && stock <= 100_000);
+    if (!UUID.test(id) || !valid) {
+      res.status(400).json({ error: 'BAD_REQUEST' });
+      return;
+    }
+    try {
+      const result = await service.setStock(req.tenant as TenantProfile, id, stock as number | null);
+      res.status(result.ok ? 200 : 404).json(result);
+    } catch (error) {
+      logger.error({ err: error, tenantId: req.tenant?.id }, 'dashboard stock update failed');
+      res.status(500).json({ error: 'INTERNAL' });
+    }
+  });
 
   api.post('/logout', async (req: AuthedRequest, res: Response) => {
     await auth.revoke(req.sessionId as string);

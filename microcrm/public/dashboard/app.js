@@ -110,7 +110,11 @@ async function changeStatus(kind, id, status, button) {
       if (status === 'CONFIRMED' || status === 'CANCELLED') {
         parts.push(result.customerNotified ? 'Customer notified on WhatsApp.' : 'Customer not notified (no message from them in 24 hours): please contact them.');
       }
-      if (result.refundRequired) parts.push('They had paid, so a refund is due: it has been flagged for the platform team.');
+      if (result.refundRequired) {
+        parts.push(result.refundBy === 'OWNER'
+          ? 'They had paid, so a refund is due: refund it from your PayFast or Paystack dashboard.'
+          : 'They had paid, so a refund is due: it has been flagged for the platform team.');
+      }
       toast(parts.join(' '));
     }
   } catch (error) {
@@ -172,6 +176,11 @@ async function ordersView() {
           el('div', { class: 'item' },
             el('div', { class: 'top' }, el('span', { class: 'title' }, `Order ${row.reference} · ${when(row.createdAt)}`), badge(row.status)),
             el('div', { class: 'meta' }, row.items.join(', ') || 'No items'),
+            row.fulfilment === 'DELIVERY'
+              ? el('div', { class: 'meta' }, '🚚 Deliver to ', el('strong', {}, row.deliveryAddress ?? '(no address)'), row.deliveryFeeCents ? ` · fee ${zar(row.deliveryFeeCents)}` : '')
+              : row.fulfilment === 'COLLECTION'
+                ? el('div', { class: 'meta' }, '🏪 Collection')
+                : null,
             el('div', { class: 'meta' }, customerLine(row.customer)),
             el('div', { class: 'meta' },
               el('span', { class: 'money' }, zar(row.totalCents)),
@@ -226,15 +235,50 @@ async function walletView() {
   ];
 }
 
+async function saveStock(id, input, button) {
+  const raw = input.value.trim();
+  const stock = raw === '' ? null : Number(raw);
+  if (stock !== null && (!Number.isInteger(stock) || stock < 0 || stock > 100000)) {
+    toast('Enter a whole number, or leave it empty to stop tracking stock.');
+    return;
+  }
+  button.disabled = true;
+  try {
+    const result = await api(`/products/${id}/stock`, { method: 'POST', body: JSON.stringify({ stock }) });
+    toast(result.ok ? (stock === null ? 'Stock tracking off.' : `Stock set to ${stock}.`) : 'That product is no longer available.');
+  } catch (error) {
+    if (error instanceof Unauthenticated) return renderLogin();
+    toast('Something went wrong. Please try again.');
+  }
+  await refresh();
+}
+
+async function productsView() {
+  const rows = await api('/products');
+  if (rows.length === 0) return [el('p', { class: 'empty' }, 'No products yet.')];
+  return [
+    el('p', { class: 'sub' }, 'Units on hand. Paid and unpaid open orders have already been taken off. Sold-out items are hidden from customers; empty means not tracked.'),
+    el('div', { class: 'list' }, rows.map((row) => {
+      const input = el('input', { type: 'number', min: '0', max: '100000', step: '1', inputmode: 'numeric', value: row.stock ?? '', 'aria-label': `Stock for ${row.name}`, class: 'stock' });
+      return el('div', { class: 'item' },
+        el('div', { class: 'top' }, el('span', { class: 'title' }, row.name), row.stock === 0 ? el('span', { class: 'badge bad' }, 'Sold out') : row.stock !== null && row.stock <= 3 ? el('span', { class: 'badge warn' }, 'Low') : null),
+        el('div', { class: 'meta' }, zar(row.priceCents)),
+        el('div', { class: 'actions' }, input, el('button', { onclick: (event) => saveStock(row.id, input, event.currentTarget) }, 'Save')),
+      );
+    })),
+  ];
+}
+
 const TABS = {
   bookings: ['Bookings', bookingsView],
   orders: ['Orders', ordersView],
+  products: ['Products', productsView],
   payments: ['Payments', paymentsView],
   wallet: ['Wallet', walletView],
 };
 
 function tabsFor(me) {
-  return me.industry === 'SALON' ? ['bookings', 'payments', 'wallet'] : ['orders', 'payments', 'wallet'];
+  return me.industry === 'SALON' ? ['bookings', 'payments', 'wallet'] : ['orders', 'products', 'payments', 'wallet'];
 }
 
 async function refresh() {
@@ -292,5 +336,6 @@ async function logout() {
 
 refresh();
 setInterval(() => {
-  if (document.visibilityState === 'visible' && state.me) refresh();
+  // Don't re-render under someone typing a stock figure.
+  if (document.visibilityState === 'visible' && state.me && document.activeElement?.tagName !== 'INPUT') refresh();
 }, REFRESH_MS);

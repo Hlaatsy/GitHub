@@ -15,7 +15,7 @@ import { type OutboundMessage } from '../whatsapp/types';
 import { type Intent } from './intents';
 import * as replies from './replies';
 
-export type ReplyKind = 'MENU' | 'SLOTS' | 'CATALOG' | 'LOCATION' | 'BOOKING' | 'ORDER' | 'PAYMENT' | 'OPT_OUT' | 'LOGIN';
+export type ReplyKind = 'MENU' | 'SLOTS' | 'CATALOG' | 'LOCATION' | 'BOOKING' | 'CART' | 'CHECKOUT' | 'ORDER' | 'PAYMENT' | 'OPT_OUT' | 'LOGIN';
 
 export interface BotReply {
   kind: ReplyKind;
@@ -46,6 +46,19 @@ export interface ConversationOptions {
   payments?: ConversationPayments;
   /** When set, the owner can request a dashboard login link by sending LOGIN. */
   dashboard?: { auth: Pick<DashboardAuth, 'issueLoginLink' | 'countRecentLinks'>; maxLinksPerHour: number };
+  /** Linked from a customer's first menu. */
+  privacyNoticeUrl?: string;
+}
+
+type CheckoutLine = { product: replies.ProductSummary & { stockQuantity: number | null }; quantity: number };
+
+class OutOfStock extends Error {
+  constructor(
+    readonly productId: string,
+    readonly available: number,
+  ) {
+    super('out of stock');
+  }
 }
 
 type DepositSubject = { kind: 'appointment' | 'order'; id: string; summary: string; fallback: BotReply };
@@ -56,6 +69,8 @@ const ACTIVE_BOOKING_STATUSES = ['PENDING', 'CONFIRMED'] as const;
 const BPS_DENOMINATOR = 10_000;
 const DEFAULT_HORIZON_HOURS = 48;
 const MAX_LINE_QUANTITY = 99;
+const ADDRESS_MIN = 10;
+const ADDRESS_MAX = 300;
 const REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 const serviceSelect = { id: true, name: true, durationMinutes: true, priceCents: true } as const;
@@ -67,6 +82,7 @@ const productSelect = {
   priceUnit: true,
   metaRetailerId: true,
 } as const;
+const IN_STOCK: Prisma.ProductWhereInput = { OR: [{ stockQuantity: null }, { stockQuantity: { gt: 0 } }] };
 
 /**
  * Maps an intent to at most one reply. Returning a single message (or none) per
@@ -89,8 +105,14 @@ export class ConversationHandlers {
   }
 
   async handle(intent: Intent, ctx: ConversationContext): Promise<BotReply | null> {
-    const { tenant } = ctx;
+    const { tenant, customer } = ctx;
     const isSalon = tenant.industry === 'SALON';
+
+    // Typing an address is only expected straight after asking for one.
+    if (customer.checkoutStage === 'AWAITING_ADDRESS') {
+      if (intent.name === 'UNRECOGNISED' && intent.text !== undefined && !isSalon) return this.receiveAddress(ctx, intent.text);
+      await this.customers.setCheckoutStage(tenant.id, customer.id, 'NONE');
+    }
 
     switch (intent.name) {
       case 'MENU':
@@ -100,9 +122,31 @@ export class ConversationHandlers {
         return this.menuUnlessRecentlySent(ctx);
 
       case 'BOOK':
+      case 'CART_ADD_MORE':
         return isSalon
-          ? this.offerSlots(ctx, null)
+          ? intent.name === 'BOOK'
+            ? this.offerSlots(ctx, null)
+            : this.menu(ctx)
           : { kind: 'CATALOG', message: replies.productIndex(tenant, await this.products(tenant.id, replies.PRODUCT_INDEX_SIZE)) };
+
+      case 'CART_CHECKOUT':
+        return isSalon ? this.menu(ctx) : this.checkout(ctx);
+
+      case 'CART_EMPTY':
+        if (isSalon) return this.menu(ctx);
+        await this.prisma.cartItem.deleteMany({ where: { tenantId: tenant.id, customerId: customer.id } });
+        return { kind: 'CART', message: replies.cartSummary([]) };
+
+      case 'CHOOSE_FULFILMENT':
+        return isSalon ? this.menu(ctx) : this.chooseFulfilment(ctx, intent.fulfilment);
+
+      case 'USE_SAVED_ADDRESS':
+        return isSalon || !customer.savedAddress || !tenant.deliveryEnabled
+          ? this.menu(ctx)
+          : this.placeCartOrder(ctx, { fulfilment: 'DELIVERY', address: customer.savedAddress, feeCents: tenant.deliveryFeeCents });
+
+      case 'NEW_ADDRESS':
+        return isSalon || !tenant.deliveryEnabled ? this.menu(ctx) : this.askForAddress(ctx);
 
       case 'CATALOG':
         return isSalon
@@ -124,10 +168,10 @@ export class ConversationHandlers {
         return isSalon ? this.book(ctx, intent.startsAt, intent.serviceId) : this.menu(ctx);
 
       case 'PICK_PRODUCT':
-        return isSalon ? this.menu(ctx) : this.orderProduct(ctx, intent.productId);
+        return isSalon ? this.menu(ctx) : this.addToCart(ctx, intent.productId);
 
       case 'PLACE_CART':
-        return isSalon || intent.catalogId !== tenant.metaCatalogId ? this.menu(ctx) : this.orderCart(ctx, intent.items);
+        return isSalon || intent.catalogId !== tenant.metaCatalogId ? this.menu(ctx) : this.replaceCart(ctx, intent.items);
 
       case 'DASHBOARD_LOGIN':
         return this.dashboardLogin(ctx);
@@ -170,7 +214,9 @@ export class ConversationHandlers {
   }
 
   private menu(ctx: ConversationContext): BotReply {
-    return { kind: 'MENU', message: replies.mainMenu(ctx.tenant, ctx.customer.displayName) };
+    // The privacy notice goes with the first menu a customer ever receives.
+    const notice = ctx.customer.lastMenuSentAt ? undefined : this.options.privacyNoticeUrl;
+    return { kind: 'MENU', message: replies.mainMenu(ctx.tenant, ctx.customer.displayName, notice) };
   }
 
   /** Free text the bot can't route: re-offer the menu, but never twice within the cooldown. */
@@ -282,58 +328,149 @@ export class ConversationHandlers {
   }
 
   // -------------------------------------------------------------------------
-  // Decor hire / product sellers
+  // Decor hire / product sellers: cart → fulfilment → order → pay
   // -------------------------------------------------------------------------
 
-  private async orderProduct(ctx: ConversationContext, productId: string): Promise<BotReply> {
+  private async addToCart(ctx: ConversationContext, productId: string): Promise<BotReply> {
+    const { tenant, customer } = ctx;
     const product = await this.prisma.product.findFirst({
-      where: { id: productId, tenantId: ctx.tenant.id, active: true },
-      select: productSelect,
+      where: { id: productId, tenantId: tenant.id, active: true },
+      select: { id: true, name: true, stockQuantity: true },
     });
     if (!product) return this.menu(ctx);
-    return this.placeOrder(ctx, [{ product, quantity: 1 }]);
+
+    const existing = await this.prisma.cartItem.findUnique({
+      where: { tenantId_customerId_productId: { tenantId: tenant.id, customerId: customer.id, productId } },
+      select: { quantity: true },
+    });
+    const wanted = Math.min((existing?.quantity ?? 0) + 1, MAX_LINE_QUANTITY);
+    const quantity = product.stockQuantity === null ? wanted : Math.min(wanted, product.stockQuantity);
+    let intro: string | undefined;
+    if (quantity <= 0) {
+      intro = `Sorry, ${product.name} is sold out.`;
+    } else {
+      if (quantity < wanted) intro = `Only ${quantity} ${product.name} available.`;
+      await this.prisma.cartItem.upsert({
+        where: { tenantId_customerId_productId: { tenantId: tenant.id, customerId: customer.id, productId } },
+        create: { tenantId: tenant.id, customerId: customer.id, productId, quantity },
+        update: { quantity },
+      });
+    }
+    return this.cartReply(ctx, intro);
   }
 
-  /** Cart sent from a native `product_list`. Prices come from our DB, never from the payload. */
-  private async orderCart(
-    ctx: ConversationContext,
-    items: ReadonlyArray<{ retailerId: string; quantity: number }>,
-  ): Promise<BotReply> {
+  /** Cart sent from a native `product_list`: it replaces the chat cart and goes straight to checkout. */
+  private async replaceCart(ctx: ConversationContext, items: ReadonlyArray<{ retailerId: string; quantity: number }>): Promise<BotReply> {
+    const { tenant, customer } = ctx;
     const quantities = new Map<string, number>();
     for (const item of items) {
       if (!Number.isInteger(item.quantity) || item.quantity < 1) continue;
       quantities.set(item.retailerId, Math.min((quantities.get(item.retailerId) ?? 0) + item.quantity, MAX_LINE_QUANTITY));
     }
+    // Prices and stock come from our DB, never from the payload.
     const products = await this.prisma.product.findMany({
-      where: { tenantId: ctx.tenant.id, active: true, metaRetailerId: { in: [...quantities.keys()] } },
-      select: productSelect,
+      where: { tenantId: tenant.id, active: true, metaRetailerId: { in: [...quantities.keys()] }, ...IN_STOCK },
+      select: { id: true, metaRetailerId: true },
     });
     if (products.length === 0) return this.menu(ctx);
 
-    return this.placeOrder(
-      ctx,
-      products.map((product) => ({ product, quantity: quantities.get(product.metaRetailerId ?? '') ?? 1 })),
-    );
+    await this.prisma.$transaction([
+      this.prisma.cartItem.deleteMany({ where: { tenantId: tenant.id, customerId: customer.id } }),
+      this.prisma.cartItem.createMany({
+        data: products.map((product) => ({
+          tenantId: tenant.id,
+          customerId: customer.id,
+          productId: product.id,
+          quantity: quantities.get(product.metaRetailerId ?? '') ?? 1,
+        })),
+      }),
+    ]);
+    return this.checkout(ctx);
   }
 
-  private async placeOrder(
-    ctx: ConversationContext,
-    lines: ReadonlyArray<{ product: replies.ProductSummary; quantity: number }>,
-  ): Promise<BotReply> {
+  private async cartReply(ctx: ConversationContext, intro?: string): Promise<BotReply> {
+    const lines = await this.cartLines(ctx);
+    return { kind: 'CART', message: replies.cartSummary(lines.map(toCartLine), intro) };
+  }
+
+  /** Delivery or collection: asks only when the business offers both. */
+  private async checkout(ctx: ConversationContext): Promise<BotReply> {
+    const { tenant } = ctx;
+    const lines = await this.cartLines(ctx);
+    if (lines.length === 0) return { kind: 'CATALOG', message: replies.productIndex(tenant, await this.products(tenant.id, replies.PRODUCT_INDEX_SIZE)) };
+
+    if (tenant.deliveryEnabled && tenant.collectionEnabled) {
+      const subtotal = lines.reduce((sum, line) => sum + line.product.priceCents * line.quantity, 0);
+      return { kind: 'CHECKOUT', message: replies.fulfilmentChoice(tenant, subtotal) };
+    }
+    if (tenant.deliveryEnabled) return this.chooseFulfilment(ctx, 'DELIVERY');
+    if (tenant.collectionEnabled) return this.chooseFulfilment(ctx, 'COLLECTION');
+    // Neither configured: the business arranges it with the customer.
+    return this.placeCartOrder(ctx, { fulfilment: null });
+  }
+
+  private async chooseFulfilment(ctx: ConversationContext, fulfilment: 'DELIVERY' | 'COLLECTION'): Promise<BotReply> {
     const { tenant, customer } = ctx;
-    const totalCents = lines.reduce((sum, line) => sum + line.product.priceCents * line.quantity, 0);
+    if (fulfilment === 'COLLECTION') {
+      return tenant.collectionEnabled ? this.placeCartOrder(ctx, { fulfilment: 'COLLECTION' }) : this.menu(ctx);
+    }
+    if (!tenant.deliveryEnabled) return this.menu(ctx);
+    if (customer.savedAddress) return { kind: 'CHECKOUT', message: replies.confirmAddress(customer.savedAddress) };
+    return this.askForAddress(ctx);
+  }
+
+  private async askForAddress(ctx: ConversationContext, retry = false): Promise<BotReply> {
+    await this.customers.setCheckoutStage(ctx.tenant.id, ctx.customer.id, 'AWAITING_ADDRESS');
+    return { kind: 'CHECKOUT', message: replies.askAddress(ctx.tenant, retry) };
+  }
+
+  private async receiveAddress(ctx: ConversationContext, text: string): Promise<BotReply> {
+    const { tenant, customer } = ctx;
+    const address = text.replace(/\s*\n\s*/g, ', ').replace(/\s+/g, ' ').trim();
+    if (address.length < ADDRESS_MIN || address.length > ADDRESS_MAX || !/\p{L}/u.test(address)) return this.askForAddress(ctx, true);
+    await this.customers.saveAddress(tenant.id, customer.id, address);
+    return this.placeCartOrder(ctx, { fulfilment: 'DELIVERY', address, feeCents: tenant.deliveryFeeCents });
+  }
+
+  /**
+   * Turns the cart into an order. Prices are re-read and stock is reserved
+   * with conditional decrements in the same transaction, so two customers
+   * cannot both buy the last candle; the loser's cart is trimmed instead.
+   */
+  private async placeCartOrder(ctx: ConversationContext, choice: replies.FulfilmentChoice): Promise<BotReply> {
+    const { tenant, customer } = ctx;
+    const lines = await this.cartLines(ctx);
+    if (lines.length === 0) return { kind: 'CATALOG', message: replies.productIndex(tenant, await this.products(tenant.id, replies.PRODUCT_INDEX_SIZE)) };
+
+    const deliveryFeeCents = choice.fulfilment === 'DELIVERY' ? choice.feeCents : 0;
+    const subtotal = lines.reduce((sum, line) => sum + line.product.priceCents * line.quantity, 0);
+    const totalCents = subtotal + deliveryFeeCents;
     const depositCents = this.depositFor(tenant, totalCents);
 
     for (let attempt = 0; ; attempt++) {
       const reference = generateReference();
       try {
         const orderId = await this.prisma.$transaction(async (tx) => {
+          for (const line of lines) {
+            if (line.product.stockQuantity === null) continue;
+            const reserved = await tx.product.updateMany({
+              where: { tenantId: tenant.id, id: line.product.id, stockQuantity: { gte: line.quantity } },
+              data: { stockQuantity: { decrement: line.quantity } },
+            });
+            if (reserved.count === 0) {
+              const current = await tx.product.findUnique({ where: { tenantId_id: { tenantId: tenant.id, id: line.product.id } }, select: { stockQuantity: true } });
+              throw new OutOfStock(line.product.id, Math.max(current?.stockQuantity ?? 0, 0));
+            }
+          }
           const order = await tx.order.create({
             data: {
               tenantId: tenant.id,
               customerId: customer.id,
               reference,
               totalCents,
+              deliveryFeeCents,
+              fulfilment: choice.fulfilment,
+              deliveryAddress: choice.fulfilment === 'DELIVERY' ? choice.address : null,
               status: depositCents > 0 ? 'PENDING_DEPOSIT' : 'PENDING',
             },
             select: { id: true },
@@ -347,21 +484,46 @@ export class ConversationHandlers {
               unitPriceCents: line.product.priceCents,
             })),
           });
+          await tx.cartItem.deleteMany({ where: { tenantId: tenant.id, customerId: customer.id } });
           return order.id;
         });
+
         const summary = clip(lines.map((line) => `${line.quantity}× ${line.product.name}`).join(', '), 300);
-        const received: BotReply = { kind: 'ORDER', message: replies.orderReceived(tenant, reference, summary, totalCents) };
+        const received: BotReply = { kind: 'ORDER', message: replies.orderReceived(tenant, reference, summary, totalCents, choice) };
         if (depositCents === 0) return received;
+        const how = replies.describeFulfilment(tenant, choice);
         return this.requestDeposit(ctx, depositCents, {
           kind: 'order',
           id: orderId,
-          summary: `🧾 Order ${reference}: ${summary} (total ${formatZar(totalCents)})`,
+          summary: clip(`🧾 Order ${reference}: ${summary} (total ${formatZar(totalCents)})${how ? `\n${how}` : ''}`, 600),
           fallback: received,
         });
       } catch (error) {
+        if (error instanceof OutOfStock) return this.trimCart(ctx, error);
         if (!isUniqueViolation(error) || attempt >= 2) throw error;
       }
     }
+  }
+
+  private async trimCart(ctx: ConversationContext, shortage: OutOfStock): Promise<BotReply> {
+    const { tenant, customer } = ctx;
+    const where = { tenantId_customerId_productId: { tenantId: tenant.id, customerId: customer.id, productId: shortage.productId } };
+    const product = await this.prisma.product.findUnique({ where: { tenantId_id: { tenantId: tenant.id, id: shortage.productId } }, select: { name: true } });
+    if (shortage.available > 0) await this.prisma.cartItem.update({ where, data: { quantity: shortage.available } });
+    else await this.prisma.cartItem.delete({ where });
+    const name = product?.name ?? 'An item';
+    const note = shortage.available > 0 ? `Sorry, only ${shortage.available} ${name} left, so we've updated your cart.` : `Sorry, ${name} just sold out, so we've removed it from your cart.`;
+    return this.cartReply(ctx, note);
+  }
+
+  /** Current cart with today's prices; inactive products drop out. */
+  private async cartLines(ctx: ConversationContext): Promise<CheckoutLine[]> {
+    const items = await this.prisma.cartItem.findMany({
+      where: { tenantId: ctx.tenant.id, customerId: ctx.customer.id, product: { active: true } },
+      orderBy: { updatedAt: 'asc' },
+      select: { quantity: true, product: { select: { ...productSelect, stockQuantity: true } } },
+    });
+    return items.map((item) => ({ product: item.product, quantity: item.quantity }));
   }
 
   // -------------------------------------------------------------------------
@@ -434,9 +596,10 @@ export class ConversationHandlers {
     });
   }
 
+  /** Sold-out products are left out of lists. */
   private products(tenantId: string, take: number): Promise<replies.ProductSummary[]> {
     return this.prisma.product.findMany({
-      where: { tenantId, active: true },
+      where: { tenantId, active: true, ...IN_STOCK },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       take,
       select: productSelect,
@@ -450,4 +613,8 @@ function generateReference(): string {
     reference += REFERENCE_ALPHABET[randomInt(REFERENCE_ALPHABET.length)];
   }
   return reference;
+}
+
+function toCartLine(line: CheckoutLine): replies.CartLine {
+  return { name: line.product.name, quantity: line.quantity, priceCents: line.product.priceCents };
 }

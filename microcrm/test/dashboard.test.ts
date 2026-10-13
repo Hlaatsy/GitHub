@@ -156,7 +156,7 @@ describe('readCookie', () => {
 describe('LOGIN over WhatsApp', () => {
   const ctxFor = (waId: string) => ({
     tenant,
-    customer: { id: 'c1', waId, displayName: null, optedOutAt: null, lastMenuSentAt: null },
+    customer: { id: 'c1', waId, displayName: null, optedOutAt: null, lastMenuSentAt: null, checkoutStage: 'NONE' as const, savedAddress: null },
     now: new Date('2026-10-12T08:00:00Z'),
   });
   const handlersWith = (recent = 0) => {

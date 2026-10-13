@@ -33,7 +33,7 @@ export function coreTemplates(publicOrigin: string, language: string): TemplateD
         params: ['businessName', 'summary', 'amount', 'expiresAt'],
         examples: ['Glow Studio', 'Wash & Blow on Mon 12 Oct at 09:00', 'R125.00', '09:30'],
       },
-      footer: 'Instant EFT from your banking app',
+      footer: 'Secure online payment',
       buttons: [
         {
           type: 'URL',

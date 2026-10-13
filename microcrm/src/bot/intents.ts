@@ -7,6 +7,17 @@ export const MENU_BUTTONS = {
   LOCATION: 'menu:location',
 } as const;
 
+/** Shop checkout buttons. */
+export const CART_BUTTONS = {
+  ADD_MORE: 'cart:add',
+  CHECKOUT: 'cart:checkout',
+  EMPTY: 'cart:empty',
+  DELIVERY: 'ful:delivery',
+  COLLECT: 'ful:collect',
+  SAVED_ADDRESS: 'addr:saved',
+  NEW_ADDRESS: 'addr:new',
+} as const;
+
 const ROW_PREFIX = {
   SLOT: 'slot',
   SERVICE: 'svc',
@@ -24,10 +35,17 @@ export type Intent =
   | { name: 'PICK_SERVICE'; serviceId: string }
   | { name: 'PICK_PRODUCT'; productId: string }
   | { name: 'PLACE_CART'; catalogId: string; items: Array<{ retailerId: string; quantity: number }> }
+  | { name: 'CART_ADD_MORE' }
+  | { name: 'CART_CHECKOUT' }
+  | { name: 'CART_EMPTY' }
+  | { name: 'CHOOSE_FULFILMENT'; fulfilment: 'DELIVERY' | 'COLLECTION' }
+  | { name: 'USE_SAVED_ADDRESS' }
+  | { name: 'NEW_ADDRESS' }
   | { name: 'OPT_OUT' }
   /** Owner asking for a dashboard login link; the handler checks it really is the owner. */
   | { name: 'DASHBOARD_LOGIN' }
-  | { name: 'UNRECOGNISED' }
+  /** Free text the menu can't route; during checkout it may be a delivery address. */
+  | { name: 'UNRECOGNISED'; text?: string }
   | { name: 'IGNORE' };
 
 /** Greetings in the languages SA customers commonly open a chat with, plus the brief's trigger words. */
@@ -63,7 +81,7 @@ function resolveText(text: string): Intent {
   if (OPT_OUT_PHRASES.has(normalised)) return { name: 'OPT_OUT' };
   if (LOGIN_PHRASES.has(normalised)) return { name: 'DASHBOARD_LOGIN' };
   const firstWord = normalised.split(' ', 1)[0] ?? '';
-  return TRIGGER_WORDS.has(firstWord) ? { name: 'MENU' } : { name: 'UNRECOGNISED' };
+  return TRIGGER_WORDS.has(firstWord) ? { name: 'MENU' } : { name: 'UNRECOGNISED', text };
 }
 
 function resolveButton(id: string): Intent {
@@ -74,6 +92,20 @@ function resolveButton(id: string): Intent {
       return { name: 'CATALOG' };
     case MENU_BUTTONS.LOCATION:
       return { name: 'LOCATION' };
+    case CART_BUTTONS.ADD_MORE:
+      return { name: 'CART_ADD_MORE' };
+    case CART_BUTTONS.CHECKOUT:
+      return { name: 'CART_CHECKOUT' };
+    case CART_BUTTONS.EMPTY:
+      return { name: 'CART_EMPTY' };
+    case CART_BUTTONS.DELIVERY:
+      return { name: 'CHOOSE_FULFILMENT', fulfilment: 'DELIVERY' };
+    case CART_BUTTONS.COLLECT:
+      return { name: 'CHOOSE_FULFILMENT', fulfilment: 'COLLECTION' };
+    case CART_BUTTONS.SAVED_ADDRESS:
+      return { name: 'USE_SAVED_ADDRESS' };
+    case CART_BUTTONS.NEW_ADDRESS:
+      return { name: 'NEW_ADDRESS' };
     default:
       // Unknown or stale ids (e.g. from an old template) fall back to the menu.
       return { name: 'MENU' };

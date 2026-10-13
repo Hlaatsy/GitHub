@@ -23,6 +23,10 @@ export function salonTenant(overrides: Partial<TenantProfile> = {}): TenantProfi
     addressLine: '12 Vilakazi St, Soweto',
     mapsUrl: null,
     mediaDownloadEnabled: false,
+    deliveryEnabled: false,
+    deliveryFeeCents: 0,
+    deliveryNote: null,
+    collectionEnabled: true,
     ...overrides,
   };
 }

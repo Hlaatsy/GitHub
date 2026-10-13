@@ -55,6 +55,8 @@ function setup(customer: Partial<CustomerContext> = {}, onFailedStatus?: (...arg
       displayName: 'Thandi',
       optedOutAt: null,
       lastMenuSentAt: null,
+      checkoutStage: 'NONE',
+      savedAddress: null,
       ...customer,
     })),
     optOut: vi.fn(),

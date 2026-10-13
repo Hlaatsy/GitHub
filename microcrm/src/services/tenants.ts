@@ -24,6 +24,11 @@ export interface TenantProfile {
   addressLine: string | null;
   mapsUrl: string | null;
   mediaDownloadEnabled: boolean;
+  /** Shop fulfilment options; at least one should be on. */
+  deliveryEnabled: boolean;
+  deliveryFeeCents: number;
+  deliveryNote: string | null;
+  collectionEnabled: boolean;
 }
 
 interface CacheEntry {
@@ -90,6 +95,10 @@ export class TenantDirectory {
       addressLine: row.addressLine,
       mapsUrl: row.mapsUrl,
       mediaDownloadEnabled: row.mediaDownloadEnabled,
+      deliveryEnabled: row.deliveryEnabled,
+      deliveryFeeCents: row.deliveryFeeCents,
+      deliveryNote: row.deliveryNote,
+      collectionEnabled: row.collectionEnabled,
     };
   }
 }

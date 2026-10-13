@@ -5,8 +5,10 @@ import { maskMsisdn } from '../lib/msisdn';
 import { isSerializationFailure } from '../lib/prisma';
 import { formatDayLabel, formatTime } from '../lib/time';
 import { type OutboundMessenger } from '../services/messenger';
+import { releaseOrderStock } from '../services/stock';
 import { type TenantDirectory, type TenantProfile } from '../services/tenants';
 import { clip } from '../whatsapp/interactive';
+import { ACCOUNT_PROVIDERS, peekReference, type PaymentAccounts } from './accounts';
 import { PaymentError } from './errors';
 import { type NotificationContext, type PaymentGateway, type ProviderTransaction } from './gateway';
 import { formatPaymentConfirmedTemplate, type PaymentLinkView } from './messages';
@@ -25,10 +27,12 @@ export interface PaymentServiceOptions {
 
 export interface PaymentServiceDeps {
   prisma: PrismaClient;
-  /** Configured gateways. Each intent remembers which one it was created with. */
+  /** Platform gateways (from the environment). Each intent remembers which provider it was created with. */
   gateways: Partial<Record<PaymentProvider, PaymentGateway>>;
-  /** Used for new links unless the business has its own `paymentProvider`. */
-  defaultProvider: PaymentProvider;
+  /** Used for new links when the business names no `paymentProvider` and has no account of its own. */
+  defaultProvider: PaymentProvider | null;
+  /** Businesses' own PayFast / Paystack accounts; preferred over the platform gateway. */
+  accounts?: Pick<PaymentAccounts, 'gateway' | 'providers'>;
   messenger: OutboundMessenger;
   tenants: TenantDirectory;
   logger: Logger;
@@ -109,7 +113,7 @@ export class PaymentService {
 
   /** Settlement URL of the default provider; any of this service's settlement URLs is accepted as callbackUrl. */
   get webhookUrl(): string {
-    return this.settlementUrl(this.deps.defaultProvider);
+    return this.settlementUrl(this.deps.defaultProvider ?? this.providers[0] ?? 'PAYFAST');
   }
 
   settlementUrl(provider: PaymentProvider): string {
@@ -161,7 +165,7 @@ export class PaymentService {
     if (live?.checkoutUrl) return this.toLink(live, live.checkoutUrl);
 
     const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { businessName: true, paymentProvider: true } });
-    const gateway = this.gatewayFor(tenant.paymentProvider ?? this.deps.defaultProvider);
+    const gateway = await this.gatewayForNewLink(tenantId, tenant.paymentProvider);
     // Each provider reports to its own endpoint, whichever of ours the caller passed:
     // a PayFast ITN sent to the Ozow endpoint would be refused as unsigned.
     const notifyUrl = this.settlementUrl(gateway.provider);
@@ -222,25 +226,45 @@ export class PaymentService {
   // 3. Settlement webhook
   // -------------------------------------------------------------------------
 
-  /** Providers with a configured gateway, i.e. the settlement endpoints to expose. */
+  /** Providers with a settlement endpoint to expose: platform gateways plus those businesses may bring. */
   get providers(): PaymentProvider[] {
-    return Object.keys(this.deps.gateways) as PaymentProvider[];
+    const providers = new Set(Object.keys(this.deps.gateways) as PaymentProvider[]);
+    if (this.deps.accounts) for (const provider of ACCOUNT_PROVIDERS) providers.add(provider);
+    return [...providers];
   }
 
   async handleNotification(provider: PaymentProvider, context: NotificationContext, now: Date = new Date()): Promise<NotificationResult> {
     const { prisma, logger } = this.deps;
-    const gateway = this.gatewayFor(provider);
+
+    // Which business's credentials verify this notification depends on whose
+    // payment it claims to be. The claimed reference only selects the key: the
+    // signature is then checked with it, and the verified reference must match.
+    const claimed = peekReference(provider, context);
+    const candidate = claimed ? await prisma.paymentIntent.findUnique({ where: { reference: claimed } }) : null;
+    const gateway = candidate ? await this.gatewayForIntent(candidate) : this.deps.gateways[provider];
+    if (!gateway) {
+      // No account can authenticate it: nothing is changed, and the provider is told to stop retrying.
+      logger.warn({ provider, reference: claimed }, 'payment notification with no matching account');
+      return { status: 'ignored', reason: 'UNKNOWN_REFERENCE' };
+    }
+    if (gateway.provider !== provider) {
+      logger.warn({ intentId: candidate?.id, provider, intentProvider: candidate?.provider }, 'notification from the wrong provider');
+      return candidate ? { status: 'rejected', intentId: candidate.id, reason: 'PROVIDER_MISMATCH' } : { status: 'ignored', reason: 'UNKNOWN_REFERENCE' };
+    }
+
     const notification = await gateway.verifyNotification(context);
     if (!notification) return { status: 'ignored', reason: 'NOT_A_PAYMENT_EVENT' };
 
-    const intent = await prisma.paymentIntent.findUnique({ where: { reference: notification.reference } });
+    const intent = candidate?.reference === notification.reference ? candidate : await prisma.paymentIntent.findUnique({ where: { reference: notification.reference } });
     if (!intent) {
       logger.warn({ reference: notification.reference, provider }, 'payment notification for unknown reference');
       return { status: 'ignored', reason: 'UNKNOWN_REFERENCE' };
     }
-    // An authentic notification from one provider can never settle another provider's payment.
-    if (intent.provider !== provider) {
-      logger.warn({ intentId: intent.id, provider, intentProvider: intent.provider }, 'notification from the wrong provider');
+    // An authentic notification from one provider can never settle another provider's payment,
+    // and one verified with one account can never settle a payment made to another.
+    const otherAccount = candidate ? intent.id !== candidate.id : Boolean(await this.deps.accounts?.gateway(intent.tenantId, provider));
+    if (intent.provider !== provider || otherAccount) {
+      logger.warn({ intentId: intent.id, provider, intentProvider: intent.provider }, 'notification verified with a different account than the payment');
       return { status: 'rejected', intentId: intent.id, reason: 'PROVIDER_MISMATCH' };
     }
     if (notification.outcome === 'PENDING') return { status: 'pending', intentId: intent.id };
@@ -260,15 +284,41 @@ export class PaymentService {
 
   /** Reconciliation lookup by reference; null when the provider has no lookup API (PayFast). */
   private async lookupByReference(intent: PaymentIntent): Promise<ProviderTransaction | null> {
-    const gateway = this.deps.gateways[intent.provider];
+    const gateway = await this.gatewayForIntent(intent);
     if (!gateway?.supportsLookup) return null;
     const transactions = await gateway.fetchTransactions(intent.reference);
     return transactions.find((tx) => tx.outcome === 'SUCCESSFUL') ?? transactions[0] ?? null;
   }
 
-  private gatewayFor(provider: PaymentProvider): PaymentGateway {
-    const gateway = this.deps.gateways[provider];
-    if (!gateway) throw new PaymentError('REQUEST_INVALID', `Payment provider ${provider} is not configured`);
+  /** Where a business's next payment would go, or null if it can't take payments yet. */
+  async paymentSetup(tenantId: string): Promise<{ provider: PaymentProvider; ownAccount: boolean } | null> {
+    const tenant = await this.deps.prisma.tenant.findUnique({ where: { id: tenantId }, select: { paymentProvider: true } });
+    if (!tenant) return null;
+    try {
+      const gateway = await this.gatewayForNewLink(tenantId, tenant.paymentProvider);
+      const own = await this.deps.accounts?.gateway(tenantId, gateway.provider);
+      return { provider: gateway.provider, ownAccount: own === gateway };
+    } catch {
+      return null;
+    }
+  }
+
+  /** The business's own account for the intent's provider, else the platform's. */
+  private async gatewayForIntent(intent: Pick<PaymentIntent, 'tenantId' | 'provider'>): Promise<PaymentGateway | null> {
+    return (await this.deps.accounts?.gateway(intent.tenantId, intent.provider)) ?? this.deps.gateways[intent.provider] ?? null;
+  }
+
+  /**
+   * Provider for a new link: the business's chosen provider if set, else its
+   * own account (if it has exactly one kind), else the platform default.
+   */
+  private async gatewayForNewLink(tenantId: string, chosen: PaymentProvider | null): Promise<PaymentGateway> {
+    const own = this.deps.accounts ? await this.deps.accounts.providers(tenantId) : [];
+    const provider = chosen ?? own[0] ?? this.deps.defaultProvider;
+    const gateway = provider ? await this.gatewayForIntent({ tenantId, provider }) : null;
+    if (!gateway) {
+      throw new PaymentError('REQUEST_INVALID', provider ? `Payment provider ${provider} is not set up for this business` : 'No payment account is set up for this business');
+    }
     return gateway;
   }
 
@@ -480,10 +530,11 @@ export class PaymentService {
           data: { status: 'CANCELLED', holdExpiresAt: null },
         });
       } else if (stillOpen === 0 && intent.orderId) {
-        await db.order.updateMany({
+        const cancelled = await db.order.updateMany({
           where: { tenantId: intent.tenantId, id: intent.orderId, status: 'PENDING_DEPOSIT' },
           data: { status: 'CANCELLED' },
         });
+        if (cancelled.count === 1) await releaseOrderStock(db, intent.tenantId, intent.orderId);
       }
       return true;
     });

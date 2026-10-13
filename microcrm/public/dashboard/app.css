@@ -54,3 +54,13 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .login { max-width: 26rem; margin: 12vh auto; padding: 0 16px; }
 .login ol { padding-left: 1.2rem; }
 #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; max-width: calc(100% - 32px); }
+
+input.stock {
+  width: 6.5rem;
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+  border: 1px solid var(--line, #ccc);
+  border-radius: 8px;
+  background: var(--card, #fff);
+  color: inherit;
+}

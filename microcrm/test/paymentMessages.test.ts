@@ -22,7 +22,7 @@ describe('formatPaymentLinkMessage', () => {
       type: 'interactive',
       interactive: {
         type: 'cta_url',
-        body: { text: '📅 Wash & Blow on Mon 12 Oct at 09:00\nPay R150.00 to lock it in. Instant EFT or PayShap from your banking app.' },
+        body: { text: '📅 Wash & Blow on Mon 12 Oct at 09:00\nPay R150.00 securely to lock it in.' },
         footer: { text: 'Link valid until 09:30' },
         action: { name: 'cta_url', parameters: { display_text: 'Pay R150.00', url: link.shortUrl } },
       },

@@ -1,4 +1,4 @@
-import { type PrismaClient } from '@prisma/client';
+import { type CheckoutStage, type PrismaClient } from '@prisma/client';
 
 export interface CustomerContext {
   id: string;
@@ -6,6 +6,8 @@ export interface CustomerContext {
   displayName: string | null;
   optedOutAt: Date | null;
   lastMenuSentAt: Date | null;
+  checkoutStage: CheckoutStage;
+  savedAddress: string | null;
 }
 
 const customerSelect = {
@@ -14,6 +16,8 @@ const customerSelect = {
   displayName: true,
   optedOutAt: true,
   lastMenuSentAt: true,
+  checkoutStage: true,
+  savedAddress: true,
 } as const;
 
 const MAX_NAME_LENGTH = 80;
@@ -44,6 +48,18 @@ export class CustomerRepository {
     await this.prisma.customer.update({
       where: { tenantId_id: { tenantId, id: customerId } },
       data: { optedOutAt: null },
+    });
+  }
+
+  async setCheckoutStage(tenantId: string, customerId: string, checkoutStage: CheckoutStage): Promise<void> {
+    await this.prisma.customer.update({ where: { tenantId_id: { tenantId, id: customerId } }, data: { checkoutStage } });
+  }
+
+  /** Remembered for the next order; the customer can replace it at checkout. */
+  async saveAddress(tenantId: string, customerId: string, savedAddress: string): Promise<void> {
+    await this.prisma.customer.update({
+      where: { tenantId_id: { tenantId, id: customerId } },
+      data: { savedAddress, checkoutStage: 'NONE' },
     });
   }
 

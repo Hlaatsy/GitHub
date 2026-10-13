@@ -12,8 +12,19 @@ describe('resolveIntent', () => {
     expect(resolveIntent({ kind: 'text', text: 'STOP' })).toEqual({ name: 'OPT_OUT' });
   });
 
-  it('marks other free text as unrecognised', () => {
-    expect(resolveIntent({ kind: 'text', text: 'can you do my hair tomorrow' })).toEqual({ name: 'UNRECOGNISED' });
+  it('marks other free text as unrecognised, keeping the text (it may be an address)', () => {
+    expect(resolveIntent({ kind: 'text', text: '12 Main Rd, Soweto 1804' })).toEqual({ name: 'UNRECOGNISED', text: '12 Main Rd, Soweto 1804' });
+  });
+
+  it('routes cart and checkout buttons', () => {
+    const button = (id: string) => resolveIntent({ kind: 'button', id, title: '' });
+    expect(button('cart:checkout')).toEqual({ name: 'CART_CHECKOUT' });
+    expect(button('cart:add')).toEqual({ name: 'CART_ADD_MORE' });
+    expect(button('cart:empty')).toEqual({ name: 'CART_EMPTY' });
+    expect(button('ful:delivery')).toEqual({ name: 'CHOOSE_FULFILMENT', fulfilment: 'DELIVERY' });
+    expect(button('ful:collect')).toEqual({ name: 'CHOOSE_FULFILMENT', fulfilment: 'COLLECTION' });
+    expect(button('addr:saved')).toEqual({ name: 'USE_SAVED_ADDRESS' });
+    expect(button('addr:new')).toEqual({ name: 'NEW_ADDRESS' });
   });
 
   it('routes menu buttons, including template quick replies', () => {

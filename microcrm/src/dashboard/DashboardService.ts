@@ -1,8 +1,9 @@
-import { type AppointmentStatus, type OrderStatus, type Prisma, type PrismaClient } from '@prisma/client';
+import { type AppointmentStatus, type OrderStatus, type PaymentProvider, type Prisma, type PrismaClient } from '@prisma/client';
 import { type Logger } from '../lib/logger';
 import { maskMsisdn } from '../lib/msisdn';
 import { formatDayLabel, formatTime, toWallClock, wallClockToUtc } from '../lib/time';
 import { type OutboundMessenger } from '../services/messenger';
+import { releaseOrderStock } from '../services/stock';
 import { type TenantProfile } from '../services/tenants';
 import { asText } from '../whatsapp/interactive';
 
@@ -34,7 +35,14 @@ const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
 };
 
 export type ActionResult =
-  | { ok: true; status: string; customerNotified: boolean; refundRequired: boolean }
+  | {
+      ok: true;
+      status: string;
+      customerNotified: boolean;
+      refundRequired: boolean;
+      /** OWNER: paid into the business's own PayFast/Paystack account. PLATFORM: into the platform's. */
+      refundBy?: 'OWNER' | 'PLATFORM';
+    }
   | { ok: false; error: 'NOT_FOUND' | 'INVALID_TRANSITION'; allowed?: readonly string[] };
 
 export interface CustomerView {
@@ -166,6 +174,9 @@ export class DashboardService {
       status: row.status,
       totalCents: row.totalCents,
       items: row.items.map((item) => `${item.quantity}× ${item.product.name}`),
+      fulfilment: row.fulfilment,
+      deliveryAddress: row.deliveryAddress,
+      deliveryFeeCents: row.deliveryFeeCents,
       payment: row.paymentIntents[0] ?? null,
       customer: customerView(row.customer),
       actions: ORDER_TRANSITIONS[row.status],
@@ -230,7 +241,7 @@ export class DashboardService {
       include: {
         customer: { select: { id: true, waId: true, lastInboundAt: true, optedOutAt: true } },
         service: { select: { name: true } },
-        paymentIntents: { where: { status: 'SUCCEEDED' }, select: { id: true } },
+        paymentIntents: { where: { status: 'SUCCEEDED' }, select: { id: true, provider: true } },
       },
     });
     if (!row) return { ok: false, error: 'NOT_FOUND' };
@@ -253,8 +264,8 @@ export class DashboardService {
           ? `${tenant.businessName}: your ${what} on ${when} has been cancelled. Reply MENU to book another time.`
           : null;
     const customerNotified = text ? await this.notify(tenant, row.customer, text, now) : false;
-    const refundRequired = to === 'CANCELLED' && (await this.flagRefund(tenant.id, row.paymentIntents));
-    return { ok: true, status: to, customerNotified, refundRequired };
+    const refundBy = to === 'CANCELLED' ? await this.flagRefund(tenant.id, row.paymentIntents) : null;
+    return { ok: true, status: to, customerNotified, refundRequired: Boolean(refundBy), ...(refundBy ? { refundBy } : {}) };
   }
 
   async setOrderStatus(tenant: TenantProfile, id: string, to: OrderStatus, now: Date = new Date()): Promise<ActionResult> {
@@ -262,40 +273,62 @@ export class DashboardService {
       where: { tenantId_id: { tenantId: tenant.id, id } },
       include: {
         customer: { select: { id: true, waId: true, lastInboundAt: true, optedOutAt: true } },
-        paymentIntents: { where: { status: 'SUCCEEDED' }, select: { id: true } },
+        paymentIntents: { where: { status: 'SUCCEEDED' }, select: { id: true, provider: true } },
       },
     });
     if (!row || row.isTest) return { ok: false, error: 'NOT_FOUND' };
     const allowed = ORDER_TRANSITIONS[row.status];
     if (!allowed.includes(to)) return { ok: false, error: 'INVALID_TRANSITION', allowed };
 
-    const { count } = await this.prisma.order.updateMany({ where: { tenantId: tenant.id, id, status: row.status }, data: { status: to } });
+    const count = await this.prisma.$transaction(async (db) => {
+      const updated = await db.order.updateMany({ where: { tenantId: tenant.id, id, status: row.status }, data: { status: to } });
+      if (updated.count === 1 && to === 'CANCELLED') await releaseOrderStock(db, tenant.id, id);
+      return updated.count;
+    });
     if (count === 0) return { ok: false, error: 'INVALID_TRANSITION', allowed };
 
     const text =
       to === 'CONFIRMED'
-        ? `✅ ${tenant.businessName}: order ${row.reference} is confirmed. We'll be in touch about collection or delivery.`
+        ? `✅ ${tenant.businessName}: order ${row.reference} is confirmed. ${row.fulfilment === 'COLLECTION' ? "We'll let you know when it's ready to collect." : row.fulfilment === 'DELIVERY' ? "We'll be in touch about delivery." : "We'll be in touch about collection or delivery."}`
         : to === 'CANCELLED'
           ? `${tenant.businessName}: order ${row.reference} has been cancelled. Reply MENU to see other options.`
           : to === 'FULFILLED'
             ? `${tenant.businessName}: order ${row.reference} is complete. Thank you!`
             : null;
     const customerNotified = text ? await this.notify(tenant, row.customer, text, now) : false;
-    const refundRequired = to === 'CANCELLED' && (await this.flagRefund(tenant.id, row.paymentIntents));
-    return { ok: true, status: to, customerNotified, refundRequired };
+    const refundBy = to === 'CANCELLED' ? await this.flagRefund(tenant.id, row.paymentIntents) : null;
+    return { ok: true, status: to, customerNotified, refundRequired: Boolean(refundBy), ...(refundBy ? { refundBy } : {}) };
   }
 
   /**
-   * Payments settle into the platform's merchant account, so refunds are the
-   * platform team's job: the paid intent is flagged for review where they see it.
+   * Flags paid intents for a refund. Money paid into the business's own
+   * account is refunded by the owner from that provider's dashboard; money
+   * paid into the platform's account is refunded by the platform team.
    */
-  private async flagRefund(tenantId: string, paid: readonly { id: string }[]): Promise<boolean> {
-    if (paid.length === 0) return false;
+  private async flagRefund(tenantId: string, paid: readonly { id: string; provider: PaymentProvider }[]): Promise<'OWNER' | 'PLATFORM' | null> {
+    if (paid.length === 0) return null;
     await this.prisma.paymentIntent.updateMany({
       where: { tenantId, id: { in: paid.map((p) => p.id) } },
       data: { reviewRequired: true, failureReason: 'REFUND_DUE_CANCELLED_BY_OWNER' },
     });
-    return true;
+    const own = await this.prisma.tenantPaymentAccount.count({ where: { tenantId, provider: { in: paid.map((p) => p.provider) } } });
+    return own > 0 ? 'OWNER' : 'PLATFORM';
+  }
+
+  async products(tenant: TenantProfile) {
+    const rows = await this.prisma.product.findMany({
+      where: { tenantId: tenant.id, active: true },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      take: 200,
+      select: { id: true, name: true, priceCents: true, stockQuantity: true },
+    });
+    return rows.map((row) => ({ id: row.id, name: row.name, priceCents: row.priceCents, stock: row.stockQuantity }));
+  }
+
+  /** Sets units on hand (null stops tracking). Stock already reserved by open orders is not on hand. */
+  async setStock(tenant: TenantProfile, id: string, stock: number | null): Promise<{ ok: boolean }> {
+    const { count } = await this.prisma.product.updateMany({ where: { tenantId: tenant.id, id, active: true }, data: { stockQuantity: stock } });
+    return { ok: count === 1 };
   }
 
   /**

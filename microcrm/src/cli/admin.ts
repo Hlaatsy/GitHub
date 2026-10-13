@@ -1,9 +1,11 @@
 import { readFileSync } from 'node:fs';
+import { eraseCustomer, exportCustomer } from '../admin/customerData';
 import { applyTenantFile, TenantFileSchema } from '../admin/tenantConfig';
-import { loadEnv } from '../config/env';
+import { loadEnv, paymentsEnv } from '../config/env';
 import { logger } from '../lib/logger';
 import { createPrismaClient } from '../lib/prisma';
 import { OnboardingService } from '../onboarding/OnboardingService';
+import { ACCOUNT_PROVIDERS, PaymentAccounts, type AccountProvider } from '../payments/accounts';
 import { OutboundMessenger } from '../services/messenger';
 import { TenantDirectory } from '../services/tenants';
 import { WalletService } from '../services/wallet';
@@ -20,7 +22,15 @@ const USAGE = `Usage: admin <command> <args>
   wallet-topup <tenantId> <rands> <ref>    Credit the business's message wallet, e.g. wallet-topup <id> 200 EFT-2026-10-12
   onboarding-link <tenantId>               Issue the owner's private setup checklist link (replaces any earlier link)
   templates-submit <tenantId>              Validate and submit the app's message templates to Meta for approval
-  templates-sync <tenantId>                Pull Meta's current approval status for those templates`;
+  templates-sync <tenantId>                Pull Meta's current approval status for those templates
+  payment-account-set <tenantId> <PAYFAST|PAYSTACK> <file.json | ->
+                                           Store the business's own payment account (encrypted), e.g. from stdin:
+                                           {"merchantId":"…","merchantKey":"…","passphrase":"…","sandbox":false}
+                                           {"secretKey":"sk_live_…"}
+  payment-account-remove <tenantId> <PAYFAST|PAYSTACK>
+                                           Delete it; new links then use the platform account, if any
+  customer-export <tenantId> <waId>        POPIA access request: print everything held about a customer as JSON
+  customer-erase <tenantId> <waId>         POPIA deletion request: anonymise the customer (financial records are kept)`;
 
 async function main(): Promise<number> {
   const [command, tenantId, ...rest] = process.argv.slice(2);
@@ -50,6 +60,39 @@ async function main(): Promise<number> {
     }
   }
 
+  if (command === 'customer-export' || command === 'customer-erase') {
+    const waId = (rest[0] ?? '').replace(/^\+/, '');
+    if (!/^[1-9]\d{7,14}$/.test(waId)) {
+      console.error(`Usage: admin ${command} <tenantId> <waId>   (digits with country code, e.g. 27821234567)`);
+      return 2;
+    }
+    const prisma = createPrismaClient();
+    try {
+      if (command === 'customer-export') {
+        const data = await exportCustomer(prisma, tenantId, waId);
+        if (!data) {
+          console.error('No such customer for this business.');
+          return 1;
+        }
+        console.log(JSON.stringify(data, null, 2));
+        return 0;
+      }
+      const result = await eraseCustomer(prisma, tenantId, waId);
+      if (result.status === 'not_found') {
+        console.error('No such customer for this business.');
+        return 1;
+      }
+      if (result.status === 'open_items') {
+        console.error(`Not erased: ${result.orders} open order(s) and ${result.bookings} open booking(s). Fulfil or cancel them first.`);
+        return 1;
+      }
+      console.log('Customer anonymised. Their orders and payments are kept without their name, number or address.');
+      return 0;
+    } finally {
+      await prisma.$disconnect();
+    }
+  }
+
   if (command === 'wallet-topup') {
     const [amount, reference] = rest;
     const rands = Number(amount);
@@ -68,6 +111,56 @@ async function main(): Promise<number> {
   }
 
   const env = loadEnv();
+
+  if (command === 'payment-account-set' || command === 'payment-account-remove') {
+    const [provider, source] = rest;
+    if (!provider || !(ACCOUNT_PROVIDERS as readonly string[]).includes(provider) || (command === 'payment-account-set' && !source)) {
+      console.error(`Usage: admin ${command} <tenantId> <PAYFAST|PAYSTACK>${command === 'payment-account-set' ? ' <file.json | ->' : ''}`);
+      return 2;
+    }
+    const config = paymentsEnv(env)?.accounts;
+    if (!config) {
+      console.error('Set CREDENTIALS_ENCRYPTION_KEY (and PUBLIC_BASE_URL) in .env first: openssl rand -base64 32');
+      return 2;
+    }
+    const prisma = createPrismaClient();
+    try {
+      const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { businessName: true } });
+      if (!tenant) {
+        console.error(`No tenant ${tenantId}`);
+        return 1;
+      }
+      const accounts = new PaymentAccounts(prisma, { ...config, logger });
+      if (command === 'payment-account-remove') {
+        const removed = await accounts.remove(tenantId, provider as AccountProvider);
+        console.log(removed ? `Removed the ${provider} account for ${tenant.businessName}.` : `${tenant.businessName} had no ${provider} account.`);
+        return 0;
+      }
+      let input: unknown;
+      try {
+        input = JSON.parse(readFileSync(source === '-' ? 0 : (source as string), 'utf8'));
+      } catch {
+        console.error('Could not read the account JSON');
+        return 1;
+      }
+      try {
+        const { testMode } = await accounts.set(tenantId, provider as AccountProvider, input);
+        console.log(`Saved the ${provider} account for ${tenant.businessName}${testMode ? ' (TEST MODE: payments are not real)' : ''}.`);
+        console.log(`Settlement notices arrive at ${new URL(env.PUBLIC_BASE_URL ?? '').origin}${provider === 'PAYFAST' ? '/api/payments/payfast-itn' : '/api/payments/callback'}`);
+        if (provider === 'PAYSTACK') console.log('Set that URL as the Webhook URL in the Paystack dashboard (Settings → API Keys & Webhooks).');
+        return 0;
+      } catch (error) {
+        // Validation messages never echo the secret values themselves.
+        const issues = (error as { issues?: Array<{ path: unknown[]; message: string }> }).issues;
+        if (issues) for (const issue of issues) console.error(`✘ ${issue.path.join('.') || '(account)'}: ${issue.message}`);
+        else console.error(`✘ ${(error as Error).message}`);
+        return 1;
+      }
+    } finally {
+      await prisma.$disconnect();
+    }
+  }
+
   if (!env.PUBLIC_BASE_URL?.startsWith('https://')) {
     console.error('PUBLIC_BASE_URL must be set to your https origin');
     return 2;

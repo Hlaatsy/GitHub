@@ -59,7 +59,25 @@ The code fills the parameters by position:
 
 Example `payment_confirmed` body: *"{{1}}: payment of {{3}} received for {{2}}. You're confirmed ✅ Ref {{4}}."*
 
+**Launching?** Follow [docs/launch.md](docs/launch.md): server, domain, Meta, deploy, sandbox tests, backups and monitoring.
+
+## Shops: cart, delivery, collection and stock
+
+For `PRODUCT_SELLER` and `DECOR_HIRE` businesses, tapping an item adds it to a WhatsApp cart.
+**Checkout** then offers **Delivery** (flat fee, address typed once and remembered) and/or
+**Collect**, as the business file sets (`deliveryEnabled`, `deliveryFee`, `deliveryNote`,
+`collectionEnabled`). The order is created with today's prices, and stock is reserved with conditional
+decrements in the same transaction, so the last item can't be sold twice. Cancelled and expired
+orders return their stock. Owners set stock on the dashboard's **Products** tab, and sold-out items
+are hidden from customers.
+
 ## Payments
+
+Each business can be paid **into its own PayFast or Paystack account**
+(`admin payment-account-set`). Its keys are stored AES-256-GCM encrypted under
+`CREDENTIALS_ENCRYPTION_KEY`, bound to the business and provider. Settlement notifications are routed
+by the reference they claim, verified with that business's keys, and must then match it exactly. A
+platform-wide account per provider is an optional fallback.
 
 There are three gateways behind one `PaymentGateway` interface (`src/payments/`): **Ozow**
 (`/webhooks/payments`), **PayFast** (`/api/payments/payfast-itn`, signed form checkout plus ITN), and
@@ -138,3 +156,8 @@ The JSON API is under `/api/dashboard/*`.
 Cancelling a booking or order that was already paid flags its payment for a refund. Payments settle
 into the platform's merchant account, so refunds are the platform team's job.
 
+## Privacy (POPIA)
+
+The first menu links the notice at `PRIVACY_NOTICE_URL` (template: [docs/privacy-notice.md](docs/privacy-notice.md)).
+`admin customer-export` answers an access request. `admin customer-erase` anonymises a customer and
+keeps their orders and payments for tax records. See [docs/onboarding.md](docs/onboarding.md#customer-privacy-popia).

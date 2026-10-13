@@ -47,41 +47,52 @@
     "sun": []
   },
   "depositPercent": 100,
+  "deliveryEnabled": true,
+  "deliveryFee": 60,
+  "deliveryNote": "Courier, Gauteng 2-3 working days",
+  "collectionEnabled": true,
   "products": [
     {
       "name": "Candle Vanilla Rooibos",
       "description": "200g, 40-hour burn",
-      "price": 180
+      "price": 180,
+      "stock": 24
     },
     {
       "name": "Reed Diffuser Fynbos",
       "description": "100ml, 8 reeds",
-      "price": 220
+      "price": 220,
+      "stock": 12
     },
     {
       "name": "Room Spray Lemongrass",
       "description": "100ml",
-      "price": 95
+      "price": 95,
+      "stock": 30
     },
     {
       "name": "Body Butter Marula",
       "description": "200ml whipped shea",
-      "price": 150
+      "price": 150,
+      "stock": 18
     },
     {
       "name": "Wax Melts Mixed",
       "description": "Pack of 6",
-      "price": 65
+      "price": 65,
+      "stock": 40
     },
     {
       "name": "Linen Spray Lavender",
       "description": "100ml",
-      "price": 85
+      "price": 85,
+      "stock": 20
     },
     {
       "name": "Candle & Diffuser Gift",
       "description": "Gift wrapped, with card",
-      "price": 360
+      "price": 360,
+      "stock": 6
     }
   ],
   "openingWalletBalance": 50

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseCredentialsKey } from '../payments/credentials';
 
 const booleanFlag = z
   .enum(['true', 'false'])
@@ -40,10 +41,13 @@ const EnvSchema = z.object({
 
   MENU_COOLDOWN_SECONDS: z.coerce.number().int().min(0).default(300),
   STALE_MESSAGE_SECONDS: z.coerce.number().int().positive().default(3600),
-  CUSTOMER_MAX_EVENTS_PER_MINUTE: z.coerce.number().int().positive().default(6),
+  /** A shop checkout (items, cart, delivery, address) is 7-10 taps in a minute; spam is far more. */
+  CUSTOMER_MAX_EVENTS_PER_MINUTE: z.coerce.number().int().positive().default(15),
 
   /** Public https origin behind nginx, e.g. https://yourdomain.co.za. Required for payments. */
   PUBLIC_BASE_URL: z.string().url().optional(),
+  /** Your POPIA privacy notice (see docs/privacy-notice.md), linked from each customer's first menu. */
+  PRIVACY_NOTICE_URL: z.string().url().startsWith('https://').optional(),
 
   // Ozow pay-by-bank. Payments are enabled only when all three secrets are set.
   OZOW_SITE_CODE: optionalSecret,
@@ -78,6 +82,12 @@ const EnvSchema = z.object({
   PAYSTACK_WEBHOOK_ALLOWED_IPS: z.string().default(''),
   /** Domain for the per-payment placeholder email Paystack requires; defaults to PUBLIC_BASE_URL's host. */
   PAYSTACK_PLACEHOLDER_EMAIL_DOMAIN: z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/i).optional(),
+
+  /**
+   * Encrypts each business's own PayFast / Paystack credentials at rest
+   * (`openssl rand -base64 32`). Required to use per-business payment accounts.
+   */
+  CREDENTIALS_ENCRYPTION_KEY: optionalSecret,
 
   /** Gateway for new payment links: OZOW, PAYFAST or PAYSTACK. Defaults to the first configured. */
   PAYMENT_DEFAULT_PROVIDER: z.enum(['OZOW', 'PAYFAST', 'PAYSTACK']).optional(),
@@ -121,11 +131,19 @@ export type ProviderName = 'OZOW' | 'PAYFAST' | 'PAYSTACK';
 
 export interface PaymentsEnv {
   publicBaseUrl: string;
-  defaultProvider: ProviderName;
+  /** Null when only per-business accounts are configured. */
+  defaultProvider: ProviderName | null;
   ozow?: { siteCode: string; apiKey: string; privateKey: string; baseUrl: string; isTest: boolean; timeoutMs: number };
   payfast?: { merchantId: string; merchantKey: string; passphrase: string; sandbox: boolean; verifySourceIp: boolean; timeoutMs: number };
   paystack?: { secretKey: string; baseUrl: string; timeoutMs: number; placeholderEmailDomain: string };
   allowedIps: Partial<Record<ProviderName, ReadonlySet<string>>>;
+  /** Present when businesses can bring their own PayFast / Paystack accounts. */
+  accounts?: {
+    key: Buffer;
+    production: boolean;
+    payfast: { verifySourceIp: boolean; timeoutMs: number };
+    paystack: { baseUrl: string; timeoutMs: number; placeholderEmailDomain: string };
+  };
 }
 
 function ipSet(value: string): ReadonlySet<string> {
@@ -148,7 +166,9 @@ function allOrNone<T extends string>(provider: string, values: Record<T, string 
 export type Env = z.infer<typeof EnvSchema>;
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const result = EnvSchema.safeParse(source);
+  // `KEY=` in an env file arrives as an empty string: treat it as not set.
+  const present = Object.fromEntries(Object.entries(source).filter(([, value]) => value !== undefined && value.trim() !== ''));
+  const result = EnvSchema.safeParse(present);
   if (!result.success) {
     const issues = result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`);
     throw new Error(`Invalid environment configuration: ${issues.join('; ')}`);
@@ -181,12 +201,25 @@ export function paymentsEnv(env: Env): PaymentsEnv | null {
     PAYFAST_PASSPHRASE: env.PAYFAST_PASSPHRASE,
   });
   const paystackKey = env.PAYSTACK_SECRET_KEY;
-  if (!ozowKeys && !payfastKeys && !paystackKey) return null;
+  const credentialsKey = env.CREDENTIALS_ENCRYPTION_KEY;
+  if (!ozowKeys && !payfastKeys && !paystackKey && !credentialsKey) return null;
 
   if (!env.PUBLIC_BASE_URL?.startsWith('https://')) {
     throw new Error('PUBLIC_BASE_URL must be an https URL when payments are enabled');
   }
-  const result: PaymentsEnv = { publicBaseUrl: env.PUBLIC_BASE_URL, defaultProvider: 'OZOW', allowedIps: {} };
+  const result: PaymentsEnv = { publicBaseUrl: env.PUBLIC_BASE_URL, defaultProvider: null, allowedIps: {} };
+  if (env.PAYFAST_VERIFY_SOURCE_IP === 'false' && production) throw new Error('PAYFAST_VERIFY_SOURCE_IP=false is not allowed in production');
+  const paystackEmailDomain = env.PAYSTACK_PLACEHOLDER_EMAIL_DOMAIN ?? new URL(env.PUBLIC_BASE_URL).hostname;
+  result.allowedIps.PAYSTACK = ipSet(env.PAYSTACK_WEBHOOK_ALLOWED_IPS);
+
+  if (credentialsKey) {
+    result.accounts = {
+      key: parseCredentialsKey(credentialsKey),
+      production,
+      payfast: { verifySourceIp: env.PAYFAST_VERIFY_SOURCE_IP === 'true', timeoutMs: env.PAYFAST_TIMEOUT_MS },
+      paystack: { baseUrl: env.PAYSTACK_BASE_URL, timeoutMs: env.PAYSTACK_TIMEOUT_MS, placeholderEmailDomain: paystackEmailDomain },
+    };
+  }
 
   if (ozowKeys) {
     if (!env.OZOW_IS_TEST) throw new Error('OZOW_IS_TEST must be set explicitly when Ozow is enabled');
@@ -207,7 +240,6 @@ export function paymentsEnv(env: Env): PaymentsEnv | null {
     if (!env.PAYFAST_SANDBOX) throw new Error('PAYFAST_SANDBOX must be set explicitly when PayFast is enabled');
     const sandbox = env.PAYFAST_SANDBOX === 'true';
     if (sandbox && production) throw new Error('PAYFAST_SANDBOX=true is not allowed in production');
-    if (env.PAYFAST_VERIFY_SOURCE_IP === 'false' && production) throw new Error('PAYFAST_VERIFY_SOURCE_IP=false is not allowed in production');
     result.payfast = {
       merchantId: payfastKeys.PAYFAST_MERCHANT_ID,
       merchantKey: payfastKeys.PAYFAST_MERCHANT_KEY,
@@ -225,13 +257,13 @@ export function paymentsEnv(env: Env): PaymentsEnv | null {
       secretKey: paystackKey,
       baseUrl: env.PAYSTACK_BASE_URL,
       timeoutMs: env.PAYSTACK_TIMEOUT_MS,
-      placeholderEmailDomain: env.PAYSTACK_PLACEHOLDER_EMAIL_DOMAIN ?? new URL(env.PUBLIC_BASE_URL).hostname,
+      placeholderEmailDomain: paystackEmailDomain,
     };
-    result.allowedIps.PAYSTACK = ipSet(env.PAYSTACK_WEBHOOK_ALLOWED_IPS);
   }
 
   const configured: ProviderName[] = [...(result.ozow ? ['OZOW' as const] : []), ...(result.payfast ? ['PAYFAST' as const] : []), ...(result.paystack ? ['PAYSTACK' as const] : [])];
   const wanted = env.PAYMENT_DEFAULT_PROVIDER ?? configured[0];
+  if (!wanted && !env.PAYMENT_DEFAULT_PROVIDER) return result; // per-business accounts only
   if (!wanted || !configured.includes(wanted)) {
     throw new Error(`PAYMENT_DEFAULT_PROVIDER=${env.PAYMENT_DEFAULT_PROVIDER} is not configured (configured: ${configured.join(', ')})`);
   }

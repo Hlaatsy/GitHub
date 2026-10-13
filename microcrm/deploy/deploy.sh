@@ -172,6 +172,12 @@ fi
 set_env NODE_ENV production
 set_env PORT "$APP_PORT"
 set_env PUBLIC_BASE_URL "https://$DOMAIN"
+# Encrypts each business's own PayFast/Paystack keys. Generated once and never
+# replaced: a new key would make every stored payment account unreadable.
+if ! grep -qE '^CREDENTIALS_ENCRYPTION_KEY=.+' "$APP_DIR/.env"; then
+  set_env CREDENTIALS_ENCRYPTION_KEY "$(openssl rand -base64 32)"
+  warn "Generated CREDENTIALS_ENCRYPTION_KEY: keep a copy of $APP_DIR/.env somewhere safe, off this server"
+fi
 chmod 600 "$APP_DIR/.env"
 VERIFY_TOKEN=$(awk -F= '$1 == "WA_VERIFY_TOKEN" { print substr($0, index($0, "=") + 1) }' "$APP_DIR/.env")
 
@@ -293,4 +299,5 @@ fi
 echo -e "  Subscribe to:  messages"
 echo -e "Payment settlement endpoints: Ozow https://$DOMAIN/webhooks/payments · PayFast https://$DOMAIN/api/payments/payfast-itn"
 echo -e "Paystack: set the webhook URL in its dashboard to ${GREEN}https://$DOMAIN/api/payments/callback${NC}"
-echo -e "Next: get the WhatsApp templates in README.md approved, then send HI to the business number."
+echo -e "Next: link each business's own payment account (admin payment-account-set), then follow docs/launch.md."
+echo -e "${YELLOW}Back up $APP_DIR/.env off this server: it holds the key that decrypts stored payment accounts.${NC}"

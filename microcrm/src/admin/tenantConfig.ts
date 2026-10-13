@@ -35,6 +35,12 @@ export const TenantFileSchema = z
     /** Gateway for this business's deposits; omit to use the platform default. */
     paymentProvider: z.enum(['OZOW', 'PAYFAST', 'PAYSTACK']).optional(),
     metaCatalogId: z.string().regex(/^\d{5,32}$/).optional(),
+    /** Shops: how customers get their order. At least one must be on. */
+    deliveryEnabled: z.boolean().default(false),
+    deliveryFee: rands.default(0),
+    /** Shown at checkout, e.g. "Pretoria and Joburg only, 2-3 working days". */
+    deliveryNote: z.string().max(120).optional(),
+    collectionEnabled: z.boolean().default(true),
     services: z
       .array(z.object({ name: z.string().min(1).max(60), durationMinutes: z.number().int().min(5).max(720), price: rands }))
       .default([]),
@@ -46,6 +52,12 @@ export const TenantFileSchema = z
           price: rands,
           priceUnit: z.string().max(20).optional(),
           metaRetailerId: z.string().max(100).optional(),
+          /**
+           * Units on hand; omit for "don't track". Applied only when the product is
+           * first created: afterwards stock moves with orders and is adjusted on
+           * the dashboard, so re-applying the file never overwrites it.
+           */
+          stock: z.number().int().min(0).max(100_000).optional(),
         }),
       )
       .default([]),
@@ -60,6 +72,9 @@ export const TenantFileSchema = z
       new Intl.DateTimeFormat('en', { timeZone: file.timezone });
     } catch {
       ctx.addIssue({ code: 'custom', path: ['timezone'], message: `unknown time zone ${file.timezone}` });
+    }
+    if (file.industry !== 'SALON' && !file.deliveryEnabled && !file.collectionEnabled) {
+      ctx.addIssue({ code: 'custom', path: ['collectionEnabled'], message: 'turn on delivery, collection, or both' });
     }
   });
 
@@ -91,6 +106,10 @@ export async function applyTenantFile(prisma: PrismaClient, file: TenantFile): P
       depositBps: Math.round(file.depositPercent * 100),
       paymentProvider: file.paymentProvider ?? null,
       metaCatalogId: file.metaCatalogId ?? null,
+      deliveryEnabled: file.deliveryEnabled,
+      deliveryFeeCents: file.deliveryFee,
+      deliveryNote: file.deliveryNote ?? null,
+      collectionEnabled: file.collectionEnabled,
     };
 
     const existing = await tx.tenant.findUnique({ where: { waPhoneNumberId: file.waPhoneNumberId }, select: { id: true } });
@@ -135,7 +154,7 @@ export async function applyTenantFile(prisma: PrismaClient, file: TenantFile): P
         await tx.product.update({ where: { id: match.id }, data });
         catalog.updated++;
       } else {
-        await tx.product.create({ data: { tenantId: tenant.id, name: wanted.name, ...data } });
+        await tx.product.create({ data: { tenantId: tenant.id, name: wanted.name, ...data, stockQuantity: wanted.stock ?? null } });
         catalog.added++;
       }
     }

@@ -4,6 +4,7 @@ import { createApp } from './app';
 import { logger } from './lib/logger';
 import { createPrismaClient } from './lib/prisma';
 import { SlidingWindowLimiter } from './lib/rateLimiter';
+import { PaymentAccounts } from './payments/accounts';
 import { type PaymentGateway } from './payments/gateway';
 import { OzowGateway } from './payments/ozow';
 import { PayFastGateway } from './payments/payfast';
@@ -78,6 +79,7 @@ async function main(): Promise<void> {
           prisma,
           gateways: buildGateways(paymentConfig),
           defaultProvider: paymentConfig.defaultProvider,
+          ...(paymentConfig.accounts ? { accounts: new PaymentAccounts(prisma, { ...paymentConfig.accounts, logger }) } : {}),
           messenger,
           tenants,
           logger,
@@ -132,6 +134,7 @@ async function main(): Promise<void> {
     ledger: new InboundLedger(prisma),
     handlers: new ConversationHandlers(prisma, customers, {
       menuCooldownMs: env.MENU_COOLDOWN_SECONDS * 1000,
+      ...(env.PRIVACY_NOTICE_URL ? { privacyNoticeUrl: env.PRIVACY_NOTICE_URL } : {}),
       ...(dashboardAuth ? { dashboard: { auth: dashboardAuth, maxLinksPerHour: env.DASHBOARD_MAX_LINKS_PER_HOUR } } : {}),
       ...(payments
         ? {

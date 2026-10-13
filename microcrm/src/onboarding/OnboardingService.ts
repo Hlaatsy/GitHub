@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomInt } from 'node:crypto';
-import { type PrismaClient } from '@prisma/client';
+import { type PaymentProvider, type PrismaClient } from '@prisma/client';
 import { formatWorkingHours } from '../domain/workingHours';
 import { type Logger } from '../lib/logger';
 import { formatZar } from '../lib/money';
@@ -27,6 +27,8 @@ export interface Checklist {
   /** Something is in flight; the page refreshes itself. */
   waiting: boolean;
 }
+
+const PROVIDER_NAMES: Record<PaymentProvider, string> = { OZOW: 'Ozow', PAYFAST: 'PayFast', PAYSTACK: 'Paystack' };
 
 export type TestPaymentResult = 'sent' | 'already_waiting' | 'blocked' | 'failed';
 
@@ -180,17 +182,22 @@ export class OnboardingService {
         : ['Your WhatsApp Business Account ID is not on file. Ask support to add it.'],
     });
 
-    // 6. Deposits switched on.
-    const paymentsOn = Boolean(payments) && tenant.depositBps > 0;
+    // 6. A payment account, and deposits switched on.
+    const setup = payments ? await payments.paymentSetup(tenant.id) : null;
+    const paymentsOn = Boolean(setup) && tenant.depositBps > 0;
+    const providerName = setup ? PROVIDER_NAMES[setup.provider] : '';
     steps.push({
       key: 'payments',
-      title: 'Turn on deposits',
-      state: !payments ? 'blocked' : paymentsOn ? 'done' : 'todo',
-      detail: !payments
-        ? ['Online payments are not enabled on this platform yet.']
+      title: 'Turn on online payments',
+      state: !setup ? 'blocked' : paymentsOn ? 'done' : 'todo',
+      detail: !setup
+        ? ['No payment account is linked yet. Send support your PayFast or Paystack details so customers can pay you directly.']
         : paymentsOn
-          ? [`Customers pay ${tenant.depositBps / 100}% upfront by instant EFT.`]
-          : ['Choose how much customers pay upfront (for example 50%). Ask support to set it.'],
+          ? [
+              `Customers pay ${tenant.depositBps / 100}% upfront through ${providerName}.`,
+              setup.ownAccount ? `Money goes straight into your own ${providerName} account.` : `Money is collected into the platform's ${providerName} account and paid over to you.`,
+            ]
+          : ['Choose how much customers pay upfront (for example 50%, or 100% for shop orders). Ask support to set it.'],
     });
 
     // 7. A real payment, end to end, to the owner's own phone.
@@ -213,7 +220,7 @@ export class OnboardingService {
       testDetail = ['Payment received. Sending your WhatsApp confirmation…'];
     } else if (intent?.status === 'PENDING' && intent.expiresAt > now && testOrder?.status === 'PENDING_DEPOSIT') {
       testState = 'waiting';
-      testDetail = [`A ${formatZar(intent.amountCents)} payment link is waiting in your WhatsApp. Pay it from your banking app; this page updates by itself.`];
+      testDetail = [`A ${formatZar(intent.amountCents)} payment link is waiting in your WhatsApp. Pay it like a customer would; this page updates by itself.`];
     } else if (!prerequisites) {
       testState = 'blocked';
       testDetail = ['Finish the steps above first: number connected, wallet funded and deposits on.'];

@@ -60,7 +60,7 @@ export function formatPaymentLinkMessage(
   if (inServiceWindow) {
     return asInteractive(
       ctaUrl({
-        body: `${ctx.summary}\nPay ${amount} to lock it in. Instant EFT or PayShap from your banking app.`,
+        body: `${ctx.summary}\nPay ${amount} securely to lock it in.`,
         footer: `Link valid until ${expires}`,
         displayText: `Pay ${amount}`,
         url: link.shortUrl,

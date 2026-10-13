@@ -107,7 +107,7 @@ describe('toGraphTemplate', () => {
           text: 'Hi! {{1}} is holding {{2}} for you. Pay {{3}} to confirm it. This link is valid until {{4}}.',
           example: { body_text: [['Glow Studio', 'Wash & Blow on Mon 12 Oct at 09:00', 'R125.00', '09:30']] },
         },
-        { type: 'FOOTER', text: 'Instant EFT from your banking app' },
+        { type: 'FOOTER', text: 'Secure online payment' },
         {
           type: 'BUTTONS',
           buttons: [{ type: 'URL', text: 'Pay now', url: `${ORIGIN}/pay/{{1}}`, example: [`${ORIGIN}/pay/h1sqQBba0kSu2ElkZDoCEt5BMkBmPw7E`] }],

@@ -64,6 +64,17 @@ enum PaymentStatus {
   EXPIRED
 }
 
+enum Fulfilment {
+  DELIVERY
+  COLLECTION
+}
+
+enum CheckoutStage {
+  NONE
+  /// Next free-text message from this customer is their delivery address.
+  AWAITING_ADDRESS
+}
+
 enum MessageCategory {
   SERVICE
   UTILITY
@@ -105,6 +116,13 @@ model Tenant {
   /// Gateway for this business's new payment links; null uses the platform default.
   paymentProvider      PaymentProvider?
 
+  // Product orders: how goods reach the customer.
+  deliveryEnabled      Boolean      @default(false)
+  deliveryFeeCents     Int          @default(0)
+  /// Shown when the customer chooses delivery, e.g. "Pretoria and Joburg, 2-3 working days".
+  deliveryNote         String?      @db.VarChar(120)
+  collectionEnabled    Boolean      @default(true)
+
   addressLine          String?      @db.VarChar(200)
   mapsUrl              String?      @db.VarChar(500)
   /// Inbound media is never downloaded unless the tenant opts in.
@@ -122,6 +140,8 @@ model Tenant {
   customers            Customer[]
   services             Service[]
   products             Product[]
+  paymentAccounts      TenantPaymentAccount[]
+  cartItems            CartItem[]
   appointments         Appointment[]
   orders               Order[]
   orderItems           OrderItem[]
@@ -147,6 +167,11 @@ model Customer {
   optedOutAt         DateTime? @db.Timestamptz(3)
   lastInboundAt      DateTime? @db.Timestamptz(3)
   lastMenuSentAt     DateTime? @db.Timestamptz(3)
+  checkoutStage      CheckoutStage @default(NONE)
+  /// Last delivery address, offered again at the next checkout.
+  savedAddress       String?   @db.VarChar(300)
+  /// Set when the customer's personal information was erased on request (POPIA s24).
+  erasedAt           DateTime? @db.Timestamptz(3)
   createdAt          DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt          DateTime  @updatedAt @db.Timestamptz(3)
 
@@ -155,6 +180,7 @@ model Customer {
   orders             Order[]
   outboundMessages   OutboundMessage[]
   paymentIntents     PaymentIntent[]
+  cartItems          CartItem[]
 
   @@unique([tenantId, waId])
   @@unique([tenantId, id])
@@ -190,6 +216,8 @@ model Product {
   priceUnit      String?  @db.VarChar(20)
   /// `retailer_id` of the matching item in the Meta catalog.
   metaRetailerId String?  @db.VarChar(100)
+  /// Units available to sell; null means stock is not tracked. Reserved when an order is placed, released if it is cancelled.
+  stockQuantity  Int?
   active         Boolean  @default(true)
   sortOrder      Int      @default(0)
   createdAt      DateTime @default(now()) @db.Timestamptz(3)
@@ -197,6 +225,7 @@ model Product {
 
   tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   orderItems     OrderItem[]
+  cartItems      CartItem[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, metaRetailerId])
@@ -239,6 +268,9 @@ model Order {
   totalCents Int
   /// Owner's onboarding test payment: exclude from revenue and fulfilment.
   isTest     Boolean     @default(false)
+  fulfilment       Fulfilment?
+  deliveryAddress  String?     @db.VarChar(300)
+  deliveryFeeCents Int         @default(0)
   createdAt  DateTime    @default(now()) @db.Timestamptz(3)
   updatedAt  DateTime    @updatedAt @db.Timestamptz(3)
 
@@ -445,4 +477,40 @@ model DashboardSession {
 
   @@index([tenantId])
   @@map("dashboard_sessions")
+}
+
+/// A business's own payment-provider account, so customer money settles
+/// directly with the business. Credentials are AES-256-GCM encrypted with
+/// CREDENTIALS_ENCRYPTION_KEY; the database never holds them in clear.
+model TenantPaymentAccount {
+  id             String          @id @default(uuid()) @db.Uuid
+  tenantId       String          @db.Uuid
+  provider       PaymentProvider
+  credentialsEnc String          @db.Text
+  /// Sandbox / test-key account; refused when NODE_ENV=production.
+  testMode       Boolean
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(3)
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, provider])
+  @@map("tenant_payment_accounts")
+}
+
+/// Items a customer has picked but not yet checked out.
+model CartItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @db.Uuid
+  customerId String   @db.Uuid
+  productId  String   @db.Uuid
+  quantity   Int
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer   Customer @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Cascade)
+  product    Product  @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, customerId, productId])
+  @@map("cart_items")
 }

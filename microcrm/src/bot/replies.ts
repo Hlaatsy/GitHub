@@ -5,7 +5,7 @@ import { formatDayLabel, formatTime, localDateKey } from '../lib/time';
 import { type TenantProfile } from '../services/tenants';
 import { asInteractive, asText, listMessage, productList, replyButtons, LIMITS } from '../whatsapp/interactive';
 import { type ListRow, type OutboundMessage } from '../whatsapp/types';
-import { MENU_BUTTONS, encodeProductId, encodeServiceId, encodeSlotId } from './intents';
+import { CART_BUTTONS, MENU_BUTTONS, encodeProductId, encodeServiceId, encodeSlotId } from './intents';
 
 // Pure builders: every function returns exactly one outbound message.
 
@@ -27,6 +27,14 @@ export interface ProductSummary {
   metaRetailerId: string | null;
 }
 
+export interface CartLine {
+  name: string;
+  quantity: number;
+  priceCents: number;
+}
+
+export type FulfilmentChoice = { fulfilment: 'DELIVERY'; address: string; feeCents: number } | { fulfilment: 'COLLECTION' } | { fulfilment: null };
+
 /** First menu button, worded for what the business actually does (titles max 20 characters). */
 const BOOK_BUTTON_TITLES: Record<TenantProfile['industry'], string> = {
   SALON: '📅 Book Spot/Order',
@@ -34,12 +42,17 @@ const BOOK_BUTTON_TITLES: Record<TenantProfile['industry'], string> = {
   PRODUCT_SELLER: '🛍️ Shop Now',
 };
 
-export function mainMenu(tenant: TenantProfile, customerName: string | null): OutboundMessage {
+/**
+ * @param privacyNoticeUrl Shown on a customer's first menu (POPIA section 18:
+ *   tell people what is collected and why, when it is collected).
+ */
+export function mainMenu(tenant: TenantProfile, customerName: string | null, privacyNoticeUrl?: string): OutboundMessage {
   const firstName = customerName?.split(' ', 1)[0];
+  const privacy = privacyNoticeUrl ? `\n\nWe keep your number, name and orders to serve you. Privacy notice: ${privacyNoticeUrl}` : '';
   return asInteractive(
     replyButtons({
       header: tenant.businessName,
-      body: `Hi${firstName ? ` ${firstName}` : ''} 👋 How can we help? Tap an option below.`,
+      body: `Hi${firstName ? ` ${firstName}` : ''} 👋 How can we help? Tap an option below.${privacy}`,
       footer: 'Reply STOP to opt out',
       buttons: [
         { id: MENU_BUTTONS.BOOK, title: BOOK_BUTTON_TITLES[tenant.industry] },
@@ -167,10 +180,87 @@ export function bookingConfirmed(tenant: TenantProfile, slot: TimeRange, service
   return asText(`${status}${what} on ${when}. ${next}\nReply MENU for options.`);
 }
 
-export function orderReceived(tenant: TenantProfile, reference: string, summary: string, totalCents: number): OutboundMessage {
+export function orderReceived(
+  tenant: TenantProfile,
+  reference: string,
+  summary: string,
+  totalCents: number,
+  choice: FulfilmentChoice = { fulfilment: null },
+): OutboundMessage {
   return asText(
     `🧾 Order *${reference}* received: ${summary}. Total ${formatZar(totalCents)}.\n` +
+      (choice.fulfilment ? `${describeFulfilment(tenant, choice)}\n` : '') +
       `${tenant.businessName} will confirm availability and payment shortly. Reply MENU for options.`,
+  );
+}
+
+export function describeFulfilment(tenant: TenantProfile, choice: FulfilmentChoice): string {
+  if (choice.fulfilment === 'DELIVERY') {
+    return `🚚 Delivery to ${choice.address}${choice.feeCents > 0 ? ` (delivery ${formatZar(choice.feeCents)})` : ''}`;
+  }
+  if (choice.fulfilment === 'COLLECTION') {
+    return `🏪 Collect from ${tenant.addressLine ?? tenant.businessName}`;
+  }
+  return '';
+}
+
+/** @param note e.g. a stock warning, shown above the cart. */
+export function cartSummary(lines: readonly CartLine[], note?: string): OutboundMessage {
+  if (lines.length === 0) return asText(`${note ? `${note}\n` : ''}Your cart is empty. Reply MENU to start shopping.`);
+  const subtotal = lines.reduce((sum, line) => sum + line.priceCents * line.quantity, 0);
+  const body = [
+    ...(note ? [note, ''] : []),
+    '🛒 *Your cart*',
+    ...lines.map((line) => `${line.quantity}× ${line.name} · ${formatZar(line.priceCents * line.quantity)}`),
+    `Subtotal: *${formatZar(subtotal)}*`,
+    '',
+    'Tap an item again to add another.',
+  ].join('\n');
+  return asInteractive(
+    replyButtons({
+      body,
+      buttons: [
+        { id: CART_BUTTONS.CHECKOUT, title: '✅ Checkout' },
+        { id: CART_BUTTONS.ADD_MORE, title: '🛍️ Add more' },
+        { id: CART_BUTTONS.EMPTY, title: '🗑️ Empty cart' },
+      ],
+    }),
+  );
+}
+
+export function fulfilmentChoice(tenant: TenantProfile, subtotalCents: number): OutboundMessage {
+  const lines = [`Subtotal ${formatZar(subtotalCents)}. How would you like to get your order?`];
+  lines.push(`🚚 Delivery: ${tenant.deliveryFeeCents > 0 ? `+${formatZar(tenant.deliveryFeeCents)}` : 'free'}${tenant.deliveryNote ? ` (${tenant.deliveryNote})` : ''}`);
+  lines.push(`🏪 Collect: free${tenant.addressLine ? `, from ${tenant.addressLine}` : ''}`);
+  return asInteractive(
+    replyButtons({
+      body: lines.join('\n'),
+      buttons: [
+        { id: CART_BUTTONS.DELIVERY, title: '🚚 Delivery' },
+        { id: CART_BUTTONS.COLLECT, title: '🏪 Collect' },
+      ],
+    }),
+  );
+}
+
+export function confirmAddress(address: string): OutboundMessage {
+  return asInteractive(
+    replyButtons({
+      body: `Deliver to:\n${address}`,
+      buttons: [
+        { id: CART_BUTTONS.SAVED_ADDRESS, title: '✅ Use this address' },
+        { id: CART_BUTTONS.NEW_ADDRESS, title: '✏️ New address' },
+      ],
+    }),
+  );
+}
+
+export function askAddress(tenant: TenantProfile, retry = false): OutboundMessage {
+  const note = tenant.deliveryNote ? `\n(${tenant.deliveryNote})` : '';
+  return asText(
+    retry
+      ? `Sorry, that doesn't look like a full address. Please type it in one message: street and number, suburb, town and postal code.${note}`
+      : `📍 Please type your delivery address in one message: street and number, suburb, town and postal code.${note}`,
   );
 }
 
